@@ -56,6 +56,26 @@ def parse_answers(mapping: dict, answers: dict) -> dict:
         else:
             vals = [x.get("value") for x in a.get("textAnswers", {}).get("answers", [])]
             out[f] = vals[0] if len(vals) == 1 else (vals or None)
+    # Google Forms assigns opaque question IDs when a form is created. The
+    # bundled intake mapping may still contain its placeholder ID, so discover
+    # file uploads by their answer shape instead of silently treating them as
+    # absent. This requires no extra OAuth scope or form-body access.
+    uploaded = []
+    seen_file_ids = set()
+    for answer in answers.values():
+        if not isinstance(answer, dict) or "fileUploadAnswers" not in answer:
+            continue
+        for item in answer["fileUploadAnswers"].get("answers", []):
+            file_id = item.get("fileId")
+            if not file_id or file_id in seen_file_ids:
+                continue
+            seen_file_ids.add(file_id)
+            uploaded.append({"file_id": file_id, "name": item.get("fileName", "image"),
+                             "mime": item.get("mimeType")})
+    if uploaded:
+        mapped = out.get("reference_files") or []
+        known = {item.get("file_id") for item in mapped}
+        out["reference_files"] = mapped + [item for item in uploaded if item["file_id"] not in known]
     ch = mapping.get("choices", {}).get("source_channel", {})
     # 빈 답 = 미분류(None), 목록 밖 값 = 기타(SRS-124)
     out["source_channel"] = ch.get(out["source_channel"], "other") if out.get("source_channel") else None
@@ -164,11 +184,18 @@ def _ingest_one(ctx, form_id, mapping, r, is_test_form) -> str:
                           "VALUES ('fetch_files', ?, 'PENDING', ?, ?)", (jdump({"order_id": oid}), clock.now_iso(),
                                                                         clock.now_iso()))
                 result = ("new", oid)
-            elif row["last_submitted_at"] != last or row["raw_digest"] != dg:
+            else:
                 parsed = parse_answers(mapping, answers)
+                latest = c.execute("SELECT answers_json FROM intake_revisions WHERE intake_id=? "
+                                   "ORDER BY revision DESC LIMIT 1", (row["id"],)).fetchone()
+                previous = jload(latest["answers_json"], {}) if latest else {}
+                files_changed = (previous.get("reference_files") or []) != (parsed.get("reference_files") or [])
+                changed = row["last_submitted_at"] != last or row["raw_digest"] != dg or files_changed
+                if not changed:
+                    return "same"
                 rev = row["revision"] + 1
-                c.execute("UPDATE intake_responses SET last_submitted_at=?, raw_digest=?, revision=? WHERE id=?",
-                          (last, dg, rev, row["id"]))
+                c.execute("UPDATE intake_responses SET last_submitted_at=?, raw_digest=?, revision=?, schema_version=? "
+                          "WHERE id=?", (last, dg, rev, mapping["version"], row["id"]))
                 c.execute("INSERT INTO intake_revisions(intake_id, revision, last_submitted_at, raw_digest, answers_json, "
                           "created_at) VALUES (?,?,?,?,?,?)", (row["id"], rev, last, dg, jdump(parsed), clock.now_iso()))
                 o = c.execute("SELECT * FROM orders WHERE intake_id=?", (row["id"],)).fetchone()
@@ -176,9 +203,11 @@ def _ingest_one(ctx, form_id, mapping, r, is_test_form) -> str:
                           (rev, clock.now_iso(), o["id"]))
                 audit.record(c, "intake", rid, None, "intake_revised", order_id=o["id"], ref_version=rev)
                 _apply_flags(ctx, c, o["id"], parsed)
+                if files_changed:
+                    c.execute("INSERT INTO system_jobs(kind, payload_json, status, created_at, updated_at) "
+                              "VALUES ('fetch_files', ?, 'PENDING', ?, ?)",
+                              (jdump({"order_id": o["id"]}), clock.now_iso(), clock.now_iso()))
                 result = ("revised", o["id"])
-            else:
-                return "same"
     except Exception as e:  # UNIQUE 경합(다른 워커가 먼저 넣음) → 재조회 후 no-op
         import sqlite3
         if isinstance(e, sqlite3.IntegrityError):
