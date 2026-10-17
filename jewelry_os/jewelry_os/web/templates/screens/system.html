@@ -1,0 +1,26 @@
+{% extends "base.html" %}{% from "components.html" import icon, chip, csrf_input with context %}
+{% block title %}시스템 상태{% endblock %}
+{% block content %}
+<div class="page-head"><h1>시스템 상태</h1>
+<form method="post" action="/system/sync-now">{{ csrf_input() }}<button class="btn btn-secondary" type="submit">{{ icon("refresh", "sm") }}지금 가져오기</button></form></div>
+{% for key, title, sev in st.problems %}<div class="banner {{ sev }}" role="alert">{{ icon("alert") }}<div class="b-body"><strong>{{ title }}</strong></div></div>{% endfor %}
+<div class="kpis">
+<section class="card" data-sys="server"><h2>서버</h2><p>시작 {{ st.started_at|kdatetime if st.started_at else "—" }}</p><p class="t-sm">단일 인스턴스 실행 중 · 127.0.0.1 전용</p></section>
+<section class="card" data-sys="db"><h2>데이터베이스</h2><p>{{ (st.db_size // 1024) }}KB · {{ "잠금 대기 중" if st.db_locked else "정상" }}</p><p class="t-sm mono">{{ st.data_dir }}</p></section>
+<section class="card" data-sys="disk"><h2>디스크</h2><p>여유 {{ st.disk_pct|round|int }}%</p></section>
+<section class="card" data-sys="backup"><h2>백업</h2><p>{{ st.backup.created_at|kdatetime if st.backup else "아직 없음" }}</p></section>
+<section class="card" data-sys="sync"><h2>Google 동기화</h2>
+{% if st.sync %}<p>마지막 성공 {{ st.sync.last_success_at|kdatetime if st.sync.last_success_at else "—" }}</p>
+{% if st.sync.status == "ERROR" %}<p class="err">{{ error_text.get(st.sync.last_error_kind, "") }} <span class="meta">오류 코드: {{ error_code.get(st.sync.last_error_kind, "SYNC") }}</span></p>{% if st.sync.next_attempt_at %}<p class="t-sm">다음 시도 {{ st.sync.next_attempt_at|kdatetime }}</p>{% endif %}{% endif %}
+{% else %}<p class="t-muted">아직 동기화 전</p>{% endif %}</section>
+<section class="card" data-sys="ai"><h2>AI</h2><p>이번 달 {{ st.ai_usage.calls }}/{{ st.ai_usage.call_limit }}회 · AI 대기 {{ st.ai_pending }}건{% if st.ai_wait %} · {{ st.ai_wait }}째{% endif %}</p></section>
+</div>
+<section class="card" aria-labelledby="jobs-t"><h2 id="jobs-t">다시 처리할 작업 {{ st.jobs|length }}건</h2>
+{% if st.jobs %}<ul class="timeline">{% for j in st.jobs %}<li data-job="{{ j.id }}">{{ icon("alert", "sm") }}<span>{{ {"fetch_files": "참고 이미지 가져오기", "ai_brief": "AI 정리"}.get(j.kind, j.kind) }} · {{ j.last_error or "실패" }} · 시도 {{ j.attempts }}회
+<form method="post" action="/system/jobs-{{ j.id }}">{{ csrf_input() }}<button class="btn btn-secondary btn-sm" type="submit">다시 처리</button></form></span></li>{% endfor %}</ul>{% else %}<p class="t-muted">다시 처리할 작업이 없어요.</p>{% endif %}</section>
+<section class="card" aria-labelledby="boot-t"><h2 id="boot-t">기동 기록</h2><ul class="timeline">{% for s in st.startups %}<li>{{ icon("server", "sm") }}<span>{{ s.started_at|kdatetime }}{% if s.est_down_from %} · 중단 추정 {{ s.est_down_from|kdatetime }}부터{% endif %}{% if s.backfilled is not none %} · 가져온 의뢰 {{ s.backfilled }}건{% endif %}{% if s.acknowledged_at %} · 확인됨{% endif %}</span></li>{% else %}<li class="t-muted">기록 없음</li>{% endfor %}</ul></section>
+<form class="card" method="post" action="/system/security-checklist">{{ csrf_input() }}<h2>PC 보안 점검표</h2>
+<p class="help">앱이 자동으로 판정하지 않아요. 운영자가 직접 확인한 결과를 기록해요.</p>
+{% for item, lab in items %}{% set r = st.security.get(item) %}<label class="choice"><input type="checkbox" name="{{ item }}" value="on" {% if r and r.checked %}checked{% endif %}> {{ lab }}{% if r %} <span class="meta">({{ r.checked_at|kdatetime }})</span>{% endif %}</label>{% endfor %}
+<button class="btn btn-secondary" type="submit" {% if user.role != "operator" %}aria-disabled="true"{% endif %}>기록</button></form>
+{% endblock %}

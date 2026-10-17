@@ -1,0 +1,22 @@
+{% extends "base.html" %}{% from "components.html" import icon, chip, blocked, csrf_input, area, state_chip with context %}
+{% block title %}고객{% endblock %}
+{% block content %}
+{% set c = d.customer %}
+<div class="page-head"><div><a class="btn btn-tertiary" href="/customers">{{ icon("back") }}고객 목록</a><h1>{{ c.display_name }}</h1>
+{% if c.deleted_at %}<p>{{ chip("ended", "개인정보 삭제됨 · " ~ (c.deleted_at|kdate)) }}</p>{% endif %}</div></div>
+{% if unmet %}<div class="banner danger" role="alert">{{ icon("octagon") }}<div class="b-body">{{ blocked(unmet, "c-unmet") }}</div></div>{% endif %}
+<section class="card"><h2>기본 정보</h2><dl class="kv"><dt>회신 수단</dt><dd>{{ c.contact_kind or "—" }} · {% if revealed %}{{ revealed }}{% else %}{{ d.contact_masked }}{% endif %}
+{% if not revealed and not c.deleted_at %}<form method="post" action="/customers/{{ c.id }}/reveal">{{ csrf_input() }}<button class="btn btn-tertiary btn-sm" type="submit">보기(기록 남음)</button></form>{% endif %}</dd>
+<dt>동의 버전</dt><dd>{{ c.consent_version or "없음" }}</dd>
+<dt>마지막 확정 사양</dt><dd>{% if d.last_spec %}{% for k, lab in SPEC_FIELDS %}{% if d.last_spec.get(k) %}{{ lab }} {{ d.last_spec[k] }} · {% endif %}{% endfor %}{% else %}—{% endif %}</dd></dl></section>
+<section class="card"><h2>주문 {{ d.orders|length }}건</h2><ul class="timeline">{% for o in d.orders %}<li>{{ icon("list", "sm") }}<span><a class="mono" href="/orders/{{ o.order_no }}">{{ o.order_no }}</a> · {{ o.product_type or "—" }} · {{ state_chip(o.lifecycle_state) }} <span class="meta">{{ o.created_at|kdate }}</span></span></li>{% endfor %}</ul></section>
+{% if others %}
+<section class="card"><h2>같은 고객으로 연결</h2><p class="t-sm">이름·전화가 같아도 자동으로 합치지 않아요. 직접 확인한 뒤 연결하세요.</p>
+<form method="post" action="/customers/{{ c.id }}/link">{{ csrf_input() }}<div class="field"><label for="other">연결할 고객</label><select id="other" name="other_id">{% for x in others %}<option value="{{ x.id }}">{{ x.display_name }} (주문 {{ x.n_orders }}건)</option>{% endfor %}</select></div>
+{{ area("reason", "사유", "", True, None, None, 2) }}<button class="btn btn-secondary" type="submit">연결</button></form></section>
+{% endif %}
+{% if user.role == "operator" and not c.deleted_at %}
+<section class="card"><h2>개인정보 삭제 요청 처리</h2><p class="t-sm">연락처·이름은 지우고 주문·결제 기록은 법정 보존을 위해 남겨요.</p>
+<form method="post" action="/customers/{{ c.id }}/erase">{{ csrf_input() }}{{ area("reason", "요청 근거", "", True, None, None, 2) }}<button class="btn btn-danger" type="submit">개인정보 삭제</button></form></section>
+{% endif %}
+{% endblock %}

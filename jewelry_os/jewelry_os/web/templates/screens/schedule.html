@@ -1,0 +1,21 @@
+{% extends "base.html" %}{% from "components.html" import icon, chip with context %}
+{% block title %}일정{% endblock %}
+{% block content %}
+<div class="page-head"><h1>일정 · {{ y }}년 {{ m }}월</h1>
+<div class="btn-row"><a class="btn btn-secondary btn-sm" href="/schedule?month={{ prev }}">이전 달</a><a class="btn btn-secondary btn-sm" href="/schedule?month={{ next }}">다음 달</a>{% if user.role == "operator" %}<a class="btn btn-tertiary btn-sm" href="/settings/calendar">휴무일 관리</a>{% endif %}</div></div>
+<p class="t-sm t-muted">CAD 날짜는 주문의 CAD·발주 탭에서 정해요. 표시: 휴무 · CAD 가능일 · {{ icon("gem", "sm") }}CAD 배정 · {{ icon("server", "sm") }}공장 예상 수령 · {{ icon("clock", "sm") }}고객 약속일</p>
+{% set has_any = cells|selectattr("slots")|list or cells|selectattr("factory")|list or cells|selectattr("promised")|list %}
+{% if not has_any %}<p class="t-muted">이번 달 CAD 일정이 없어요.</p>{% endif %}
+<div class="cal" role="list" aria-label="{{ y }}년 {{ m }}월 달력">
+{% for wd in ["월", "화", "수", "목", "금", "토", "일"] %}<div class="wd" aria-hidden="true">{{ wd }}</div>{% endfor %}
+{% for i in range(lead) %}<div class="pad" aria-hidden="true"></div>{% endfor %}
+{% for c in cells %}
+<div class="d {{ 'hol' if c.holiday else '' }} {{ 'today' if c.today else '' }}" role="listitem"><strong>{{ c.iso|kdate }}</strong>
+{% if c.holiday %}<div>{{ chip("ended", "휴무 · " ~ c.holiday) }}</div>{% elif c.cad_day %}<div class="meta">CAD 가능일</div>{% endif %}
+{% for n in c.slots %}<div><a href="/orders/{{ n }}/making">{{ icon("gem", "sm") }}{{ n }}</a></div>{% endfor %}
+{% for n in c.factory %}<div><a href="/orders/{{ n }}/making">{{ icon("server", "sm") }}{{ n }}</a></div>{% endfor %}
+{% for n in c.promised %}<div><a href="/orders/{{ n }}">{{ icon("clock", "sm") }}{{ n }}</a></div>{% endfor %}
+</div>
+{% endfor %}
+</div>
+{% endblock %}

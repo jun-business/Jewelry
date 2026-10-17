@@ -1,0 +1,60 @@
+{% from "components.html" import icon, chip, blocked, banner, csrf_input, approval, evidence, area, text, manual_note with context %}
+{# S-03d 상담 탭 — UI-04(주문 범위) #}
+{% set last_rec = messages[-1].recorded_at if messages else none %}
+<div class="banner info">{{ icon("hand") }}<div class="b-body"><strong>수동 기록 — 실시간 수신 아님</strong><span>카카오톡에서 받은 내용을 직접 옮겨 주세요.{% if last_rec %} 마지막 수동 기록 {{ last_rec|kdatetime }}{% endif %}</span></div></div>
+{% if not cs_policy %}{{ banner("warning", "승인된 상담 정책이 없어요. 근거 없이 작성된 초안이에요.", None, ("/settings/policies", "정책 보기"), "alert") }}{% endif %}
+
+<section class="card" aria-labelledby="msg-t"><h2 id="msg-t">대화 기록</h2>
+{% if messages %}<div class="table-wrap"><table><thead><tr><th scope="col">방향</th><th scope="col">요지</th><th scope="col">기록</th></tr></thead><tbody>
+{% for m in messages %}<tr><td>{{ "고객 →" if m.direction == "in" else "→ 고객" }}</td><td>{{ m.summary }}{% if m.content_redacted and m.direction == "in" %}<div class="t-sm t-muted">{{ m.content_redacted }}</div>{% endif %}{% if m.link %} <a href="{{ m.link }}" rel="noopener" target="_blank">대화</a>{% endif %}</td><td class="meta">{{ m.recorder or "" }} · {{ m.event_at|kdatetime }}</td></tr>{% endfor %}
+</tbody></table></div>{% else %}<p class="t-muted">아직 기록된 대화가 없어요.</p>{% endif %}
+<details {% if not messages %}open{% endif %}><summary>고객 메시지 기록</summary>
+<form method="post" action="/orders/{{ o.order_no }}/cs/messages">{{ csrf_input() }}
+{{ text("summary", "요지", "", True, errors, "전화번호·주소는 적지 마세요(자동으로 가려져요)") }}
+{{ area("content", "원문 붙여넣기(선택)", "", False, None, None, 3) }}
+<div class="grid-2">{{ text("event_at", "받은 시각", "", False, None, None, "datetime-local") }}{{ text("link", "카카오 대화 링크(선택)", "", False, None, None, "url") }}</div>
+<button class="btn btn-secondary" type="submit">기록</button></form></details>
+</section>
+
+<section class="card" aria-labelledby="dr-t"><h2 id="dr-t">답변 초안</h2>
+<form class="btn-row" method="post" action="/orders/{{ o.order_no }}/cs/drafts">{{ csrf_input() }}
+<label class="sr-only" for="dq">고객 질문</label><input id="dq" name="question" placeholder="고객 질문(예: 사이즈를 12호로 바꿀 수 있나요?)" value="{{ messages|selectattr('direction', 'equalto', 'in')|map(attribute='summary')|list|last if messages else '' }}">
+<button class="btn btn-secondary" type="submit">AI 답변 초안 만들기</button></form>
+{% for d in drafts %}
+{% set uj = d.unclear_json|fromjson %}
+<article class="card" data-draft="{{ d.id }}" data-status="{{ d.status }}" aria-labelledby="d-{{ d.id }}-t">
+<div class="card-head"><h3 id="d-{{ d.id }}-t">초안 v{{ d.version }}</h3>
+<span class="chips">{{ chip("internal" if d.level == "L3" else ("hold" if d.level == "L2" else "progress"), d.level ~ " " ~ CS_LEVEL_LABEL[d.level]) }}{{ chip("done" if d.status in ("APPROVED", "SENT") else ("ended" if d.status == "SUPERSEDED" else "version"), CS_STATUS_LABEL[d.status]) }}{% if d.source == "ai" %}{{ chip("version", "AI 초안") }}{% endif %}</span></div>
+<p class="meta">정책 참조: {{ (d.policy_title ~ " v" ~ d.policy_version) if d.policy_id else "없음" }}{% if uj %} · 불명확: {{ uj|join(", ") }}{% endif %}</p>
+{% if d.status == "DRAFT" %}<p class="t-sm">아버님이 승인해야 복사할 수 있어요.</p>{% endif %}
+{% if d.level == "L2" %}{{ banner("info", "가격·납기·사이즈 등 판단이 필요한 답변이에요.") }}{% endif %}
+{% if d.level == "L3" %}{{ banner("danger", "환불·분쟁·지재권·하자 관련 — 운영자가 먼저 판단을 기록하고, 아버님이 승인해요.", "확약하는 표현을 쓰지 마세요(무인 확약 불가).", ic="octagon") }}
+<div class="internal"><div class="internal-head">{{ icon("lock", "sm") }}운영자 판단(내부 전용)</div>
+{% if d.operator_judgment %}<p>{{ d.operator_judgment }} <span class="meta">{{ d.judgment_at|kdatetime }}</span></p>
+{% elif d.status == "DRAFT" %}<form method="post" action="/cs/drafts/{{ d.id }}/judgment">{{ csrf_input() }}{{ area("judgment", "판단 내용", "", True, None, None, 2) }}<button class="btn btn-secondary btn-sm" type="submit" {% if me != "operator" %}aria-disabled="true" aria-describedby="j-role-{{ d.id }}"{% endif %}>판단 기록</button>{% if me != "operator" %}<p class="err" id="j-role-{{ d.id }}">운영자 계정만 할 수 있어요.</p>{% endif %}</form>{% endif %}</div>{% endif %}
+{% if d.status == "DRAFT" %}
+<form method="post" action="/cs/drafts/{{ d.id }}/approve" data-confirm-required>{{ csrf_input() }}
+<label for="body-{{ d.id }}">본문</label><textarea id="body-{{ d.id }}" name="body" rows="6">{{ d.body }}</textarea>
+<label class="choice"><input type="checkbox" name="confirm" value="on"> 이 답변을 확인했고 보내도 됩니다</label><p class="err need-confirm" hidden>확인란을 체크해야 진행돼요.</p>
+<div class="btn-row">
+{% set cant = me != "maker" or (d.level == "L3" and not d.operator_judgment) %}
+<button class="btn btn-primary" type="submit" data-primary {% if cant %}aria-disabled="true" aria-describedby="ap-why-{{ d.id }}"{% endif %}>승인</button>
+<button class="btn btn-secondary" type="button" aria-disabled="true" aria-describedby="cp-why-{{ d.id }}">{{ icon("copy", "sm") }}복사</button>
+<button class="btn btn-tertiary" type="submit" formaction="/cs/drafts/{{ d.id }}/save">임시 저장</button></div>
+<p class="err" id="cp-why-{{ d.id }}">아버님이 승인해야 복사할 수 있어요.</p>
+{% if cant %}<p class="err" id="ap-why-{{ d.id }}">{{ "운영자 판단 기록이 먼저 필요해요(L3)." if (d.level == "L3" and not d.operator_judgment) else "아버님(제작 책임) 계정만 할 수 있어요." }}</p>{% endif %}
+</form>
+{% else %}
+<div class="copy-block"><label for="body-{{ d.id }}">본문(읽기 전용)</label><textarea id="body-{{ d.id }}" rows="6" readonly>{{ d.body }}</textarea></div>
+{% if d.status in ("APPROVED", "SENT") %}<p class="meta">승인 {{ d.approved_at|kdatetime }}{% if d.sent_at %} · 발송 기록 {{ d.sent_at|kdatetime }}{% endif %}</p>{% endif %}
+{% if d.status == "APPROVED" %}
+<div class="btn-row">
+<button class="btn btn-primary" type="button" data-copy="body-{{ d.id }}" data-copy-log="/cs/drafts/{{ d.id }}/copied">{{ icon("copy", "sm") }}복사</button>
+<form method="post" action="/cs/drafts/{{ d.id }}/sent">{{ csrf_input() }}<input type="hidden" name="evidence" value="카카오톡 채널에서 직접 발송"><button class="btn btn-secondary" type="submit">발송 완료 기록</button></form>
+<form method="post" action="/cs/drafts/{{ d.id }}/rewrite">{{ csrf_input() }}<button class="btn btn-tertiary" type="submit">고쳐 쓰기</button></form>
+</div>
+{% elif d.status == "SENT" %}<p class="t-sm">이 답변은 발송 기록됐어요. 수정하려면 새 답변을 작성하세요.</p>{% endif %}
+{% endif %}
+</article>
+{% else %}<p class="t-muted">아직 초안이 없어요.</p>{% endfor %}
+</section>

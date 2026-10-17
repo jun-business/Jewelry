@@ -1,0 +1,49 @@
+{% extends "base.html" %}{% from "components.html" import icon, chip, csrf_input with context %}
+{% block title %}실적{% endblock %}
+{% block content %}
+<div class="page-head"><h1>실적</h1>
+<form method="get" class="btn-row"><label class="choice"><input type="checkbox" name="test" value="1" {% if test %}checked{% endif %}> 시험 금액 포함</label><button class="btn btn-secondary btn-sm" type="submit">적용</button></form></div>
+<section aria-labelledby="kpi-t"><h2 id="kpi-t">핵심 지표</h2>
+<div class="kpis">
+{% for kid, v in k.items() %}
+<div class="card kpi {{ 'small' if v.small else '' }}" data-kpi="{{ kid }}">
+<p class="meta">{{ kid }} · {{ v.label }}</p>
+{% if kid == "KPI-06" %}<p class="v">{{ v.value|won if v.value is not none else "—" }}<span class="t-sm">/시간</span></p><p class="t-sm">공헌이익 {{ v.contribution|won }} ÷ {{ v.minutes // 60 }}시간 {{ v.minutes % 60 }}분</p>{% if v.tax_unset %}<p class="err t-sm">사업자 과세 유형이 미설정이라 세금 포함 견적 {{ v.tax_unset }}건을 빼고 계산했어요. <a href="/settings/policy">설정</a></p>{% endif %}
+{% elif v.den is defined %}<p class="v">{{ (v.pct ~ "%") if v.pct is not none else "—" }}</p><p class="t-sm">{{ v.num }}/{{ v.den }}건{% if v.undecided %} · 미판정 {{ v.undecided }}건{% endif %}</p>
+{% else %}<p class="v">{{ v.num }}건</p>{% endif %}
+{% if v.small %}{{ chip("ended", "표본 부족") }}{% endif %}
+</div>
+{% endfor %}
+</div></section>
+<section class="card" aria-labelledby="fn-t"><h2 id="fn-t">전환 흐름</h2>
+{% set top = (funnel[0].count or 1) %}
+<div class="table-wrap"><table><thead><tr><th scope="col">단계</th><th scope="col" class="num">건수</th><th scope="col">비율</th></tr></thead><tbody>
+{% for f in funnel %}<tr><th scope="row">{{ f.label }}</th><td class="num">{{ f.count }}</td><td><svg class="barsvg" viewBox="0 0 100 14" preserveAspectRatio="none" aria-hidden="true"><rect width="{{ (f.count * 100 // top) or 1 }}" height="14" rx="3"/></svg><span class="sr-only">{{ f.count * 100 // top }}%</span></td></tr>{% endfor %}
+</tbody></table></div></section>
+<section class="card" aria-labelledby="src-t"><h2 id="src-t">유입 경로</h2>
+<p data-sources>광고 {{ summary["광고"] }} · 직접 {{ summary["직접"] }} · 미분류 {{ summary["미분류"] }}</p>
+<div class="table-wrap"><table><thead><tr><th scope="col">경로</th><th scope="col">구분</th><th scope="col" class="num">문의</th></tr></thead><tbody>
+{% for s in sources %}<tr><td>{{ s.label }}</td><td>{{ s.kind }}</td><td class="num">{{ s.count }}</td></tr>{% endfor %}</tbody></table></div>
+{% if user.role == "operator" %}
+<form class="btn-row" method="post" action="/analytics/ad-spend">{{ csrf_input() }}
+<div class="field"><label for="am">월</label><input id="am" name="month" value="{{ month }}" pattern="\d{4}-\d{2}"></div>
+<div class="field"><label for="ac">경로</label><select id="ac" name="channel">{% for kk, lab in SOURCE_LABEL.items() if kk %}<option value="{{ kk }}">{{ lab }}</option>{% endfor %}</select></div>
+<div class="field"><label for="aa">광고비(원)</label><input id="aa" name="amount" class="money" inputmode="numeric"></div>
+<button class="btn btn-secondary" type="submit">광고비 저장</button></form>
+{% endif %}
+{% if spend %}<p class="t-sm">입력된 광고비: {% for s in spend %}{{ s.month }} {{ SOURCE_LABEL.get(s.channel, s.channel) }} {{ s.amount_krw|won }}{% if not loop.last %} · {% endif %}{% endfor %}</p>{% endif %}
+</section>
+<section class="card" aria-labelledby="po-t"><h2 id="po-t">완료 주문별</h2>
+<div class="table-wrap"><table><thead><tr><th scope="col">주문번호</th><th scope="col" class="num">판매가</th><th scope="col" class="num">세금 제외</th><th scope="col" class="num">실원가</th><th scope="col" class="num">문의당 광고비</th><th scope="col" class="num">공헌이익</th><th scope="col" class="num">투입시간</th><th scope="col" class="num">시간당</th></tr></thead><tbody>
+{% for p in per %}{% if p.c %}<tr><td class="mono"><a href="/orders/{{ p.o.order_no }}">{{ p.o.order_no }}</a></td><td class="num">{{ p.c.total|won }}</td><td class="num">{{ p.c.revenue_ex_tax|won }}</td><td class="num">{{ p.c.actual_cost|won }}</td><td class="num">{{ p.c.acquisition|won }}</td><td class="num">{{ p.c.contribution|won }}</td><td class="num">{{ p.c.minutes }}분</td><td class="num">{{ p.c.per_hour|won if p.c.per_hour is not none else "—" }}</td></tr>{% endif %}{% else %}<tr><td colspan="8" class="t-muted">완료된 주문이 없어요.</td></tr>{% endfor %}
+</tbody></table></div></section>
+<section class="card" aria-labelledby="ad-t"><h2 id="ad-t">광고 효율</h2>
+<p class="t-sm">과세 유형: {{ TAX_TYPE_LABEL.get(tax_type, tax_type) }} · 문의당 광고비 = 광고비 ÷ 그 달 그 경로 문의 수(공헌이익 배분에 사용) · CAC = 광고비 ÷ 결제까지 간 유료 고객 수</p>
+<div class="table-wrap"><table><thead><tr><th scope="col">월</th><th scope="col">경로</th><th scope="col" class="num">광고비</th><th scope="col" class="num">문의</th><th scope="col" class="num">문의당 광고비</th><th scope="col" class="num">유료 고객</th><th scope="col" class="num">CAC</th></tr></thead><tbody>
+{% for a in ad %}<tr data-ad="{{ a.month }}-{{ a.channel }}"><td>{{ a.month }}</td><td>{{ a.label }}</td><td class="num">{{ a.spend|won }}</td><td class="num">{{ a.inquiries }}</td><td class="num">{{ a.per_inquiry|won if a.per_inquiry is not none else "—" }}</td><td class="num">{{ a.paid_customers }}</td><td class="num">{{ a.cac|won if a.cac is not none else "—" }}</td></tr>{% else %}<tr><td colspan="7" class="t-muted">입력된 광고비가 없어요.</td></tr>{% endfor %}
+</tbody></table></div></section>
+<section class="card" aria-labelledby="mo-t"><h2 id="mo-t">월별 매출</h2>
+<div class="table-wrap"><table><thead><tr><th scope="col">월</th><th scope="col" class="num">실매출</th><th scope="col" class="num">시험</th></tr></thead><tbody>
+{% for m, v in monthly %}<tr><td>{{ m }}</td><td class="num">{{ v.live|won }}</td><td class="num">{{ v.test|won }}</td></tr>{% else %}<tr><td colspan="3" class="t-muted">결제 기록이 없어요.</td></tr>{% endfor %}
+</tbody></table></div></section>
+{% endblock %}

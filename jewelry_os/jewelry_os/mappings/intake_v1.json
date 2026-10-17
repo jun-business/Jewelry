@@ -1,0 +1,23 @@
+{
+  "version": "intake_v1",
+  "consent_version": "consent_v1",
+  "note": "질문 ID는 실제 Google 폼 생성 후 교체한다(PDS 부록 A). 제목이 바뀌어도 ID가 같으면 매핑은 유지된다.",
+  "questions": {
+    "q01_display_name": {"field": "display_name", "required": true, "kind": "text"},
+    "q02_contact_kind": {"field": "contact_kind", "required": true, "kind": "choice"},
+    "q02_contact_value": {"field": "contact_value", "required": true, "kind": "text"},
+    "q03_product_type": {"field": "product_type", "required": true, "kind": "choice"},
+    "q04_description": {"field": "description", "required": true, "kind": "text"},
+    "q05_material": {"field": "material", "required": false, "kind": "choice"},
+    "q06_size": {"field": "size", "required": false, "kind": "text"},
+    "q07_stones_engraving": {"field": "stones_engraving", "required": false, "kind": "text"},
+    "q08_budget_range": {"field": "budget_range", "required": false, "kind": "choice"},
+    "q09_desired_date": {"field": "desired_date", "required": false, "kind": "date"},
+    "q10_reference_files": {"field": "reference_files", "required": false, "kind": "file"},
+    "q11_source_channel": {"field": "source_channel", "required": false, "kind": "choice"},
+    "q12_consent": {"field": "consent", "required": true, "kind": "consent"}
+  },
+  "choices": {
+    "source_channel": {"스마트스토어": "smartstore", "인스타그램": "instagram", "지인 소개": "referral", "광고를 보고": "ad", "기타": "other"}
+  }
+}

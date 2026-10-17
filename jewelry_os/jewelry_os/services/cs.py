@@ -1,0 +1,200 @@
+"""카카오 상담 수동 기록·AI 초안·승인·복사·발송 기록(FUN-007, EXP-011, SRS-060~063·120·140)."""
+from __future__ import annotations
+
+import re
+import secrets
+
+from ..adapters.ai import AnalyzerError
+from ..core import clock
+from ..core.db import jdump, jload
+from ..domain.guards import TransitionBlocked, unmet
+from ..domain.states import LABEL, PHASE_LABEL, PHASE_OF, S
+from . import audit, settings
+
+_PHONE = re.compile(r"01[016789][-\s.]?(\d{3,4})[-\s.]?(\d{4})")
+
+
+def redact(s: str | None) -> str | None:
+    if not s:
+        return s
+    return _PHONE.sub(lambda m: f"010-****-{m.group(2)}", s)
+
+
+def thread_for(ctx, c, order_id):
+    t = c.execute("SELECT * FROM cs_threads WHERE order_id=? ORDER BY id LIMIT 1", (order_id,)).fetchone()
+    if t:
+        return t["id"]
+    return c.execute("INSERT INTO cs_threads(order_id, created_at) VALUES (?,?)", (order_id, clock.now_iso())).lastrowid
+
+
+def record_message(ctx, o, actor, summary, content=None, direction="in", link=None, event_at=None) -> int:
+    if not (summary or "").strip():
+        raise TransitionBlocked([unmet("G-REASON")])
+    at, src = clock.from_kst_input(event_at)
+    with ctx.db.tx() as c:
+        tid = thread_for(ctx, c, o["id"])
+        mid = c.execute("INSERT INTO cs_messages(thread_id, provider, sender_key, message_key, direction, summary, "
+                        "content_redacted, link, event_at, event_at_src, recorded_by, recorded_at) "
+                        "VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
+                        (tid, "kakao_manual", f"order:{o['id']}", secrets.token_hex(8), direction, redact(summary),
+                         redact(content), link, at, src, actor.id, clock.now_iso())).lastrowid
+        audit.record(c, "cs_message", mid, actor, "cs_message_recorded", order_id=o["id"], next=direction)
+        return mid
+
+
+def messages_of(ctx, order_id):
+    return ctx.db.all("SELECT m.*, u.display_name AS recorder FROM cs_messages m JOIN cs_threads t ON t.id=m.thread_id "
+                      "LEFT JOIN users u ON u.id=m.recorded_by WHERE t.order_id=? ORDER BY m.event_at", (order_id,))
+
+
+def _phase_label(o) -> str:
+    return PHASE_LABEL[PHASE_OF[S(o["lifecycle_state"])]]
+
+
+INTERNAL_LABELS = set(LABEL.values()) - set(PHASE_LABEL.values())
+
+
+def scrub_internal_labels(text: str) -> str:
+    """고객 문구에 내부 단계명이 섞이지 않게(SRS-144)."""
+    for lab in sorted(INTERNAL_LABELS, key=len, reverse=True):
+        text = text.replace(lab, "진행")
+    return text
+
+
+def create_draft(ctx, o, actor, question: str, body: str | None = None, level: str | None = None) -> int:
+    """AI 초안(또는 직접 작성 — body·level 지정). 승인된 상담 정책만 근거로 참조(SRS-090)."""
+    pol = settings.approved_policy(ctx, "cs")
+    source = "manual" if body else "ai"
+    unclear: list[str] = []
+    if body is None:
+        try:
+            r = ctx.analyzer.draft_cs(question, {"phase_label": _phase_label(o)},
+                                      dict(pol) if pol else None)
+            body, level, unclear = r["draft_reply"], r["level"], r.get("unclear") or []
+        except AnalyzerError:
+            body, level, source = "", level or "L2", "manual"
+            unclear = ["AI 초안을 만들지 못했어요. 직접 작성하세요."]
+    if not pol:
+        unclear = list(unclear) + ["승인된 상담 정책 없음"]
+    body = scrub_internal_labels(body or "")
+    with ctx.db.tx() as c:
+        tid = thread_for(ctx, c, o["id"])
+        v = (c.execute("SELECT COALESCE(MAX(version),0) FROM cs_drafts WHERE thread_id=?", (tid,)).fetchone()[0]) + 1
+        did = c.execute("INSERT INTO cs_drafts(thread_id, version, level, policy_id, policy_version, body, unclear_json, "
+                        "status, source, created_by, created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?)",
+                        (tid, v, level or "L2", pol["id"] if pol else None, pol["version"] if pol else None, body,
+                         jdump(unclear), "DRAFT", source, actor.id, clock.now_iso())).lastrowid
+        audit.record(c, "cs_draft", did, actor, "cs_draft_created", order_id=o["id"], next=level)
+        return did
+
+
+def draft(ctx, draft_id):
+    return ctx.db.one("SELECT d.*, t.order_id FROM cs_drafts d JOIN cs_threads t ON t.id=d.thread_id WHERE d.id=?",
+                      (draft_id,))
+
+
+def drafts_of(ctx, order_id):
+    return ctx.db.all("SELECT d.*, p.title AS policy_title FROM cs_drafts d JOIN cs_threads t ON t.id=d.thread_id "
+                      "LEFT JOIN policies p ON p.id=d.policy_id WHERE t.order_id=? ORDER BY d.id DESC", (order_id,))
+
+
+def save_body(ctx, draft_id, actor, body):
+    d = draft(ctx, draft_id)
+    if d["status"] != "DRAFT":
+        raise ImmutableDraft()
+    with ctx.db.tx() as c:
+        c.execute("UPDATE cs_drafts SET body=? WHERE id=?", (scrub_internal_labels(body), draft_id))
+
+
+class ImmutableDraft(Exception):
+    """승인·발송된 초안 수정 시도(405)."""
+
+
+def record_judgment(ctx, draft_id, actor, text):
+    if actor is None or actor.role != "operator":
+        raise TransitionBlocked([unmet("G-ROLE-OPERATOR")])
+    if not (text or "").strip():
+        raise TransitionBlocked([unmet("G-REASON")])
+    d = draft(ctx, draft_id)
+    if d["status"] != "DRAFT":
+        raise ImmutableDraft()
+    with ctx.db.tx() as c:
+        c.execute("UPDATE cs_drafts SET operator_judgment=?, judgment_by=?, judgment_at=? WHERE id=?",
+                  (text, actor.id, clock.now_iso(), draft_id))
+        audit.record(c, "cs_draft", draft_id, actor, "cs_judgment_recorded", order_id=d["order_id"])
+
+
+def approve(ctx, draft_id, actor, confirm):
+    if actor is None or actor.role != "maker":
+        raise TransitionBlocked([unmet("G-ROLE-MAKER")])
+    d = draft(ctx, draft_id)
+    if d["status"] != "DRAFT":
+        raise ImmutableDraft()
+    um = []
+    if d["level"] == "L3" and not d["operator_judgment"]:
+        um.append(unmet("G-L3-JUDGMENT"))
+    if not (d["body"] or "").strip():
+        um.append(unmet("G-REASON"))
+    if not confirm:
+        um.append(unmet("G-CONFIRM"))
+    if um:
+        raise TransitionBlocked(um)
+    with ctx.db.tx() as c:
+        c.execute("UPDATE cs_drafts SET status='APPROVED', approved_by=?, approved_at=? WHERE id=?",
+                  (actor.id, clock.now_iso(), draft_id))
+        audit.record(c, "cs_draft", draft_id, actor, "cs_draft_approved", order_id=d["order_id"], next=d["level"])
+
+
+def mark_copied(ctx, draft_id, actor):
+    d = draft(ctx, draft_id)
+    if d["status"] not in ("APPROVED", "SENT"):
+        raise TransitionBlocked([unmet("G-CS-UNAPPROVED")])
+    with ctx.db.tx() as c:
+        c.execute("UPDATE cs_drafts SET copied_at=? WHERE id=?", (clock.now_iso(), draft_id))
+        audit.record(c, "cs_draft", draft_id, actor, "cs_draft_copied", order_id=d["order_id"])
+    return d["body"]
+
+
+def mark_sent(ctx, draft_id, actor, sent_at=None, evidence=None):
+    d = draft(ctx, draft_id)
+    if d["status"] != "APPROVED":
+        raise TransitionBlocked([unmet("G-CS-UNAPPROVED")])
+    with ctx.db.tx() as c:
+        c.execute("UPDATE cs_drafts SET status='SENT', sent_at=?, sent_evidence=? WHERE id=?",
+                  (sent_at or clock.now_iso(), evidence, draft_id))
+        tid = d["thread_id"]
+        c.execute("INSERT INTO cs_messages(thread_id, provider, sender_key, message_key, direction, summary, "
+                  "content_redacted, event_at, recorded_by, recorded_at) VALUES (?,?,?,?,?,?,?,?,?,?)",
+                  (tid, "kakao_manual", f"order:{d['order_id']}", f"draft:{draft_id}", "out", "승인된 답변 발송",
+                   d["body"], sent_at or clock.now_iso(), actor.id, clock.now_iso()))
+        audit.record(c, "cs_draft", draft_id, actor, "cs_draft_sent", order_id=d["order_id"])
+
+
+def rewrite(ctx, draft_id, actor) -> int:
+    """고쳐 쓰기: 승인본은 그대로(SUPERSEDED), 내용을 복제한 새 초안(EXP-011)."""
+    d = draft(ctx, draft_id)
+    if d["status"] == "SENT":
+        raise TransitionBlocked([unmet("G-WRONG-STATE")])
+    if d["status"] != "APPROVED":
+        raise TransitionBlocked([unmet("G-WRONG-STATE")])
+    with ctx.db.tx() as c:
+        v = (c.execute("SELECT MAX(version) FROM cs_drafts WHERE thread_id=?", (d["thread_id"],)).fetchone()[0]) + 1
+        nid = c.execute("INSERT INTO cs_drafts(thread_id, version, level, policy_id, policy_version, body, unclear_json, "
+                        "status, source, created_by, created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?)",
+                        (d["thread_id"], v, d["level"], d["policy_id"], d["policy_version"], d["body"],
+                         d["unclear_json"], "DRAFT", "manual", actor.id, clock.now_iso())).lastrowid
+        c.execute("UPDATE cs_drafts SET status='SUPERSEDED', superseded_by=? WHERE id=?", (nid, draft_id))
+        audit.record(c, "cs_draft", draft_id, actor, "cs_draft_rewritten", order_id=d["order_id"], next=str(nid))
+        return nid
+
+
+def inbox(ctx):
+    pending = ctx.db.all("SELECT d.*, t.order_id, o.order_no, c.display_name AS customer_name FROM cs_drafts d "
+                         "JOIN cs_threads t ON t.id=d.thread_id JOIN orders o ON o.id=t.order_id "
+                         "JOIN customers c ON c.id=o.customer_id WHERE d.status='DRAFT' "
+                         "ORDER BY CASE d.level WHEN 'L3' THEN 0 WHEN 'L2' THEN 1 ELSE 2 END, d.created_at")
+    to_send = ctx.db.all("SELECT d.*, t.order_id, o.order_no FROM cs_drafts d JOIN cs_threads t ON t.id=d.thread_id "
+                         "JOIN orders o ON o.id=t.order_id WHERE d.status='APPROVED' ORDER BY d.approved_at")
+    recent = ctx.db.all("SELECT m.*, t.order_id, o.order_no FROM cs_messages m JOIN cs_threads t ON t.id=m.thread_id "
+                        "JOIN orders o ON o.id=t.order_id ORDER BY m.recorded_at DESC LIMIT 20")
+    return {"pending": pending, "to_send": to_send, "recent": recent}

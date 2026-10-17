@@ -1,0 +1,126 @@
+{% extends "base.html" %}{% from "components.html" import icon, chip, blocked, banner, csrf_input, text, area, approval with context %}
+{% block title %}설정{% endblock %}
+{% block content %}
+<div class="page-head"><h1>설정</h1></div>
+<div class="detail settings-grid">
+<div>
+<label class="sr-only" for="sec-select">설정 항목</label>
+<nav aria-label="설정 항목"><ul class="queue-tabs" data-scroll-x>{% for k, lab in sections %}<li><a href="/settings/{{ k }}" {% if k == section %}aria-current="page"{% endif %}>{{ lab }}</a></li>{% endfor %}</ul></nav>
+{% if unmet %}<div class="banner danger" role="alert">{{ icon("octagon") }}<div class="b-body"><strong>진행할 수 없어요</strong>{{ blocked(unmet, "s-unmet") }}</div></div>{% endif %}
+{% if errors %}<div class="banner danger" role="alert">{{ icon("octagon") }}<div class="b-body">{% for k, v in errors.items() %}<p>{{ v }}</p>{% endfor %}</div></div>{% endif %}
+{% set op = user.role == "operator" %}
+{% if section not in ("display",) and not op %}<p class="banner info">{{ icon("info") }}<span class="b-body">운영자 계정만 바꿀 수 있어요. 보기만 할 수 있어요.</span></p>{% endif %}
+
+{% if section == "display" %}
+<form class="card" method="post" action="/settings/display">{{ csrf_input() }}<h2>내 표시 설정</h2>
+<fieldset><legend>글자 크기</legend>{% for v, lab in [("normal", "보통"), ("large", "크게(112.5%)")] %}<label class="choice"><input type="radio" name="text" value="{{ v }}" {% if (user.prefs.get("text", "normal")) == v %}checked{% endif %}> {{ lab }}</label>{% endfor %}</fieldset>
+<fieldset><legend>테마</legend>{% for v, lab in [("system", "시스템 설정 따르기"), ("light", "밝게"), ("dark", "어둡게")] %}<label class="choice"><input type="radio" name="theme" value="{{ v }}" {% if (user.prefs.get("theme", "system")) == v %}checked{% endif %}> {{ lab }}</label>{% endfor %}</fieldset>
+<button class="btn btn-primary" type="submit">적용</button></form>
+
+{% elif section == "policy" %}
+<form class="card" method="post" action="/settings/policy">{{ csrf_input() }}<h2>운영 정책</h2>
+<div class="grid-2">
+{{ text("capacity_limit", "동시 진행 상한(건)", s.capacity_limit, False, None, "수락 이후 발송 전 주문 수(공장 제작 중 포함 — O-02 TBD)", "number") }}
+{{ text("free_concept_limit", "무료 시안 횟수", s.free_concept_limit, False, None, "TBD-003", "number") }}
+{{ text("lock_minutes", "화면 잠금(분)", s.lock_minutes, False, None, None, "number") }}
+{{ text("quote_valid_days", "견적 유효기간(일)", s.quote_valid_days, False, None, None, "number") }}
+{{ text("factory_days", "제조 기간(일, 내부 예상용)", s.factory_days, False, None, None, "number") }}
+{{ text("alert_customer_wait_hours", "고객 응답 지연 기준(시간)", s.alert_customer_wait_hours, False, None, None, "number") }}
+{{ text("alert_delivery_days", "납기 위험 기준(약속일까지 일)", s.alert_delivery_days, False, None, None, "number") }}
+{{ text("alert_sync_multiplier", "동기화 경고 배수(폴링 간격 ×)", s.alert_sync_multiplier, False, None, None, "number") }}
+{{ text("alert_backup_hours", "백업 경고(시간)", s.alert_backup_hours, False, None, None, "number") }}
+{{ text("alert_disk_pct", "디스크 경고(% 미만)", s.alert_disk_pct, False, None, None, "number") }}
+</div>
+<fieldset><legend>사업자 과세 유형 (실적의 세금 제외 매출 계산)</legend>
+{% for k, v in TAX_TYPE_LABEL.items() %}<label class="choice"><input type="radio" name="tax_type" value="{{ k }}" {% if s.tax_type == k %}checked{% endif %}> {{ v }}</label>{% endfor %}
+<p class="help">일반과세 = 공급대가 ÷ 1.1 · 간이과세 = 공급대가 − 공급대가 × 업종 부가가치율 × 10% · 면세 = 그대로. 미설정이면 세금 포함 견적의 공헌이익을 계산하지 않아요.</p>
+{{ text("simplified_vat_rate_pct", "간이과세 업종 부가가치율(%)", s.simplified_vat_rate_pct, False, None, "세무사·홈택스에서 업종을 확인하세요(TBD-009)", "number") }}</fieldset>
+<fieldset><legend>결제 정책</legend><label class="choice"><input type="radio" name="payment_policy" value="THIRDS" {% if s.payment_policy == "THIRDS" %}checked{% endif %}> 예약금 1/3(원 단위 올림) · 잔금 2/3</label><label class="choice"><input type="radio" name="payment_policy" value="FULL" {% if s.payment_policy == "FULL" %}checked{% endif %}> 전액</label><p class="help">새 주문부터 적용돼요.</p></fieldset>
+<button class="btn btn-primary" type="submit" {% if not op %}aria-disabled="true"{% endif %}>저장</button></form>
+
+{% elif section == "calendar" %}
+<form class="card" method="post" action="/settings/calendar">{{ csrf_input() }}<h2>휴무·업무 시간</h2>
+<div class="grid-2">{{ text("quiet_start", "알림 휴지 시작", s.quiet_start, False, None, None, "time") }}{{ text("quiet_end", "알림 휴지 끝", s.quiet_end, False, None, None, "time") }}</div>
+<input type="hidden" name="cad_weekdays_set" value="1">
+<fieldset><legend>CAD 요일</legend>{% for i, d in [(0,"월"),(1,"화"),(2,"수"),(3,"목"),(4,"금"),(5,"토"),(6,"일")] %}<label class="choice"><input type="checkbox" name="cad_weekdays" value="{{ i }}" {% if i in s.cad_weekdays %}checked{% endif %}> {{ d }}</label>{% endfor %}
+<label class="choice"><input type="checkbox" name="cad_on_holidays" value="on" {% if s.cad_on_holidays %}checked{% endif %}> 휴무일에도 CAD 가능</label></fieldset>
+<div class="grid-2">{{ text("add_date", "휴무일 추가", "", False, None, None, "date") }}{{ text("add_name", "이름", "") }}</div>
+<div class="btn-row"><button class="btn btn-primary" type="submit" {% if not op %}aria-disabled="true"{% endif %}>저장</button><button class="btn btn-tertiary" type="submit" name="load_defaults" value="1">2026–2027 기본 목록 불러오기</button></div></form>
+<section class="card"><h2>휴무일 {{ holidays|length }}일</h2><p class="help">기본 목록은 확인 후 사용하세요.</p><ul class="timeline">{% for h in holidays %}<li>{{ icon("calendar", "sm") }}<span>{{ h.date|kdate }} · {{ h.name }}{% if op %} <form method="post" action="/settings/calendar" class="inline">{{ csrf_input() }}<input type="hidden" name="del_date" value="{{ h.date }}"><button class="btn btn-tertiary btn-sm" type="submit">삭제</button></form>{% endif %}</span></li>{% endfor %}</ul></section>
+
+{% elif section == "policies" %}
+<section class="card"><h2>상담·가격 정책</h2><p class="help">승인된 정책만 AI 초안의 근거로 쓰여요. 주문에 적용된 버전은 나중에 바뀌지 않아요.</p>
+<div class="table-wrap"><table><thead><tr><th scope="col">종류</th><th scope="col">버전</th><th scope="col">제목</th><th scope="col">상태</th><th scope="col"><span class="sr-only">조치</span></th></tr></thead><tbody>
+{% for p in policies %}<tr><td>{{ {"cs": "상담", "terms": "수정·환불", "consent": "개인정보 동의", "price": "가격"}[p.kind] }}</td><td>v{{ p.version }}</td><td>{{ p.title }}<details><summary class="t-sm">본문</summary><p class="t-sm">{{ p.body }}</p></details></td><td>{{ chip("done" if p.status == "APPROVED" else ("ended" if p.status == "RETIRED" else "version"), {"DRAFT": "초안", "APPROVED": "승인됨", "RETIRED": "폐기"}[p.status]) }}</td>
+<td>{% if op and p.status == "DRAFT" %}<form method="post" action="/settings/policies/{{ p.id }}/approve" data-confirm-required>{{ csrf_input() }}<label class="choice t-sm"><input type="checkbox" name="confirm" value="on"> 확인</label><button class="btn btn-secondary btn-sm" type="submit" data-primary>승인</button></form>{% elif op and p.status == "APPROVED" %}<form method="post" action="/settings/policies/{{ p.id }}/retire">{{ csrf_input() }}<button class="btn btn-tertiary btn-sm" type="submit">폐기</button></form>{% endif %}</td></tr>{% endfor %}
+</tbody></table></div></section>
+{% if op %}<form class="card" method="post" action="/settings/policies/new">{{ csrf_input() }}<h2>새 정책 버전</h2>
+<div class="field"><label for="pk">종류</label><select id="pk" name="kind"><option value="cs">상담</option><option value="terms">수정·환불</option><option value="consent">개인정보 동의</option><option value="price">가격</option></select></div>
+{{ text("title", "제목", "") }}{{ area("body", "본문", "", True, None, None, 6) }}<button class="btn btn-primary" type="submit">초안 만들기</button></form>{% endif %}
+
+{% elif section == "google" %}
+<form class="card" method="post" action="/settings/google">{{ csrf_input() }}<h2>Google 연동</h2>
+<fieldset><legend>모드</legend><label class="choice"><input type="radio" name="google_mode" value="mock" {% if s.google_mode == "mock" %}checked{% endif %}> 시험용 Mock</label><label class="choice"><input type="radio" name="google_mode" value="live" {% if s.google_mode == "live" %}checked{% endif %}> 실제 Google 계정</label></fieldset>
+<fieldset><legend>폼 용도</legend><label class="choice"><input type="radio" name="google_form_purpose" value="test" {% if s.google_form_purpose == "test" %}checked{% endif %}> 시험 폼(고객에게 공개하지 않음)</label>
+<label class="choice"><input type="radio" name="google_form_purpose" value="public" {% if s.google_form_purpose == "public" %}checked{% endif %} {% if not live_allowed %}disabled aria-describedby="gl-why"{% endif %}> 고객 공개 폼</label>
+{% if not live_allowed %}<p class="err" id="gl-why">고객 공개 폼은 Gate OPS-01·LEGAL-01 통과 후에 연결할 수 있어요. 지금은 시험 폼만 연결돼요.</p>{% endif %}
+<label class="choice"><input type="checkbox" name="confirm_test_form" value="on"> 이 폼은 고객에게 공개하지 않은 시험 폼이에요(실계정 + 시험 폼일 때 필수)</label></fieldset>
+<div class="grid-2">{{ text("google_form_id", "폼 ID", s.google_form_id) }}{{ text("sync_interval_min", "폴링 간격(분)", s.sync_interval_min, False, None, None, "number") }}</div>
+<p>연결 상태: {% if connected %}{{ chip("done", "Google 계정 연결됨", "check") }}{% else %}{{ chip("ended", "연결 안 됨") }}{% endif %} <span class="t-sm">(토큰 값은 이 PC의 secrets.env에만 있고 화면에 표시하지 않아요)</span></p>
+<div class="btn-row"><button class="btn btn-primary" type="submit" {% if not op %}aria-disabled="true"{% endif %}>저장</button></div></form>
+<div class="card"><h2>상태</h2>
+{% if cursor %}<dl class="kv"><dt>마지막 성공</dt><dd>{{ cursor.last_success_at|kdatetime if cursor.last_success_at else "—" }}</dd><dt>최근 처리 건수</dt><dd>{{ cursor.last_count if cursor.last_count is not none else "—" }}</dd>
+<dt>최근 오류</dt><dd>{% if cursor.status == "ERROR" %}{{ error_text.get(cursor.last_error_kind, cursor.last_error_kind) }} <span class="meta">{{ cursor.last_error_at|kdatetime }}</span>{% else %}없음{% endif %}</dd>
+<dt>다음 시도</dt><dd>{{ cursor.next_attempt_at|kdatetime if cursor.next_attempt_at else "—" }}</dd></dl>{% else %}<p class="t-muted">아직 동기화하지 않았어요.</p>{% endif %}
+<div class="btn-row"><form method="post" action="/system/sync-now">{{ csrf_input() }}<input type="hidden" name="back" value="/settings/google"><button class="btn btn-secondary" type="submit">{{ icon("refresh", "sm") }}지금 가져오기</button></form>
+{% if op %}<form method="post" action="/oauth/google/start">{{ csrf_input() }}<button class="btn btn-secondary" type="submit">Google 계정 연결</button></form>{% endif %}</div></div>
+
+{% elif section == "ai" %}
+<form class="card" method="post" action="/settings/ai">{{ csrf_input() }}<h2>AI</h2>
+<fieldset><legend>공급자</legend><label class="choice"><input type="radio" name="ai_provider" value="mock" {% if s.ai_provider == "mock" %}checked{% endif %}> 시험용 규칙 기반(Mock)</label><label class="choice"><input type="radio" name="ai_provider" value="claude" {% if s.ai_provider == "claude" %}checked{% endif %}> Claude</label></fieldset>
+{{ text("ai_model", "모델 ID", s.ai_model) }}
+<p>API 키: {% if has_key %}{{ chip("done", "환경 변수로 설정됨", "check") }}{% else %}{{ chip("ended", "없음") }}{% endif %}</p>
+<div class="grid-2">{{ text("ai_monthly_call_limit", "월 호출 상한", s.ai_monthly_call_limit, False, None, None, "number") }}{{ text("ai_monthly_cost_limit_krw", "월 비용 상한(원)", s.ai_monthly_cost_limit_krw, False, None, None, "number") }}</div>
+<p>이번 달 사용: {{ usage.calls }}회 · 약 {{ usage.cost|won }}</p>
+<p class="t-sm">AI에 보내는 항목: {{ sent_fields|join(", ") }} — 이름·연락처·주소는 보내지 않아요(설명 속 전화번호·주소도 가려요).</p>
+<button class="btn btn-primary" type="submit" {% if not op %}aria-disabled="true"{% endif %}>저장</button></form>
+
+{% elif section == "backup" %}
+<form class="card" method="post" action="/settings/backup">{{ csrf_input() }}<h2>백업</h2>
+<p class="t-sm">데이터 위치: <span class="mono">{{ data_dir }}</span> — 이 폴더는 이 Windows 사용자만 읽을 수 있어요.</p>
+{{ text("backup_keep_days", "보관 일수", s.backup_keep_days, False, None, None, "number") }}
+<p class="help">복원은 앱을 끄고 명령으로 실행해요: <span class="mono">python -m jewelry_os restore &lt;백업 파일&gt;</span></p>
+<button class="btn btn-primary" type="submit" {% if not op %}aria-disabled="true"{% endif %}>저장</button></form>
+<div class="card"><h2>최근 백업</h2>
+<form method="post" action="/system/backup-now">{{ csrf_input() }}<input type="hidden" name="back" value="/settings/backup"><button class="btn btn-secondary" type="submit">지금 백업</button></form>
+<ul class="timeline">{% for b in backups %}<li>{{ icon("server", "sm") }}<span>{{ b.created_at|kdatetime }} · {{ (b.size or 0) // 1024 }}KB · {{ b.status }}</span></li>{% else %}<li><span class="t-muted">아직 백업이 없어요.</span></li>{% endfor %}</ul></div>
+
+{% elif section == "accounts" %}
+<section class="card"><h2>계정</h2><div class="table-wrap"><table><thead><tr><th scope="col">이름</th><th scope="col">아이디</th><th scope="col">역할</th><th scope="col">마지막 로그인</th></tr></thead><tbody>{% for u in users %}<tr><td>{{ u.display_name }}</td><td>{{ u.username }}</td><td>{{ ROLE_LABEL[u.role] }}</td><td>{{ u.last_login_at|kdatetime if u.last_login_at else "—" }}</td></tr>{% endfor %}</tbody></table></div></section>
+<form class="card" method="post" action="/settings/password">{{ csrf_input() }}<h2>내 비밀번호 바꾸기</h2>
+<div class="grid-2">{{ text("current", "현재 비밀번호", "", True, errors, None, "password", 'autocomplete="current-password"') }}{{ text("new", "새 비밀번호", "", True, errors, "10자 이상", "password", 'autocomplete="new-password"') }}</div>
+<button class="btn btn-primary" type="submit">바꾸기</button></form>
+
+{% elif section == "gates" %}
+{% set tm = test_mode %}
+<section class="card"><h2>Gate 보드</h2>
+<p>{% if tm %}{{ chip("test", "시험 운영 모드", "flask") }} OPS-01·SS-02·LEGAL-01 중 {{ unpassed_gates|length }}개 미통과{% else %}{{ chip("done", "실거래 가능", "check") }}{% endif %}</p>
+<div class="table-wrap"><table><thead><tr><th scope="col">Gate</th><th scope="col">통과 증거 기준(PRD §15)</th><th scope="col">상태</th><th scope="col">기록</th><th scope="col"><span class="sr-only">조치</span></th></tr></thead><tbody>
+{% for gid, name, crit in GATES %}{% set g = gates[gid] %}
+<tr data-gate="{{ gid }}"><th scope="row">{{ gid }}<div class="t-sm">{{ name }}</div></th><td class="t-sm">{{ crit }}</td><td>{{ chip("done" if g.passed else "hold", "통과" if g.passed else "미통과") }}</td>
+<td class="t-sm">{% if g.record %}{{ g.record.evidence }}<div class="meta">{{ g.record.recorded_at|kdatetime }}</div>{% else %}—{% endif %}</td>
+<td>{% if op %}<button class="btn btn-secondary btn-sm" type="button" data-open="gate-{{ gid }}">상태 기록</button>{% endif %}</td></tr>
+{% endfor %}</tbody></table></div></section>
+{% if op %}{% for gid, name, crit in GATES %}
+{% set ex %}<fieldset><legend>상태</legend><label class="choice"><input type="radio" name="status" value="PASSED" checked> 통과</label><label class="choice"><input type="radio" name="status" value="NOT_PASSED"> 미통과</label></fieldset>{{ area("evidence", "증거(결과값·문서 위치)", "", True, None, crit, 3) }}{% endset %}
+{{ approval("gate-" ~ gid, "/settings/gates/" ~ gid, gid ~ " 상태 기록", [("Gate", name)], "기록은 이력에 남아요. 시험 운영 모드와 실거래 가능 여부가 이 기록으로 바뀌어요.", user.display_name ~ "(운영자)", ex, None, None, None, false, "", false, "기록") }}
+{% endfor %}{% endif %}
+<section class="card"><h2>기록 이력</h2><ul class="timeline">{% for h in gate_history %}<li>{{ icon("commit", "sm") }}<span>{{ h.gate_id }} · {{ "통과" if h.status == "PASSED" else "미통과" }} · {{ h.display_name }} · {{ h.recorded_at|kdatetime }}<div class="t-sm">{{ h.evidence }}</div></span></li>{% else %}<li><span class="t-muted">아직 기록이 없어요.</span></li>{% endfor %}</ul></section>
+
+{% elif section == "mapping" %}
+<section class="card"><h2>폼 매핑 · {{ mapping.version }}</h2><p class="help">{{ mapping.note }}</p>
+<div class="table-wrap"><table><thead><tr><th scope="col">질문 ID</th><th scope="col">필드</th><th scope="col">필수</th></tr></thead><tbody>{% for qid, sp in mapping.questions.items() %}<tr><td class="mono">{{ qid }}</td><td>{{ sp.field }}</td><td>{{ "예" if sp.required else "아니오" }}</td></tr>{% endfor %}</tbody></table></div></section>
+{% endif %}
+</div>
+</div>
+{% endblock %}

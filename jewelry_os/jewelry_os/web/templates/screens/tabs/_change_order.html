@@ -1,0 +1,39 @@
+{% from "components.html" import icon, chip, csrf_input, area, text, evidence with context %}
+{# 발주 후 고객 변경(H1 r1 Q10): 변경 가능 판정 → 추가 견적 → 고객 동의 → 추가 결제 확인 → 재작업 #}
+{% set co = cov.co %}
+<section class="card" id="co-{{ co.id }}" aria-labelledby="co-t-{{ co.id }}" data-change-order="{{ co.id }}">
+<h2 id="co-t-{{ co.id }}">{{ icon("branch") }} 고객 변경 처리 (재작업 · 고객 변심)</h2>
+<ol class="checklist">
+<li><span class="{{ 'ok' if co.feasible is not none else 'no' }}">{{ icon("check" if co.feasible is not none else "x", "sm") }}</span><span>1. 변경 가능 판정 — {% if co.feasible is none %}아직 안 함{% elif co.feasible %}가능 · {{ co.feasibility_note }}{% else %}불가 · {{ co.feasibility_note }}{% endif %}</span></li>
+{% if co.feasible != 0 %}
+<li><span class="{{ 'ok' if co.amount_krw is not none else 'no' }}">{{ icon("check" if co.amount_krw is not none else "x", "sm") }}</span><span>2. 추가 견적 — {% if co.amount_krw is not none %}{{ co.amount_krw|won }} · {{ co.description }}{% else %}아직 안 함{% endif %}</span></li>
+<li><span class="{{ 'ok' if co.accepted_at else 'no' }}">{{ icon("check" if co.accepted_at else "x", "sm") }}</span><span>3. 고객 동의 — {% if co.accepted_at %}{{ co.accept_channel }} · {{ co.accepted_at|kdatetime }}{% else %}아직 기록 없음{% endif %}</span></li>
+<li><span class="{{ 'ok' if (co.amount_krw == 0 or (cov.req and cov.req.status == 'PAID_VERIFIED')) else 'no' }}">{{ icon("check" if (co.amount_krw == 0 or (cov.req and cov.req.status == 'PAID_VERIFIED')) else "x", "sm") }}</span><span>4. 추가 결제 확인 — {% if co.amount_krw == 0 %}추가금 없음{% elif cov.req %}{{ PAY_STATUS_LABEL.get(cov.req.status, cov.req.status) }} · <a href="/orders/{{ o.order_no }}/payment">결제 탭</a>{% else %}결제 요청 전{% endif %}</span></li>
+{% endif %}
+</ol>
+{% if cov.missing %}<p class="t-sm">남은 단계: {{ cov.missing|join(" · ") }}. 모두 끝나야 재작업 문제를 해결하고 재작업을 진행할 수 있어요.</p>
+{% elif co.feasible == 0 %}<p class="t-sm">변경할 수 없다고 판정했어요. 고객에게 안내한 뒤 재작업 문제를 해결로 닫으면 원래 사양으로 진행해요.</p>
+{% else %}<p class="t-sm">{{ icon("check", "sm") }} 변경 절차가 끝났어요. 재작업 문제를 해결로 기록하고 재작업 후 검수하세요.</p>{% endif %}
+{% if cov.co_open and not co.accepted_at %}
+{% if me == "maker" %}
+<form class="card-sub" method="post" action="/orders/{{ o.order_no }}/actions/co_decide">{{ csrf_input() }}<input type="hidden" name="co_id" value="{{ co.id }}"><input type="hidden" name="_tab" value="{{ tab }}">
+<fieldset><legend>변경 가능 여부 <span class="req">(필수)</span></legend><label class="choice"><input type="radio" name="feasible" value="yes" {% if co.feasible == 1 %}checked{% endif %}> 변경할 수 있어요</label><label class="choice"><input type="radio" name="feasible" value="no" {% if co.feasible == 0 %}checked{% endif %}> 변경할 수 없어요</label></fieldset>
+{{ area("note", "판정 근거", co.feasibility_note or "", True, None, "예: 이미 주조됨 — 각인만 변경 가능", 2) }}
+<button class="btn btn-secondary" type="submit">판정 기록</button></form>
+{% if co.feasible == 1 %}
+<form class="card-sub" method="post" action="/orders/{{ o.order_no }}/actions/co_quote">{{ csrf_input() }}<input type="hidden" name="co_id" value="{{ co.id }}"><input type="hidden" name="_tab" value="{{ tab }}">
+<div class="grid-2">{{ text("amount", "추가 금액(원, 없으면 0)", co.amount_krw if co.amount_krw is not none else "", True, None, None, "text", 'class="money" inputmode="numeric"') }}{{ text("description", "변경 내용", co.description or "", True) }}</div>
+<button class="btn btn-secondary" type="submit">추가 견적 저장</button></form>
+{% endif %}
+{% endif %}
+{% if co.feasible == 1 and co.amount_krw is not none %}
+<form class="card-sub" method="post" action="/orders/{{ o.order_no }}/actions/co_accept">{{ csrf_input() }}<input type="hidden" name="co_id" value="{{ co.id }}"><input type="hidden" name="_tab" value="{{ tab }}">
+{{ evidence("", errors, "고객 변경 동의 증빙") }}
+<button class="btn btn-secondary" type="submit">고객 동의 기록</button></form>
+{% endif %}
+{% endif %}
+{% if cov.co_open and co.accepted_at and co.amount_krw and not cov.req and me == "operator" %}
+<form method="post" action="/orders/{{ o.order_no }}/actions/co_payment_req">{{ csrf_input() }}<input type="hidden" name="co_id" value="{{ co.id }}"><input type="hidden" name="_tab" value="payment">
+<button class="btn btn-secondary" type="submit">추가 결제 요청 만들기({{ co.amount_krw|won }})</button></form>
+{% endif %}
+</section>

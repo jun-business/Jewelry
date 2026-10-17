@@ -1,0 +1,53 @@
+{% from "components.html" import icon, chip, blocked, banner, csrf_input, approval, evidence, area, text, manual_note, field_error with context %}
+{# S-03c 결제 탭 — UI-05(주문 범위) #}
+<section class="card" aria-labelledby="pr-t">
+<div class="card-head"><h2 id="pr-t">결제 요청</h2>{{ manual_note("수동 대조 — 네이버에서 확인한 값을 입력해요") }}</div>
+{% if not pay_reqs and o.payment_policy != "FULL" %}<p class="t-muted">아직 결제 요청이 없어요.{% if o.lifecycle_state == "CUSTOMER_ACCEPTED" %} 오른쪽 ‘결제 요청 만들기’를 누르세요.{% endif %}</p>{% endif %}
+{% for r in pay_reqs %}
+<div class="file-card" data-payment-request="{{ r.phase }}">
+<div class="fc-body"><strong>{{ PAY_PHASE_LABEL[r.phase] }} · {{ r.expected_krw|won }}</strong>
+<span class="chips">{{ chip("progress" if r.status in ("DRAFT", "LINK_READY", "PAID") else ("done" if r.status == "PAID_VERIFIED" else ("issue" if r.status == "MISMATCH" else "ended")), "결제 확인 대기" if r.status == "PAID" else PAY_STATUS_LABEL.get(r.status, r.status)) }}{% if r.is_test %}{{ chip("test", "시험", "flask") }}{% else %}{{ chip("version", "실거래") }}{% endif %}</span>
+<div class="meta">견적 v{{ r.quote_version }} · 판매자 관리코드 <span class="mono">{{ r.seller_code }}</span> · {{ r.created_at|kdate }}</div></div>
+</div>
+{% endfor %}
+{% if o.payment_policy == "FULL" or (o.lifecycle_state in ("QC_PASSED", "FINAL_PAYMENT_VERIFIED", "SHIPPED", "CLOSED") and balance_amount is none and not pay_reqs|selectattr("phase", "equalto", "BALANCE")|list) %}
+<div class="file-card"><div class="fc-body"><strong class="t-muted">잔금 · 해당 없음</strong><div class="meta">{{ "전액 결제 정책" if o.payment_policy == "FULL" else "잔금 0원" }}</div></div></div>
+{% endif %}
+{% if o.lifecycle_state == "PAYMENT_PENDING" and not pay_reqs|rejectattr("status", "equalto", "CANCELLED")|list %}
+<form method="post" action="/orders/{{ o.order_no }}/actions/recreate_payment_req">{{ csrf_input() }}<input type="hidden" name="_tab" value="payment">
+<p class="t-sm">재견적으로 이전 결제 요청이 취소됐어요. 새 견적 기준으로 다시 만드세요.</p><button class="btn btn-primary" type="submit">새 결제 요청 만들기</button></form>
+{% endif %}
+{% if o.lifecycle_state == "QC_PASSED" and o.payment_policy != "FULL" and not pay_reqs|selectattr("phase", "equalto", "BALANCE")|list and balance_amount %}
+<form method="post" action="/orders/{{ o.order_no }}/actions/create_balance_req">{{ csrf_input() }}<input type="hidden" name="_tab" value="payment">
+<p class="t-sm">잔금 = 승인 견적 총액 − 확인된 예약금 = <strong>{{ balance_amount|won }}</strong></p>
+<button class="btn btn-primary" type="submit" {% if me != "operator" %}aria-disabled="true" aria-describedby="bal-role"{% endif %}>잔금 결제 요청 만들기</button>{% if me != "operator" %}<p class="err" id="bal-role">운영자 계정만 할 수 있어요.</p>{% endif %}</form>
+{% endif %}
+</section>
+
+{% if pay_reqs %}
+<section class="card" id="pay-form" aria-labelledby="pf-t"><h2 id="pf-t">결제 확인 입력</h2>
+{% if test_mode %}{{ banner("warning", "시험 운영 모드예요. 실제 고객 결제를 받지 마세요.", ic="flask") }}{% endif %}
+<form method="post" action="/orders/{{ o.order_no }}/actions/record_payment" data-confirm-required>{{ csrf_input() }}<input type="hidden" name="_tab" value="payment">
+<div class="grid-2">
+<div class="field"><label for="ph">결제 요청</label><select id="ph" name="phase">{% for r in pay_reqs if r.status != "CANCELLED" %}<option value="{{ r.phase }}" {% if (o.lifecycle_state == "QC_PASSED" and r.phase == "BALANCE") %}selected{% endif %}>{{ PAY_PHASE_LABEL[r.phase] }} · {{ r.expected_krw|won }}</option>{% endfor %}</select></div>
+<div class="field"><label for="ns">네이버 상태 <span class="req">(필수)</span></label><select id="ns" name="naver_status">{% for k, v in NAVER_STATUS.items() %}<option value="{{ k }}" {% if form.get("naver_status") == k %}selected{% endif %}>{{ v }}</option>{% endfor %}<option value="REFUND">환불(역분개)</option></select></div>
+{{ text("naver_order_id", "네이버 주문번호", form.get("naver_order_id"), True, errors) }}
+{{ text("naver_product_order_id", "상품주문번호", form.get("naver_product_order_id"), True, errors) }}
+{{ text("amount", "금액(원)", form.get("amount"), True, errors, "결제완료면 받은 금액, 환불이면 환불 금액(양수)", "text", 'class="money" inputmode="numeric"') }}
+{{ text("looked_up_at", "네이버에서 조회한 시각", form.get("looked_up_at"), True, errors, None, "datetime-local") }}
+</div>
+{{ area("note", "메모", form.get("note"), False, None, "“고객이 송금했다고 함” 같은 메시지만으로는 결제 확인이 되지 않아요.", 2) }}
+<label class="choice"><input type="checkbox" name="confirm" value="on"> 네이버 판매자센터에서 위 값을 직접 확인했습니다</label>
+<p class="err need-confirm" hidden>확인란을 체크해야 진행돼요.</p>
+<button class="btn btn-primary btn-lg" type="submit" data-primary {% if me != "operator" %}aria-disabled="true" aria-describedby="pay-role"{% endif %}>결제 입력</button>
+{% if me != "operator" %}<p class="err" id="pay-role">운영자 계정만 할 수 있어요.</p>{% endif %}
+</form></section>
+{% endif %}
+
+{% if pay_events %}
+<section class="card" aria-labelledby="pe-t"><h2 id="pe-t">결제 이벤트 기록</h2>
+<div class="table-wrap"><table><caption class="sr-only">결제 이벤트(추가 전용)</caption>
+<thead><tr><th scope="col">구분</th><th scope="col">상태</th><th scope="col" class="num">금액</th><th scope="col">상품주문번호</th><th scope="col">조회 시각</th><th scope="col">기록</th></tr></thead><tbody>
+{% for e in pay_events %}<tr><td>{{ PAY_PHASE_LABEL[e.phase] }}{% if e.is_test %} {{ chip("test", "시험") }}{% endif %}</td><td>{{ NAVER_STATUS.get(e.naver_status, "환불") }}</td><td class="num">{{ ("−" if e.event_type == "REFUND" else "") ~ (e.amount_krw|won) }}</td><td class="mono">{{ e.naver_product_order_id }}</td><td class="t-sm">{{ e.looked_up_at|kdatetime }}</td><td class="meta">{{ e.recorder }} · {{ e.recorded_at|kdatetime }}</td></tr>{% endfor %}
+</tbody></table></div></section>
+{% endif %}

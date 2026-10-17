@@ -1,0 +1,14 @@
+{% from "components.html" import icon, chip, csrf_input, area with context %}
+{# S-03g 이력 탭 #}
+<section class="card" aria-labelledby="tl-t"><h2 id="tl-t">이력</h2>
+<ul class="timeline">
+{% for a in timeline %}
+<li data-action="{{ a.action }}">{{ icon("lock" if a.action == "transition_rejected" else ("refresh" if a.actor_role == "system" else "commit"), "sm") }}
+<span><strong>{{ a.actor_name or "시스템" }}{% if a.actor_role != "system" %}({{ ROLE_LABEL.get(a.actor_role, a.actor_role) }}){% endif %}</strong> · {{ a.action|action_label(a) }}
+{% if a.object_type == "order" and a.prev and a.next and a.prev != a.next %}<span class="t-sm"> — {{ a.prev|state_label }} → {{ a.next|state_label }}</span>{% endif %}
+{% if a.reason %}<div class="t-sm">사유: {{ a.reason }}</div>{% endif %}
+<div class="meta">{{ a.created_at|kdatetime }}{% if a.ref_version %} · 버전 {{ a.ref_version }}{% endif %}</div></span></li>
+{% else %}<li><span class="t-muted">기록이 없어요.</span></li>{% endfor %}
+</ul></section>
+<section class="card" aria-labelledby="memo-t"><h2 id="memo-t">메모</h2>
+<form method="post" action="/orders/{{ o.order_no }}/memo">{{ csrf_input() }}<input type="hidden" name="_tab" value="history">{{ area("memo", "내부 메모", "", False, None, "이력에 남아요(고객에게 나가지 않음)", 2) }}<button class="btn btn-secondary" type="submit">메모 저장</button></form></section>

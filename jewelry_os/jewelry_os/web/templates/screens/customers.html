@@ -1,0 +1,9 @@
+{% extends "base.html" %}{% from "components.html" import icon with context %}
+{% block title %}고객{% endblock %}
+{% block content %}
+<div class="page-head"><h1>고객</h1></div>
+<form class="filterbar" method="get" role="search"><div class="grow"><label class="sr-only" for="cq">이름 검색</label><input id="cq" name="q" type="search" value="{{ q }}" placeholder="고객 이름"></div><button class="btn btn-secondary" type="submit">찾기</button></form>
+{% if items %}<div class="table-wrap"><table><thead><tr><th scope="col">이름</th><th scope="col">회신 수단</th><th scope="col" class="num">주문 수</th><th scope="col">마지막 주문</th></tr></thead><tbody>
+{% for it in items %}<tr><td><a href="/customers/{{ it.c.id }}">{{ it.c.display_name }}</a></td><td class="t-sm">{{ it.c.contact_kind or "—" }} · {{ it.masked }}</td><td class="num">{{ it.c.n_orders }}</td><td>{{ it.c.last_order|kdate if it.c.last_order else "—" }}</td></tr>{% endfor %}
+</tbody></table></div>{% else %}<div class="card empty">{{ icon("users", "lg") }}<p>고객이 없어요.</p></div>{% endif %}
+{% endblock %}

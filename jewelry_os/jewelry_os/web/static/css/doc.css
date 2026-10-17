@@ -1,0 +1,22 @@
+/* 고객 견적 문서(S-11) — A4 세로, 인쇄 우선 */
+.doc-body { background: var(--jos-color-surface-sunken); }
+.doc-tools { max-width: 794px; margin: 16px auto 0; padding: 0 16px; display: flex; flex-wrap: wrap; gap: 8px; }
+.doc { max-width: 794px; margin: 16px auto 48px; background: #fff; color: #1F1D1A; padding: 48px 56px; border-radius: 8px; box-shadow: var(--jos-shadow-1); }
+.doc-head { border-bottom: 2px solid var(--jos-color-brand-gold); padding-bottom: 16px; margin-bottom: 24px; }
+.doc-shop { font-weight: 700; letter-spacing: .04em; color: #8A6A26; }
+.doc h1 { font-size: 28px; margin: 8px 0; }
+.doc h2 { font-size: 16px; margin: 24px 0 8px; color: #45423B; }
+.doc-meta { font-size: 13px; color: #55514A; }
+.doc-to { font-size: 17px; }
+.doc-table { width: 100%; border-collapse: collapse; }
+.doc-table th, .doc-table td { border-bottom: 1px solid #DCD8CF; padding: 10px 4px; background: transparent; position: static; color: #1F1D1A; }
+.doc-total { font-size: 20px; font-weight: 700; }
+.doc-foot { margin-top: 32px; border-top: 1px solid #DCD8CF; padding-top: 12px; font-size: 13px; color: #55514A; }
+.test-strip { background: #FFF3D6; color: #7A4A00; border: 2px dashed #B57A00; text-align: center; font-weight: 700; padding: 8px; margin: 0 0 16px; }
+@media (max-width: 599px) { .doc { padding: 24px 16px; margin: 8px; } }
+@media print {
+  .doc-body { background: #fff; }
+  .doc { box-shadow: none; margin: 0; padding: 0; max-width: none; }
+  .test-strip { display: block !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  @page { size: A4; margin: 18mm; }
+}

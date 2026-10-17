@@ -1,0 +1,14 @@
+{% from "components.html" import icon, banner with context %}<!doctype html>
+<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>로그인 · {{ shop_name }}</title><link rel="stylesheet" href="/static/css/tokens.css"><link rel="stylesheet" href="/static/css/app.css"></head>
+<body><main id="main" class="auth"><div class="card">
+<h1>{{ icon("gem", "lg") }} {{ shop_name }}</h1>
+{% if setup %}{{ banner("success", "설정이 끝났어요. 만든 계정으로 로그인하세요.", ic="check") }}{% endif %}
+{% if expired %}{{ banner("info", "오래 사용해서 다시 로그인해야 해요(12시간).", "로그인하면 보던 화면으로 돌아가요.") }}{% endif %}
+{% if error %}<div class="banner danger" role="alert">{{ icon("octagon") }}<div class="b-body"><strong>{{ error }}</strong></div></div>{% endif %}
+<form method="post" action="/login">
+<input type="hidden" name="next" value="{{ next }}">
+<div class="field"><label for="u">아이디</label><input id="u" name="username" type="text" autocomplete="username" value="{{ username or '' }}" required></div>
+<div class="field"><label for="p">비밀번호</label><input id="p" name="password" type="password" autocomplete="current-password" required></div>
+<button class="btn btn-primary btn-lg btn-block" type="submit">로그인</button>
+</form></div></main></body></html>

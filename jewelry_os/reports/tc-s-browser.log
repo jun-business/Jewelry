@@ -1,0 +1,16 @@
+﻿============================= test session starts =============================
+platform win32 -- Python 3.13.14, pytest-9.1.1, pluggy-1.7.0 -- C:\Users\TEST OS\Desktop\창업\Jewelry\jewelry_os\.venv\Scripts\python.exe
+rootdir: C:\Users\TEST OS\Desktop\창업\Jewelry\jewelry_os
+configfile: pytest.ini
+plugins: anyio-4.15.1
+collecting ... collected 6 items
+
+tests/browser/test_tcs_browser.py::test_tcs_041_responsive PASSED        [ 16%]
+tests/browser/test_tcs_browser.py::test_tcs_042_accessibility PASSED     [ 33%]
+tests/browser/test_tcs_browser.py::test_tcs_051_status_and_lightbox PASSED [ 50%]
+tests/browser/test_tcs_browser.py::test_tcs_003_list_return PASSED       [ 66%]
+tests/browser/test_tcs_browser.py::test_tcs_007_lock_preserves_input PASSED [ 83%]
+tests/browser/test_tcs_browser.py::test_tcs_019_morning_warnings PASSED  [100%]
+
+- generated xml file: C:\Users\TEST OS\Desktop\창업\Jewelry\jewelry_os\reports\tc-s-browser.xml -
+======================== 6 passed in 110.03s (0:01:50) ========================

@@ -1,0 +1,100 @@
+{# PDS §4.7 컴포넌트 매크로 #}
+{% macro icon(name, cls="") -%}
+<svg class="icon {{ cls }}" aria-hidden="true" focusable="false"><use href="/static/icons.svg#i-{{ name }}"/></svg>
+{%- endmacro %}
+
+{% macro chip(kind, text, ic=None) -%}
+<span class="chip {{ kind }}">{% if ic %}{{ icon(ic, "sm") }}{% endif %}{{ text }}</span>
+{%- endmacro %}
+
+{% macro state_chip(state) -%}
+{% set k = state|chip_kind %}
+{{ chip(k, state|state_label, "check" if k == "done" else ("x" if k == "ended" else None)) }}
+{%- endmacro %}
+
+{% macro order_chips(o, holds, issues) -%}
+<span class="chips">{{ state_chip(o.lifecycle_state) }}
+{% for h in holds %}{{ chip("hold", HOLD_LABEL[h.reason], "clock") }}{% endfor %}
+{% for i in issues %}{{ chip("issue", ISSUE_LABEL[i.type], "octagon") }}{% endfor %}
+{% if o.is_test %}{{ chip("test", "시험", "flask") }}{% endif %}</span>
+{%- endmacro %}
+
+{% macro blocked(list, id) -%}
+{% if list %}
+<ul class="blocked" id="{{ id }}" data-unmet>
+{% for u in list %}<li data-unmet-code="{{ u.code }}">{{ icon("octagon", "sm") }}<span><span class="sr-only">미충족: </span>{{ u.message }}{% if u.fix %} <a href="{{ u.fix if u.fix.startswith('/') else u.fix }}">해결하기</a>{% endif %}</span></li>{% endfor %}
+</ul>
+{% endif %}
+{%- endmacro %}
+
+{% macro banner(kind, title, text=None, link=None, ic="info", role=None) -%}
+<div class="banner {{ kind }}" {% if role %}role="{{ role }}"{% endif %}>
+{{ icon(ic) }}<div class="b-body"><strong>{{ title }}</strong>{% if text %}<span>{{ text }}</span>{% endif %}</div>
+{% if link %}<a href="{{ link[0] }}">{{ link[1] }}</a>{% endif %}
+</div>
+{%- endmacro %}
+
+{% macro field_error(errors, name) -%}
+{% if errors and errors.get(name) %}<p class="err" id="err-{{ name }}">{{ icon("octagon", "sm") }}{{ errors[name] }}</p>{% endif %}
+{%- endmacro %}
+
+{% macro text(name, label, value="", required=False, errors=None, help=None, type="text", attrs="") -%}
+<div class="field">
+<label for="f-{{ name }}">{{ label }}{% if required %} <span class="req">(필수)</span>{% endif %}</label>
+<input id="f-{{ name }}" name="{{ name }}" type="{{ type }}" value="{{ value or '' }}" {{ attrs|safe }}
+ {% if errors and errors.get(name) %}aria-invalid="true" aria-describedby="err-{{ name }}"{% elif help %}aria-describedby="help-{{ name }}"{% endif %}>
+{% if help %}<p class="help" id="help-{{ name }}">{{ help }}</p>{% endif %}
+{{ field_error(errors, name) }}
+</div>
+{%- endmacro %}
+
+{% macro area(name, label, value="", required=False, errors=None, help=None, rows=4, readonly=False) -%}
+<div class="field">
+<label for="f-{{ name }}">{{ label }}{% if required %} <span class="req">(필수)</span>{% endif %}</label>
+<textarea id="f-{{ name }}" name="{{ name }}" rows="{{ rows }}" {% if readonly %}readonly{% endif %}
+ {% if errors and errors.get(name) %}aria-invalid="true" aria-describedby="err-{{ name }}"{% elif help %}aria-describedby="help-{{ name }}"{% endif %}>{{ value or '' }}</textarea>
+{% if help %}<p class="help" id="help-{{ name }}">{{ help }}</p>{% endif %}
+{{ field_error(errors, name) }}
+</div>
+{%- endmacro %}
+
+{% macro evidence(prefix="", errors=None, title="증빙") -%}
+<fieldset>
+<legend>{{ title }} <span class="req">(필수)</span></legend>
+<div class="choices" role="radiogroup" aria-label="채널">
+{% for v in ["카카오톡", "전화", "방문", "기타"] %}<label class="choice"><input type="radio" name="{{ prefix }}channel" value="{{ v }}" {% if loop.first %}checked{% endif %}> {{ v }}</label>{% endfor %}
+</div>
+{{ area(prefix ~ "evidence", "근거", "", True, errors, "고객 메시지 요지 또는 대화 링크를 적어 주세요", 3) }}
+</fieldset>
+{%- endmacro %}
+
+{% macro csrf_input() -%}<input type="hidden" name="csrf" value="{{ csrf }}">{%- endmacro %}
+
+{# 승인 대화상자(C-11): JS면 <dialog>, JS 없으면 ?confirm= 패널(BD-006) #}
+{% macro approval(id, action_url, title, summary, result_text, approver, extra="", warn=None, version=None, tab=None, reason=False, reason_label="사유", open=False, primary_label="승인", danger=False) -%}
+{% if open %}<section id="{{ id }}" class="card confirm-panel" aria-labelledby="{{ id }}-t">{% else %}<dialog id="{{ id }}" aria-labelledby="{{ id }}-t">{% endif %}
+<form class="dlg" method="post" action="{{ action_url }}" data-confirm-required>
+{{ csrf_input() }}{% if version is not none %}<input type="hidden" name="version" value="{{ version }}">{% endif %}
+{% if tab %}<input type="hidden" name="_tab" value="{{ tab }}">{% endif %}
+<h2 id="{{ id }}-t">{{ title }}</h2>
+{% if warn %}{% for w in warn %}{{ banner("warning", w, ic="alert") }}{% endfor %}{% endif %}
+{% if summary %}<dl class="kv">{% for k, v in summary %}<dt>{{ k }}</dt><dd>{{ v }}</dd>{% endfor %}</dl>{% endif %}
+{{ extra|safe }}
+{% if reason %}{{ area("reason", reason_label, (form.get("reason", "") if form is defined and form else ""), True, None, None, 3) }}{% endif %}
+<p class="t-muted t-sm">{{ result_text }}</p>
+<p class="t-caption">{{ "승인자" if not danger else "처리자" }}: {{ approver }}</p>
+<label class="choice"><input type="checkbox" name="confirm" value="on"> 위 내용을 확인했습니다</label>
+<p class="err need-confirm" hidden>확인란을 체크해야 진행돼요.</p>
+<div class="dlg-actions">{% if open %}<a class="btn btn-secondary" href="?">취소</a>{% else %}<button type="button" class="btn btn-secondary" data-close>취소</button>{% endif %}
+<button type="submit" class="btn {{ 'btn-danger' if danger else 'btn-primary' }} btn-lg" data-primary>{{ primary_label }}</button></div>
+</form>
+{% if open %}</section>{% else %}</dialog>{% endif %}
+{%- endmacro %}
+
+{% macro freshness_sync(sync) -%}
+<span class="meta">{{ icon("refresh", "sm") }} Google 응답 · {{ sync.text }}</span>
+{%- endmacro %}
+
+{% macro manual_note(label="수동 기록 — 실시간 수신 아님") -%}
+<span class="meta">{{ icon("hand", "sm") }} {{ label }}</span>
+{%- endmacro %}

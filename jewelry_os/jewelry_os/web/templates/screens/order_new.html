@@ -1,0 +1,28 @@
+{% extends "base.html" %}{% from "components.html" import icon, text, area, banner, csrf_input, field_error with context %}
+{% block title %}수기 접수{% endblock %}
+{% block content %}
+<div class="page-head"><div><a class="btn btn-tertiary" href="/orders">{{ icon("back") }}주문 목록</a><h1>수기 접수</h1>
+<p class="t-muted">카카오톡·전화·방문으로 들어온 의뢰를 직접 기록해요.</p></div></div>
+{% if test_mode %}{{ banner("warning", "시험 운영 모드 — 실제 고객 정보를 입력하지 마세요", None, ("/settings/gates", "Gate 보기"), "flask") }}{% endif %}
+{% if errors %}<div class="banner danger" role="alert">{{ icon("octagon") }}<div class="b-body"><strong>입력을 확인해 주세요</strong><ul>{% for k, v in errors.items() %}<li><a href="#f-{{ k }}">{{ v }}</a></li>{% endfor %}</ul></div></div>{% endif %}
+<form class="card" method="post" action="/orders/new" data-guard>
+{{ csrf_input() }}
+<div class="grid-2">
+{{ text("display_name", "고객 표시명", form.get("display_name"), True, errors) }}
+<div>
+<div class="field"><label for="f-contact_kind">회신 수단</label><select id="f-contact_kind" name="contact_kind">{% for v in ["카카오톡", "전화", "이메일"] %}<option {% if form.get("contact_kind") == v %}selected{% endif %}>{{ v }}</option>{% endfor %}</select></div>
+{{ text("contact_value", "회신 수단 값", form.get("contact_value"), True, errors, "카카오톡 ID 또는 전화번호") }}
+</div>
+<div class="field"><label for="f-product_type">제품 유형 <span class="req">(필수)</span></label><select id="f-product_type" name="product_type" {% if errors.get("product_type") %}aria-invalid="true" aria-describedby="err-product_type"{% endif %}><option value="">고르세요</option>{% for v in ["반지", "목걸이", "귀걸이", "팔찌", "기타"] %}<option {% if form.get("product_type") == v %}selected{% endif %}>{{ v }}</option>{% endfor %}</select>{{ field_error(errors, "product_type") }}</div>
+<div class="field"><label for="f-intake_channel">접수 경로</label><select id="f-intake_channel" name="intake_channel">{% for v in ["카카오톡", "전화", "방문"] %}<option>{{ v }}</option>{% endfor %}</select></div>
+</div>
+{{ area("description", "원하는 디자인 설명", form.get("description"), True, errors, None, 5) }}
+<div class="grid-2">{{ text("material", "소재(아는 경우)", form.get("material")) }}{{ text("size", "호수·사이즈(아는 경우)", form.get("size")) }}</div>
+<fieldset><legend>개인정보 동의 증빙 <span class="req">(필수)</span></legend>
+<p class="help">폼 밖에서 받은 동의를 어떻게 확인했는지 적어요. 동의 문구 버전: {{ "consent_v1" }}</p>
+<div class="choices">{% for v in ["카카오톡", "전화", "방문", "기타"] %}<label class="choice"><input type="radio" name="consent_channel" value="{{ v }}" {% if loop.first %}checked{% endif %}> {{ v }}</label>{% endfor %}</div>
+{{ area("consent_evidence", "근거", form.get("consent_evidence"), True, errors, "예: 카카오톡으로 개인정보 수집·이용 안내를 보내고 ‘동의합니다’ 답을 받음(10월 16일 21:10)", 3) }}
+</fieldset>
+<div class="dlg-actions"><a class="btn btn-secondary" href="/orders">취소</a><button class="btn btn-primary btn-lg" type="submit">주문 만들기</button></div>
+</form>
+{% endblock %}

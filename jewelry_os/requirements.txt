@@ -1,0 +1,8 @@
+# Jewelry OS 실행에 필요한 패키지(버전 고정 — 2026-10-17 시험 통과 조합)
+fastapi==0.143.2
+uvicorn==0.54.0
+Jinja2==3.1.6
+python-multipart==0.0.32
+httpx==0.28.1
+cryptography==50.0.2
+anthropic==1.15.0

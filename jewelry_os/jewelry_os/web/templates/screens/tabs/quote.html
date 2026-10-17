@@ -1,0 +1,96 @@
+{% from "components.html" import icon, chip, blocked, banner, csrf_input, approval, evidence, area, text with context %}
+{# S-03b 시안·견적 탭 — UI-03 #}
+{% set approver = user.display_name ~ "(" ~ user.role_label ~ ")" %}
+{% if change_open %}
+<div class="banner warning">{{ icon("branch") }}<div class="b-body"><strong>변경 요청 처리 중 — 새 견적 버전을 만들고 고객 동의를 다시 받으세요</strong>
+<ol class="t-sm"><li>새 견적 버전 작성 {% if q_draft %}✓{% endif %}</li><li>재견적 승인</li><li>고객 재동의 기록</li></ol></div></div>
+{% endif %}
+
+<section class="card" aria-labelledby="concept-t">
+<div class="card-head"><h2 id="concept-t">무료 시안</h2><span class="meta">무료 시안 {{ concepts|length }}/{{ free_limit }}회 사용 · 정책: 첫 시안 {{ free_limit }}버전(TBD-003)</span></div>
+{% if concepts|length > free_limit %}{{ banner("warning", "무료 시안 횟수를 넘었어요. 추가 시안은 견적에 포함하세요.", ic="alert") }}{% endif %}
+{% if concepts %}<div class="thumbs">{% for cp in concepts %}<button class="thumb" type="button" data-lightbox data-full="/assets/{{ cp.asset_id }}" data-alt="시안 v{{ cp.version }} 미리보기"><img src="/assets/{{ cp.asset_id }}" alt="시안 v{{ cp.version }} 미리보기" loading="lazy"><span class="cap">{{ chip("version", "v" ~ cp.version) }} {{ cp.created_at|kdate }} · {{ cp.work_minutes }}분<br>{{ cp.notes or "" }}</span></button>{% endfor %}</div>
+{% else %}<p class="t-muted">아직 올린 시안이 없어요.</p>{% endif %}
+<form class="dropzone" method="post" action="/orders/{{ o.order_no }}/concepts" enctype="multipart/form-data">{{ csrf_input() }}
+<div class="grid-3"><div class="field"><label for="c-file">시안 파일 <span class="req">(JPG·PNG·PDF, 최대 30MB)</span></label><input id="c-file" type="file" name="file" accept=".jpg,.jpeg,.png,.webp,.pdf"></div>
+{{ text("notes", "수정사항", "") }}{{ text("minutes", "투입 시간(분)", "", False, None, None, "number", 'min="0"') }}</div>
+{% if errors and errors.get("file") %}<p class="err">{{ errors.file }}</p>{% endif %}
+<button class="btn btn-secondary" type="submit" {% if me != "maker" %}aria-disabled="true" aria-describedby="c-role"{% endif %}>{{ icon("upload", "sm") }}시안 올리기</button>{% if me != "maker" %}<p class="err" id="c-role">아버님(제작 책임) 계정만 할 수 있어요.</p>{% endif %}
+</form>
+</section>
+
+<section class="card" aria-labelledby="quote-t" id="quote">
+<div class="card-head"><h2 id="quote-t">견적</h2>
+<span class="chips">{% for q in q_all %}{{ chip("version", "v" ~ q.version ~ " · " ~ {"DRAFT": "초안", "APPROVED": "승인됨", "SUPERSEDED": "대체됨"}[q.status]) }}{% endfor %}</span></div>
+{% if q_draft %}
+{% set q = q_draft %}{% set sp = q.spec_json|fromjson %}
+<form method="post" action="/quotes/{{ q.id }}/save" data-guard>{{ csrf_input() }}
+<h3>견적 v{{ q.version }} · 초안</h3>
+<div class="table-wrap"><table class="quote-items"><caption class="sr-only">견적 품목</caption>
+<thead><tr><th scope="col">종류</th><th scope="col">고객에게 보일 이름</th><th scope="col">금액(원)</th><th scope="col">{{ icon("lock", "sm") }} 예상 원가(내부)</th><th scope="col">{{ icon("lock", "sm") }} 메모(내부)</th></tr></thead><tbody>
+{% set rows = q_draft_items|list %}
+{% for i in range(rows|length + 3) %}{% set it = rows[i] if i < rows|length else none %}
+<tr><td><select name="item_{{ i }}_kind" aria-label="품목 {{ i + 1 }} 종류">{% for k, v in [("metal","금속"),("stone","스톤"),("engraving","각인"),("design","설계비"),("factory","외주 제작비"),("other","기타")] %}<option value="{{ k }}" {% if it and it.kind == k %}selected{% endif %}>{{ v }}</option>{% endfor %}</select></td>
+<td><input name="item_{{ i }}_label" value="{{ it.label_public if it else '' }}" aria-label="품목 {{ i + 1 }} 이름"></td>
+<td><input name="item_{{ i }}_amount" class="money" inputmode="numeric" value="{{ '{:,}'.format(it.amount_krw) if it else '' }}" aria-label="품목 {{ i + 1 }} 금액"></td>
+<td class="internal-cell"><input name="item_{{ i }}_cost" class="money" inputmode="numeric" value="{{ '{:,}'.format(it.internal_cost_krw) if it else '' }}" aria-label="품목 {{ i + 1 }} 예상 원가(내부)"></td>
+<td class="internal-cell"><input name="item_{{ i }}_note" value="{{ it.note_internal if it and it.note_internal else '' }}" aria-label="품목 {{ i + 1 }} 내부 메모"></td></tr>
+{% endfor %}
+</tbody></table></div>
+<p class="t-sm">품목 합계 = 총액 {{ q.total_krw|won }} (총액은 품목 합으로만 계산돼요)</p>
+<div class="grid-2">
+<fieldset><legend>부가세 <span class="req">(필수)</span></legend><label class="choice"><input type="radio" name="tax_included" value="1" {% if q.tax_included == 1 %}checked{% endif %}> 포함</label><label class="choice"><input type="radio" name="tax_included" value="0" {% if q.tax_included == 0 %}checked{% endif %}> 별도</label></fieldset>
+<fieldset><legend>배송비 <span class="req">(필수)</span></legend><label class="choice"><input type="radio" name="shipping_included" value="1" {% if q.shipping_included == 1 %}checked{% endif %}> 포함</label><label class="choice"><input type="radio" name="shipping_included" value="0" {% if q.shipping_included == 0 %}checked{% endif %}> 별도</label></fieldset>
+</div>
+<p class="t-sm">결제 분할: {% if q.payment_policy == "FULL" %}전액 {{ q.total_krw|won }} · 잔금 해당 없음{% else %}예약금 {{ q.deposit_krw|won }} · 잔금 {{ q.balance_krw|won }} · 정책: 1/3 원 단위 올림{% endif %}</p>
+<h3>제작 사양</h3>
+<div class="grid-3">{% for k, lab in SPEC_FIELDS %}<div class="field"><label for="sp-{{ k }}">{{ lab }}</label><input id="sp-{{ k }}" name="spec_{{ k }}" value="{{ sp.get(k) or spec.get(k) or '' }}"></div>{% endfor %}</div>
+{{ area("spec_summary", "사양 요약(고객 문서에 표시)", q.spec_summary or "", False, None, None, 2) }}
+<div class="grid-2">
+<div class="field"><label for="pd">약속 납기(고객 약속일) <span class="req">(필수)</span></label><input id="pd" type="date" name="promised_date" value="{{ q.promised_date or '' }}" aria-describedby="pd-help"><p class="help" id="pd-help">내부 예상: {{ internal_eta|kdate }}(다음 CAD 날짜 + 제조 기간) — 자동으로 넣지 않아요.</p></div>
+<div class="field"><label for="vu">견적 유효기간 <span class="req">(필수)</span></label><input id="vu" type="date" name="valid_until" value="{{ q.valid_until or '' }}"></div>
+</div>
+<div class="internal"><div class="internal-head">{{ icon("lock", "sm") }}내부 전용 — 고객 문서·문구에 나가지 않아요</div>
+<div class="grid-3">{{ text("variable_cost", "변동비(원)", '{:,}'.format(q.variable_cost_krw)) }}{{ text("design_minutes", "설계 예상 시간(분)", q.design_minutes_est, False, None, None, "number") }}
+<div><p class="label">예상 마진</p><p class="t-lg">{{ (q.total_krw - q.cost_estimate_krw - q.variable_cost_krw)|won }}{% if q.total_krw %} ({{ ((q.total_krw - q.cost_estimate_krw - q.variable_cost_krw) * 100 // q.total_krw) }}%){% endif %}</p></div></div>
+{{ area("internal_note", "내부 메모", q.internal_note or "", False, None, None, 2) }}</div>
+<div class="btn-row"><button class="btn btn-secondary" type="submit" name="then" value="save">임시 저장</button>
+<button class="btn btn-primary" type="submit" name="then" value="approve" id="approve" {% if me != "maker" %}aria-disabled="true"{% endif %}>저장하고 {{ "재견적 승인" if change_open else "견적 승인" }}</button></div>
+</form>
+{% set warn = [] %}{% if not gate_q %}{% set _ = warn.append("GATE-Q-01 전이라 이 견적은 ‘시험 견적’으로 승인돼요. 고객 문서에 시험 표시가 붙고 실거래 결제에 쓸 수 없어요.") %}{% endif %}{% if test_mode %}{% set _ = warn.append("시험 운영 모드예요. 실제 고객 결제를 받지 마세요.") %}{% endif %}
+{% set code = "approve_requote" if change_open else "approve_quote" %}
+{{ approval("dlg-approve", "/orders/" ~ o.order_no ~ "/actions/" ~ code, "견적 v" ~ q.version ~ "를 승인할까요?", [("총액", q.total_krw|won), ("부가세·배송비", ("포함" if q.tax_included else "별도") ~ " · " ~ ("포함" if q.shipping_included else "별도")), ("예약금·잔금", (q.deposit_krw|won) ~ " · " ~ (q.balance_krw|won)), ("약속 납기", q.promised_date|kdate), ("유효기간", q.valid_until|kdate)], "승인하면 고객 안내 문서를 만들 수 있어요. 승인한 견적은 고칠 수 없고 새 버전으로만 바꿀 수 있어요. 적용 정책 버전은 승인 시점에 고정돼요.", approver, "", warn, o.version, "quote", false, "", confirm == "approve_quote", "승인") }}
+{% if confirm == "approve_quote" %}<p class="t-sm">위 확인 패널에서 승인하세요.</p>{% endif %}
+{% elif q_appr %}
+{% set q = q_appr %}
+<h3>견적 v{{ q.version }} · 승인됨 {{ icon("lock", "sm") }} {% if q.is_test %}{{ chip("test", "시험 견적", "flask") }}{% endif %}</h3>
+<p class="meta">승인 {{ q.approved_at|kdatetime }} · 적용 정책 v{{ q.terms_version or "—" }}</p>
+<div class="table-wrap"><table><caption class="sr-only">승인 견적 품목과 내부 원가</caption><thead><tr><th scope="col">품목</th><th scope="col" class="num">금액</th><th scope="col" class="num internal-cell">{{ icon("lock", "sm") }} 예상 원가(내부)</th></tr></thead><tbody>
+{% for it in q_appr_items %}<tr><td>{{ it.label_public }}</td><td class="num">{{ it.amount_krw|won }}</td><td class="num internal-cell">{{ it.internal_cost_krw|won }}</td></tr>{% endfor %}
+<tr><th scope="row">총액</th><td class="num"><strong>{{ q.total_krw|won }}</strong></td><td class="num internal-cell">{{ q.cost_estimate_krw|won }}</td></tr>
+<tr class="internal-cell"><th scope="row">{{ icon("lock", "sm") }} 예상 마진(내부)</th><td class="num" colspan="2">{{ (q.total_krw - (q.cost_estimate_krw or 0) - (q.variable_cost_krw or 0))|won }} <span class="meta">변동비 {{ (q.variable_cost_krw or 0)|won }} 차감 · 고객 문서에 나가지 않아요</span></td></tr></tbody></table></div>
+<div class="btn-row">
+<a class="btn btn-secondary" href="/docs/quote/{{ q.id }}" target="_blank" rel="noopener">{{ icon("external", "sm") }}고객 안내 문서 보기</a>
+<a class="btn btn-tertiary" href="/docs/quote/{{ q.id }}.txt" target="_blank" rel="noopener">카톡용 텍스트</a>
+<form method="post" action="/orders/{{ o.order_no }}/quotes">{{ csrf_input() }}<button class="btn btn-tertiary" type="submit" {% if me != "maker" %}aria-disabled="true"{% endif %}>새 버전 만들기</button></form>
+</div>
+{% else %}
+<p class="t-muted">아직 견적이 없어요.</p>
+<form method="post" action="/orders/{{ o.order_no }}/quotes">{{ csrf_input() }}<button class="btn btn-primary" type="submit" {% if me != "maker" %}aria-disabled="true" aria-describedby="q-role"{% endif %}>견적 작성</button></form>
+{% if me != "maker" %}<p class="err" id="q-role">아버님(제작 책임) 계정만 할 수 있어요.</p>{% endif %}
+{% endif %}
+</section>
+
+{% if q_appr and (o.lifecycle_state == "QUOTE_APPROVED" or change_open) %}
+<section class="card" id="accept" aria-labelledby="acc-t"><h2 id="acc-t">고객 동의 기록</h2>
+{% set code2 = "record_reacceptance" if change_open else "record_acceptance" %}
+<form method="post" action="/orders/{{ o.order_no }}/actions/{{ code2 }}" data-confirm-required>{{ csrf_input() }}<input type="hidden" name="version" value="{{ o.version }}"><input type="hidden" name="_tab" value="quote">
+<dl class="kv"><dt>대상 견적</dt><dd>v{{ q_appr.version }} · {{ q_appr.total_krw|won }}</dd><dt>약관·정책</dt><dd>v{{ q_appr.terms_version or "—" }}</dd></dl>
+{{ evidence("", errors, "고객 동의 증빙") }}
+<div class="field"><label for="acc-at">동의 일시</label><input id="acc-at" type="datetime-local" name="accepted_at"></div>
+<label class="choice"><input type="checkbox" name="confirm" value="on"> 고객이 위 버전에 동의한 것을 증빙으로 확인했습니다</label>
+<p class="err need-confirm" hidden>확인란을 체크해야 진행돼요.</p>
+<button class="btn btn-primary btn-lg" type="submit" data-primary>{{ "고객 재동의 기록" if change_open else "고객 동의 기록" }}</button>
+</form></section>
+{% endif %}
+{% if acceptances %}<section class="card"><h2>동의 기록</h2><ul class="timeline">{% for a in acceptances %}<li>{{ icon("check", "sm") }}<span>{{ {"quote": "견적", "design": "최종 시안", "consent": "개인정보"}[a.kind] }} 동의{% if a.quote_version %} · 견적 v{{ a.quote_version }}{% endif %} · {{ a.channel }} · {{ a.accepted_at|kdatetime }}<br><span class="t-sm">{{ a.evidence_text }}</span></span></li>{% endfor %}</ul></section>{% endif %}

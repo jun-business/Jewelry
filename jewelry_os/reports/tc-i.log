@@ -1,0 +1,23 @@
+﻿============================= test session starts =============================
+platform win32 -- Python 3.13.14, pytest-9.1.1, pluggy-1.7.0 -- C:\Users\TEST OS\Desktop\창업\Jewelry\jewelry_os\.venv\Scripts\python.exe
+rootdir: C:\Users\TEST OS\Desktop\창업\Jewelry\jewelry_os
+configfile: pytest.ini
+plugins: anyio-4.15.1
+collecting ... collected 13 items
+
+tests/integration/test_tci.py::test_tci_001_intake_to_review PASSED      [  7%]
+tests/integration/test_tci.py::test_tci_002_analysis_failure PASSED      [ 15%]
+tests/integration/test_tci.py::test_tci_003_payment_rollback PASSED      [ 23%]
+tests/integration/test_tci.py::test_tci_004_issue_check_and_reverify PASSED [ 30%]
+tests/integration/test_tci.py::test_tci_005_new_design_revalidates PASSED [ 38%]
+tests/integration/test_tci.py::test_tci_006_screen_and_post_same_messages PASSED [ 46%]
+tests/integration/test_tci.py::test_tci_007_state_trigger_guard PASSED   [ 53%]
+tests/integration/test_tci.py::test_tci_008_quiet_hours_badge PASSED     [ 61%]
+tests/integration/test_tci.py::test_tci_009_backup_during_writes PASSED  [ 69%]
+tests/integration/test_tci.py::test_tci_010_policy_refs PASSED           [ 76%]
+tests/integration/test_tci.py::test_tci_011_no_consent_flow PASSED       [ 84%]
+tests/integration/test_tci.py::test_tci_012_change_request_payments PASSED [ 92%]
+tests/integration/test_tci.py::test_tci_013_web_optimistic_lock PASSED   [100%]
+
+- generated xml file: C:\Users\TEST OS\Desktop\창업\Jewelry\jewelry_os\reports\tc-i.xml -
+============================= 13 passed in 3.90s ==============================

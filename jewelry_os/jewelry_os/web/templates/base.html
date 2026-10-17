@@ -1,0 +1,73 @@
+{% from "components.html" import icon, banner, csrf_input with context %}<!doctype html>
+<html lang="ko" data-theme="{{ (prefs.get('theme') if prefs else 'system') if (prefs and prefs.get('theme') in ('light','dark')) else '' }}" data-text="{{ prefs.get('text', 'normal') if prefs else 'normal' }}">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>{% block title %}Jewelry OS{% endblock %} · {{ shop_name }}</title>
+<link rel="stylesheet" href="/static/css/tokens.css">
+<link rel="stylesheet" href="/static/css/app.css">
+<script src="/static/js/app.js" defer></script>
+</head>
+<body data-authed="{{ 1 if user else 0 }}" data-csrf="{{ csrf }}" data-lock-minutes="{{ lock_minutes }}" data-session-created="{{ session_created or '' }}" class="{% block bodyclass %}{% endblock %}">
+<a class="skip" href="#main">본문으로 건너뛰기</a>
+<div id="live" class="sr-only" role="status" aria-live="polite"></div>
+{% if user %}
+<div class="shell">
+<nav class="sidebar" aria-label="주 메뉴">
+<a class="brand" href="/">{{ icon("gem") }}<span class="name">{{ shop_name }}</span></a>
+{% set nav = [("/", "home", "홈", None), ("/orders", "list", "주문", queue_counts.get('review') if queue_counts else None), ("/payments", "card", "결제", queue_counts.get('payment') if queue_counts else None), ("/cs", "message", "상담", None), ("/schedule", "calendar", "일정", None), ("/customers", "users", "고객", None), ("/analytics", "chart", "실적", None), ("/settings", "settings", "설정", None), ("/system", "server", "시스템 상태", None)] %}
+<ul class="nav">
+{% for href, ic, lab, cnt in nav %}
+<li><a href="{{ href }}" {% if (href == '/' and path == '/') or (href != '/' and path.startswith(href)) %}aria-current="page"{% endif %} title="{{ lab }}">{{ icon(ic) }}<span class="lbl">{{ lab }}</span>{% if cnt %}<span class="count">{{ cnt }}</span>{% endif %}</a></li>
+{% endfor %}
+</ul>
+</nav>
+<div class="main">
+<header class="topbar">
+<button id="menu-btn" class="icon-btn menu-btn" type="button" aria-label="메뉴 열기" aria-expanded="false">{{ icon("menu") }}</button>
+<div class="search" role="search">
+{{ icon("search", "sm") }}
+<label class="sr-only" for="global-search">주문 검색(주문번호·고객 이름)</label>
+<input id="global-search" type="search" placeholder="주문번호·고객 이름 ( / )" autocomplete="off" role="combobox" aria-expanded="false" aria-controls="search-results">
+<ul id="search-results" class="search-results" role="listbox" hidden></ul>
+</div>
+<span class="spacer"></span>
+<a class="status-ind {{ sync_indicator.level }}" href="/system" aria-label="시스템 상태: {{ sync_indicator.text }}"><span class="led" aria-hidden="true"></span><span class="txt">{{ sync_indicator.text }}</span></a>
+<a id="bell" class="icon-btn bell" href="/system" aria-label="알림{% if badge %} {{ badge }}건{% endif %}">{{ icon("bell") }}{% if badge %}<span class="badge">{{ badge if badge < 100 else "99+" }}</span>{% endif %}</a>
+<form method="post" action="/logout" class="no-print">{{ csrf_input() }}<button class="icon-btn" type="submit" aria-label="로그아웃 ({{ user.display_name }} · {{ user.role_label }})" title="{{ user.display_name }} · {{ user.role_label }} — 로그아웃">{{ icon("logout") }}</button></form>
+</header>
+<div id="global-banners" class="global-banners" role="region" aria-label="시스템 알림">
+{% if test_mode %}<div class="banner test-mode" role="status">{{ icon("flask") }}<div class="b-body"><strong>시험 운영 모드 — 실제 고객 결제를 받지 마세요</strong><span>Gate {{ unpassed_gates|length }}개 미통과({{ unpassed_gates|join(", ") }})</span></div><a href="/settings/gates">Gate 보기</a></div>{% endif %}
+{% if startup_banner %}<div class="banner info" role="status">{{ icon("refresh") }}<div class="b-body"><strong>PC가 약 {{ startup_banner.hours }}시간 꺼져 있었어요({{ startup_banner.from|kdatetime }} ~ {{ startup_banner.to|kdatetime }})</strong><span>그동안 들어온 의뢰 {{ startup_banner.backfilled or 0 }}건을 가져왔어요.</span></div><form method="post" action="/system/ack-startup">{{ csrf_input() }}<input type="hidden" name="id" value="{{ startup_banner.id }}"><button class="btn btn-secondary btn-sm" type="submit">확인</button></form></div>{% endif %}
+{% for key, title, sev in global_banners[:2] %}{{ banner("danger" if sev == "danger" else "warning", title, None, ("/system", "시스템 상태"), "alert", "alert" if sev == "danger" else None) }}{% endfor %}
+</div>
+<main id="main" class="content" tabindex="-1">
+{% block content %}{% endblock %}
+</main>
+</div>
+</div>
+<nav class="bottom-tabs" aria-label="하단 메뉴">
+<a href="/" {% if path == '/' %}aria-current="page"{% endif %}>{{ icon("home") }}<span>홈</span></a>
+<a href="/orders" {% if path.startswith('/orders') %}aria-current="page"{% endif %}>{{ icon("list") }}<span>주문</span></a>
+<a href="/cs" {% if path.startswith('/cs') %}aria-current="page"{% endif %}>{{ icon("message") }}<span>상담</span></a>
+<button type="button" data-open="more-dialog">{{ icon("more") }}<span>더보기</span></button>
+</nav>
+<dialog id="more-dialog" aria-labelledby="more-t"><div class="dlg"><h2 id="more-t">더보기</h2>
+<ul class="nav">{% for href, ic, lab in [("/payments","card","결제"),("/schedule","calendar","일정"),("/customers","users","고객"),("/analytics","chart","실적"),("/settings","settings","설정"),("/system","server","시스템 상태")] %}<li><a href="{{ href }}">{{ icon(ic) }}<span class="lbl">{{ lab }}</span></a></li>{% endfor %}</ul>
+<div class="dlg-actions"><button class="btn btn-secondary" type="button" data-close>닫기</button></div></div></dialog>
+<dialog id="notif-dialog" aria-labelledby="notif-t"><div class="dlg"><h2 id="notif-t">알림</h2><ul class="timeline"></ul>
+<div class="dlg-actions"><button class="btn btn-secondary" type="button" data-close>닫기</button></div></div></dialog>
+<div id="lock-warning" class="toasts" hidden role="alertdialog" aria-labelledby="lw-t"><div class="toast"><span id="lw-t">1분 뒤 화면이 잠겨요.</span><button id="lock-continue" class="btn btn-primary btn-sm" type="button">계속 사용</button></div></div>
+<div id="lock-overlay" class="lock-overlay" hidden role="dialog" aria-modal="true" aria-labelledby="lock-t">
+<form id="lock-form" class="card lock-card"><h2 id="lock-t">{{ icon("lock", "lg") }} 화면이 잠겼어요</h2>
+<p class="t-muted">{{ user.display_name }}({{ user.role_label }}) · 비밀번호를 입력하면 하던 화면으로 돌아가요. 입력 중이던 내용은 그대로 있어요.</p>
+<label for="lock-password">비밀번호</label><input id="lock-password" type="password" autocomplete="current-password">
+<p id="lock-error" class="err" role="alert"></p>
+<div class="dlg-actions"><a class="btn btn-tertiary" href="/login" data-noguard>다른 계정으로 로그인</a><button class="btn btn-primary btn-lg" type="submit">잠금 해제</button></div>
+</form></div>
+{% else %}
+<main id="main">{% block auth %}{% endblock %}</main>
+{% endif %}
+<div id="toasts" class="toasts" aria-live="polite">{% if flash %}<div class="toast {{ 'error' if flash.kind == 'error' else 'success' }}" role="{{ 'alert' if flash.kind == 'error' else 'status' }}" {% if flash.kind != 'error' %}data-auto{% endif %}><span>{{ flash.message }}</span></div>{% endif %}</div>
+</body>
+</html>

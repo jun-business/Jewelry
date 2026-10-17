@@ -1,0 +1,4 @@
+# 개발·시험용(아버님 PC에는 필요 없음)
+-r requirements.txt
+pytest==9.1.1
+playwright==1.64.0

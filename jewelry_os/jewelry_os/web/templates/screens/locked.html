@@ -1,0 +1,11 @@
+{% from "components.html" import icon with context %}<!doctype html>
+<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>화면 잠김 · Jewelry OS</title><link rel="stylesheet" href="/static/css/tokens.css"><link rel="stylesheet" href="/static/css/app.css"></head>
+<body><main id="main" class="auth"><form class="card" method="post" action="/locked/unlock">
+<h1>{{ icon("lock", "lg") }} 화면이 잠겼어요</h1>
+<p class="t-muted">오랫동안 사용하지 않아 잠갔어요. 비밀번호를 입력하면 하던 화면으로 돌아가요.</p>
+{% if error %}<p class="err" role="alert">{{ error }}</p>{% endif %}
+<input type="hidden" name="next" value="{{ next|replace(request.base_url|string, '/') if next else '/' }}">
+<div class="field"><label for="p">비밀번호</label><input id="p" name="password" type="password" autocomplete="current-password" autofocus required></div>
+<div class="dlg-actions"><a class="btn btn-tertiary" href="/login">다른 계정으로 로그인</a><button class="btn btn-primary btn-lg" type="submit">잠금 해제</button></div>
+</form></main></body></html>

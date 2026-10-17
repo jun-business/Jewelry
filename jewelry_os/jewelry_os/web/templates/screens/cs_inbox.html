@@ -1,0 +1,13 @@
+{% extends "base.html" %}{% from "components.html" import icon, chip, manual_note with context %}
+{% block title %}상담{% endblock %}
+{% block content %}
+<div class="page-head"><div><h1>상담함</h1>{{ manual_note() }}</div></div>
+<section class="card" aria-labelledby="p-t"><h2 id="p-t">승인 대기 초안 <span class="chip version">{{ box.pending|length }}</span></h2>
+{% if box.pending %}<ul class="timeline">{% for d in box.pending %}<li>{{ icon("message", "sm") }}<span><a href="/orders/{{ d.order_no }}/cs">{{ d.order_no }}</a> · {{ d.customer_name }} · {{ chip("internal" if d.level == "L3" else ("hold" if d.level == "L2" else "progress"), d.level ~ " " ~ CS_LEVEL_LABEL[d.level]) }}<div class="t-sm">{{ d.body[:80] }}</div><span class="meta">{{ d.created_at|rel }}</span></span></li>{% endfor %}</ul>
+{% else %}<p class="t-muted">승인할 초안이 없어요.</p>{% endif %}</section>
+<section class="card" aria-labelledby="s-t"><h2 id="s-t">발송 기록 대기 <span class="chip version">{{ box.to_send|length }}</span></h2>
+{% if box.to_send %}<ul class="timeline">{% for d in box.to_send %}<li>{{ icon("copy", "sm") }}<span><a href="/orders/{{ d.order_no }}/cs">{{ d.order_no }}</a> · 승인됨 · 복사해서 보낸 뒤 ‘발송 완료 기록’을 누르세요 <span class="meta">{{ d.approved_at|rel }}</span></span></li>{% endfor %}</ul>
+{% else %}<p class="t-muted">발송 기록을 기다리는 답변이 없어요.</p>{% endif %}</section>
+<section class="card" aria-labelledby="r-t"><h2 id="r-t">최근 기록</h2>
+{% if box.recent %}<ul class="timeline">{% for m in box.recent %}<li>{{ icon("hand", "sm") }}<span><a href="/orders/{{ m.order_no }}/cs">{{ m.order_no }}</a> · {{ "고객 →" if m.direction == "in" else "→ 고객" }} {{ m.summary }} <span class="meta">{{ m.event_at|kdatetime }}</span></span></li>{% endfor %}</ul>{% else %}<p class="t-muted">아직 기록이 없어요.</p>{% endif %}</section>
+{% endblock %}

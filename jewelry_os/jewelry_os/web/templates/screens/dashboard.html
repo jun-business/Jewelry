@@ -1,0 +1,65 @@
+{% extends "base.html" %}{% from "components.html" import icon, banner, chip with context %}
+{% block title %}홈{% endblock %}
+{% block content %}
+<div data-dashboard>
+<div class="page-head"><div>
+<h1>안녕하세요, {{ user.display_name }}님</h1>
+<p class="t-muted">오늘은 {{ today|kdate }}이에요. {% if holiday %}{{ chip("hold", "오늘은 휴무일(" ~ holiday ~ ") — 새 수락 없음", "calendar") }}{% endif %}</p>
+</div></div>
+{% if late_night %}{{ banner("info", "늦은 시간이에요. 급하지 않은 일은 내일 하셔도 돼요.") }}{% endif %}
+{% if empty %}
+<div class="card empty">{{ icon("message", "lg") }}<h2>아직 들어온 의뢰가 없어요</h2><p>새 의뢰는 {{ interval }}분마다 자동으로 가져와요.</p>
+<div class="btn-row center"><a class="btn btn-secondary" href="/settings/google">설정 확인하기</a><a class="btn btn-tertiary" href="/orders/new">수기 접수</a></div></div>
+{% endif %}
+<h2 class="sr-only">오늘 할 일</h2>
+<div class="todo-cards">
+{% for c in cards %}
+<a class="todo {{ '' if c.mine else 'dim' }}" href="{{ c.href }}">
+<span class="n" data-queue-count="{{ c.href.split('queue=')[1] }}">{{ c.n }}</span>
+<span>{{ c.label }}</span>{% if c.n == 0 %} <span class="meta">{{ icon("check", "sm") }} 없어요</span>{% endif %}
+{% if c.extra %}<span class="meta">· {{ c.extra }}</span>{% endif %}{% if c.note %}<span class="meta">· {{ c.note }}</span>{% endif %}
+</a>
+{% endfor %}
+</div>
+<div class="dash">
+<div>
+<section class="card" aria-labelledby="need-t">
+<h2 id="need-t">확인이 필요한 주문</h2>
+{% set any = groups.payment_issue or groups.delivery_risk or groups.customer_wait %}
+{% if not any %}<p class="t-muted">{{ icon("check", "sm") }} 지금은 확인할 문제가 없어요.</p>{% endif %}
+{% for key, lab, ic in [("payment_issue", "결제 문제", "octagon"), ("delivery_risk", "납기 위험", "alert"), ("customer_wait", "고객 응답 지연", "clock")] %}
+{% if groups[key] %}
+<div class="alert-group" data-alert-group="{{ key }}"><h3>{{ icon(ic) }} {{ lab }} <span class="chip {{ 'issue' if key != 'customer_wait' else 'hold' }}">{{ groups[key]|length }}</span></h3>
+{% for n in groups[key][:5] %}<div class="alert-row"><span>{{ n.title }} <span class="meta">{{ n.created_at|rel }}</span></span>{% if n.order_no %}<a class="btn btn-secondary btn-sm" href="/orders/{{ n.order_no }}">열기</a>{% endif %}</div>{% endfor %}
+{% if groups[key]|length > 5 %}<a href="/orders?queue=issues">모두 보기</a>{% endif %}
+</div>
+{% endif %}
+{% endfor %}
+</section>
+<section class="card" aria-labelledby="recent-t"><h2 id="recent-t">최근 활동</h2>
+{% if not recent %}<p class="t-muted">아직 활동이 없어요.</p>{% endif %}
+<ul class="timeline">{% for a in recent %}<li>{{ icon("commit", "sm") }}<span>{{ a.actor_name or "시스템" }} · <a href="/orders/{{ a.order_no }}">{{ a.order_no }}</a> · {{ a.action|action_label(a) }} <span class="meta">{{ a.created_at|kdatetime }}</span></span></li>{% endfor %}</ul>
+</section>
+</div>
+<div>
+<section class="card" aria-labelledby="cap-t"><h2 id="cap-t">작업량</h2>
+{% set full = active >= limit %}
+<p>동시 진행 <strong>{{ active }}/{{ limit }}</strong>{% if active > limit %} <span class="chip issue">초과 {{ active - limit }}</span>{% endif %}</p>
+<div class="meter {{ 'over' if active > limit else ('full' if full else '') }}" role="meter" aria-valuemin="0" aria-valuemax="{{ limit }}" aria-valuenow="{{ active }}" aria-label="동시 진행">{% for i in range(limit) %}<span class="{{ 'on' if i < active else '' }}"></span>{% endfor %}</div>
+<p class="t-sm">대기 중인 문의 {{ waitlisted }}건</p>
+<h3>다가오는 CAD 날짜</h3>
+{% if week_slots %}<ul>{% for s in week_slots %}<li>{{ s.date|kdate }} · <a href="/orders/{{ s.order_no }}">{{ s.order_no }}</a></li>{% endfor %}</ul>{% else %}<p class="t-muted t-sm">정해진 CAD 날짜가 없어요.</p>{% endif %}
+</section>
+<section class="card" aria-labelledby="sys-t"><h2 id="sys-t">시스템 상태</h2>
+{% set probs = status.problems %}
+{% set pk = probs|map(attribute=0)|list %}
+<div class="sys-row"><span class="led {{ 'warning' if ('system:sync_stale' in pk) else ('danger' if 'system:sync_auth' in pk else '') }}"></span>Google 동기화 · {{ sync_indicator.text }} <a href="/system">해결</a></div>
+<div class="sys-row"><span class="led {{ 'warning' if 'system:backup' in pk else '' }}"></span>백업 · {{ status.backup.created_at|rel if status.backup else "아직 없음" }} <a href="/settings/backup">해결</a></div>
+<div class="sys-row"><span class="led"></span>AI 사용 · 이번 달 {{ status.ai_usage.calls }}/{{ status.ai_usage.call_limit }}회</div>
+<div class="sys-row"><span class="led {{ 'warning' if 'system:disk' in pk else '' }}"></span>디스크 여유 · {{ status.disk_pct|round|int }}%</div>
+{% for key, title, sev in probs %}<p class="err">{{ icon("alert", "sm") }}{{ title }}</p>{% endfor %}
+</section>
+</div>
+</div>
+</div>
+{% endblock %}

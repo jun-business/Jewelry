@@ -1,0 +1,55 @@
+{% from "components.html" import icon, chip, blocked, banner, csrf_input, approval, evidence, area, text with context %}
+{# 다음 조치 카드의 대표 버튼(C-09). 조건 미충족이면 aria-disabled + 이유 연결(§6.2). #}
+{% set disabled = na.unmet|length > 0 %}
+{% set dis_attr = ('aria-disabled="true" aria-describedby="na-unmet"' if disabled else '') %}
+{% set a = na.action %}
+{% set approver = user.display_name ~ "(" ~ user.role_label ~ ")" %}
+{% set warn = [] %}
+{% if test_mode %}{% set _ = warn.append("시험 운영 모드예요. 실제 고객 결제를 받지 마세요.") %}{% endif %}
+{% if a == "accept" %}
+{% set over = capacity[0] >= capacity[1] %}
+{% if over %}{% set _ = warn.append("동시 진행 상한을 넘겨 수락해요. 운영자 예외 승인과 아버님의 제작 가능 확인이 필요해요.") %}{% endif %}
+{% set accept_extra %}{% if over and cap_exc %}<dl class="kv"><dt>예외 승인</dt><dd>{{ cap_exc.approver }} · {{ cap_exc.approved_at|kdatetime }}</dd><dt>사유</dt><dd>{{ cap_exc.reason }}</dd><dt>예상 납기</dt><dd>{{ cap_exc.expected_eta|kdate }}</dd></dl>
+<label class="choice"><input type="checkbox" name="feasible_confirm" value="on"> 지금 일정으로 제작할 수 있는지 확인했습니다(아버님)</label>{% endif %}{% endset %}
+{% if not gate_cap %}{% set _ = warn.append("수용량 정책이 아직 확정되지 않았어요(GATE-CAP-01).") %}{% endif %}
+<button class="btn btn-primary btn-lg btn-block" type="button" data-open="dlg-accept" data-testid="order.next-action.primary" {{ dis_attr|safe }}>{{ na.label }}</button>
+{{ approval("dlg-accept", "/orders/" ~ o.order_no ~ "/actions/accept", "이 의뢰를 수락할까요?", [("고객", o.customer_name), ("제품", o.product_type or "—"), ("AI 위험 신호", ((brief.result.risk_flags|length) if brief and brief.result else 0) ~ "건"), ("동시 진행", capacity[0] ~ "/" ~ capacity[1] ~ "건"), ("다음 CAD 여유", slots[0]|kdate if slots else "—")], "수락하면 무료 시안 작업으로 넘어가요.", approver, accept_extra, warn, o.version, tab, False, "", confirm == "accept", "수락") }}
+{% if over and not cap_exc %}
+<form class="card-sub" id="cap-exc" method="post" action="/orders/{{ o.order_no }}/actions/approve_capacity_exception">{{ csrf_input() }}<input type="hidden" name="_tab" value="{{ tab }}">
+<h3>상한 초과 예외 승인 (운영자)</h3><p class="t-sm">동시 진행 {{ capacity[0] }}/{{ capacity[1] }}건이에요. 예외로 받을 사유와 예상 납기를 적으면 아버님이 제작 가능 여부를 확인하고 수락할 수 있어요.</p>
+{{ area("reason", "예외 사유", "", True, None, None, 2) }}{{ text("expected_eta", "예상 납기", "", True, None, None, "date") }}
+<button class="btn btn-secondary btn-sm" type="submit" {% if me != "operator" %}aria-disabled="true" aria-describedby="cap-role"{% endif %}>예외 승인 기록</button>
+{% if me != "operator" %}<p class="err" id="cap-role">운영자 계정만 할 수 있어요.</p>{% endif %}</form>
+{% endif %}
+<div class="btn-row">
+<button class="btn btn-secondary btn-sm" type="button" data-open="dlg-info">정보 요청</button>
+<form method="post" action="/orders/{{ o.order_no }}/actions/waitlist">{{ csrf_input() }}<input type="hidden" name="_tab" value="{{ tab }}"><button class="btn btn-secondary btn-sm" type="submit" {% if me != "maker" %}aria-disabled="true"{% endif %}>대기로 표시</button></form>
+<button class="btn btn-secondary btn-sm" type="button" data-open="dlg-hold">보류</button>
+<button class="btn btn-danger-secondary btn-sm" type="button" data-open="dlg-decline">거절</button>
+</div>
+<dialog id="dlg-info" aria-labelledby="info-t"><form class="dlg" method="post" action="/orders/{{ o.order_no }}/actions/request_info">{{ csrf_input() }}<input type="hidden" name="_tab" value="cs"><input type="hidden" name="_next_tab" value="cs">
+<h2 id="info-t">정보 요청으로 표시</h2><p class="t-sm">보류 사유 ‘정보 부족’이 붙어요. 상담 탭에서 질문 초안을 만들어 아버님 승인 후 보내세요. 자동 발송은 없어요.</p>
+{{ area("note", "무엇이 부족한가요", ", ".join(brief.result.required_missing_fields) if brief and brief.result else "", False) }}
+<div class="dlg-actions"><button type="button" class="btn btn-secondary" data-close>취소</button><button class="btn btn-primary" type="submit">정보 요청</button></div></form></dialog>
+<dialog id="dlg-hold" aria-labelledby="hold-t"><form class="dlg" method="post" action="/orders/{{ o.order_no }}/actions/hold">{{ csrf_input() }}<input type="hidden" name="_tab" value="{{ tab }}">
+<h2 id="hold-t">보류</h2>{{ area("note", "보류 사유", "", True) }}
+<div class="dlg-actions"><button type="button" class="btn btn-secondary" data-close>취소</button><button class="btn btn-primary" type="submit">보류</button></div></form></dialog>
+{% set decline_extra %}<fieldset><legend>거절 분류 <span class="req">(필수)</span></legend>{% for k, v in DECLINE_LABEL.items() %}<label class="choice"><input type="radio" name="category" value="{{ k }}"> {{ v }}</label>{% endfor %}</fieldset>
+<label class="choice"><input type="checkbox" name="make_notice" value="on" checked> 거절 안내 초안 만들기(상담 탭, 승인 필요)</label>{% endset %}
+{{ approval("dlg-decline", "/orders/" ~ o.order_no ~ "/actions/decline", "이 의뢰를 거절할까요?", [("고객", o.customer_name), ("제품", o.product_type or "—")], "거절하면 ‘진행 종료’가 되고 되돌릴 수 없어요.", approver, decline_extra, None, o.version, tab, True, "거절 사유", confirm == "decline", "거절", True) }}
+{% elif a == "record_consent" %}
+<a class="btn btn-primary btn-lg btn-block" href="/orders/{{ o.order_no }}/intake#consent">{{ na.label }}</a>
+{% elif a in ("start_cad", "create_payment_req") %}
+<button class="btn btn-primary btn-lg btn-block" type="button" data-open="dlg-{{ a }}" data-testid="order.next-action.primary" {{ dis_attr|safe }}>{{ na.label }}</button>
+{% if a == "start_cad" %}
+{{ approval("dlg-start_cad", "/orders/" ~ o.order_no ~ "/actions/start_cad", "상세 CAD를 시작할까요?", [("첫 결제", "확인됨"), ("CAD 날짜", cad_slot.date|kdate if cad_slot else "아직 안 정함")], "시작하면 디자인 파일을 올리고 고객 최종 동의를 받을 수 있어요.", approver, "", None, o.version, "making", false, "", confirm == "start_cad", "상세 CAD 시작") }}
+{% else %}
+{{ approval("dlg-create_payment_req", "/orders/" ~ o.order_no ~ "/actions/create_payment_req", "결제 요청을 만들까요?", [("견적", "v" ~ q_appr.version if q_appr else "—"), ("구분", "전액" if o.payment_policy == "FULL" else "예약금"), ("금액", (q_appr.total_krw if o.payment_policy == "FULL" else q_appr.deposit_krw)|won if q_appr else "—")], "만들면 결제 대기로 넘어가요. 판매자 관리코드는 개인정보 없이 자동으로 만들어져요.", approver, "", warn + (["시험 견적이에요. 실거래 결제에 쓸 수 없어요."] if q_appr and q_appr.is_test else []), o.version, "payment", false, "", confirm == "create_payment_req", "결제 요청 만들기") }}
+{% endif %}
+{% elif a == "verify_final" and o.payment_policy == "FULL" %}
+<button class="btn btn-primary btn-lg btn-block" type="button" data-open="dlg-vff" {{ dis_attr|safe }}>{{ na.label }}</button>
+{{ approval("dlg-vff", "/orders/" ~ o.order_no ~ "/actions/verify_final_full", "결제 조건을 확인할까요?", [("결제 정책", "전액 결제"), ("확인된 결제", (pay_events|selectattr("event_type", "equalto", "PAID")|sum(attribute="amount_krw"))|won)], "전액 결제 정책이라 잔금이 없어요. 확인하면 발송 단계로 넘어가요.", approver, "", warn, o.version, "qc", false, "", confirm == "verify_final_full", "결제 조건 확인") }}
+{% else %}
+{% set anchors = {"approve_quote": "quote#approve", "record_acceptance": "quote#accept", "record_payment": "payment#pay-form", "verify_final": "payment#pay-form", "record_design_ok": "making#design-ok", "send_factory": "making#send", "receive": "making#receive", "pass_qc": "qc#qc-form", "ship": "qc#ship", "close": "qc#close"} %}
+<a class="btn btn-primary btn-lg btn-block" href="/orders/{{ o.order_no }}/{{ anchors.get(a, na.tab or 'history') }}" data-testid="order.next-action.primary" {{ dis_attr|safe }}>{{ na.label }}</a>
+{% endif %}

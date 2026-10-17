@@ -1,0 +1,106 @@
+{% from "components.html" import icon, chip, blocked, banner, csrf_input, approval, evidence, area, text with context %}
+{# S-03e CAD·발주 탭 — UI-06 #}
+{% set st = o.lifecycle_state %}
+{% set approver = user.display_name ~ "(" ~ user.role_label ~ ")" %}
+{% set latest = designs[0] if designs else none %}
+<section class="card" aria-labelledby="cad-t"><h2 id="cad-t">상세 CAD</h2>
+{% if st in ("FREE_CONCEPT", "QUOTE_APPROVED", "CUSTOMER_ACCEPTED", "PAYMENT_PENDING") %}<p class="t-muted">첫 결제가 확인되면 시작할 수 있어요.</p>{% endif %}
+<p>CAD 날짜: {% if cad_slot %}<strong>{{ cad_slot.date|kdate }}</strong>{% else %}<span class="t-muted">아직 안 정함</span>{% endif %}</p>
+{% if not ended %}<form class="btn-row" method="post" action="/orders/{{ o.order_no }}/actions/set_cad_slot">{{ csrf_input() }}<input type="hidden" name="_tab" value="making">
+<span class="t-sm">다음 빈 주말 제안:</span>{% for d in slots %}<label class="choice"><input type="radio" name="date" value="{{ d.isoformat() }}" {% if loop.first %}checked{% endif %}> {{ d.isoformat()|kdate }}</label>{% endfor %}
+<button class="btn btn-secondary btn-sm" type="submit" {% if me != "maker" %}aria-disabled="true"{% endif %}>이 날짜로 정하기</button></form>
+<p class="help">제안만 해요. 날짜는 아버님이 직접 정해야 확정돼요.</p>{% endif %}
+</section>
+
+<section class="card" aria-labelledby="dz-t"><h2 id="dz-t">디자인 파일</h2>
+{% if designs %}
+{% for d in designs %}
+<div class="file-card"><div class="fc-body"><strong>{{ chip("version", "v" ~ d.version) }} {% if d.id in design_acc %}{{ chip("done", "고객 동의", "check") }}{% endif %}</strong> <span class="meta">{{ d.created_at|kdatetime }}</span>
+<ul class="t-sm">{% for k, lab in [("cad", "CAD 원본"), ("preview", "시안 이미지"), ("stl", "STL")] %}{% set aid = d[k ~ "_asset_id"] %}{% if aid and assets.get(aid) %}{% set a = assets[aid] %}<li>{{ lab }} · <a href="/assets/{{ a.id }}">{{ a.filename }}</a> · <span class="mono">{{ a.file_hash[:12] }}</span></li>{% endif %}{% endfor %}</ul></div></div>
+{% endfor %}
+{% else %}<p class="t-muted">아직 올린 디자인 파일이 없어요.</p>{% endif %}
+{% if st in ("DETAIL_CAD", "CUSTOMER_DESIGN_APPROVED") %}
+<form class="dropzone" method="post" action="/orders/{{ o.order_no }}/designs" enctype="multipart/form-data">{{ csrf_input() }}
+{% if st == "CUSTOMER_DESIGN_APPROVED" %}{{ banner("warning", "새 디자인을 올리면 지금 발주 패킷이 무효가 되고 고객 최종 동의를 다시 받아야 해요.", ic="alert") }}{% endif %}
+<div class="grid-3"><div class="field"><label for="cad">CAD 원본 <span class="req">(3DM, 최대 200MB)</span></label><input id="cad" type="file" name="cad" accept=".3dm"></div>
+<div class="field"><label for="pv">시안 이미지 <span class="req">(JPG·PNG·PDF)</span></label><input id="pv" type="file" name="preview" accept=".jpg,.jpeg,.png,.webp,.pdf"></div>
+<div class="field"><label for="stl">STL <span class="req">(최대 200MB)</span></label><input id="stl" type="file" name="stl" accept=".stl"></div></div>
+{% if errors and errors.get("file") %}<p class="err">{{ errors.file }}</p>{% endif %}
+<button class="btn btn-secondary" type="submit" {% if me != "maker" %}aria-disabled="true"{% endif %}>{{ icon("upload", "sm") }}새 디자인 버전 올리기</button></form>
+{% endif %}
+</section>
+
+{% if st == "DETAIL_CAD" and latest %}
+<section class="card" id="design-ok" aria-labelledby="dok-t"><h2 id="dok-t">고객 최종 시안 동의</h2>
+<form method="post" action="/orders/{{ o.order_no }}/actions/record_design_ok" data-confirm-required>{{ csrf_input() }}<input type="hidden" name="version" value="{{ o.version }}"><input type="hidden" name="_tab" value="making">
+<p>대상: 디자인 v{{ latest.version }}</p>
+{{ evidence("", errors, "고객 동의 증빙") }}
+<div class="field"><label for="dok-at">동의 일시</label><input id="dok-at" type="datetime-local" name="accepted_at"></div>
+<label class="choice"><input type="checkbox" name="confirm" value="on"> 고객이 위 디자인 버전에 동의한 것을 확인했습니다</label><p class="err need-confirm" hidden>확인란을 체크해야 진행돼요.</p>
+<button class="btn btn-primary btn-lg" type="submit" data-primary {% if checks.get("record_design_ok") %}aria-describedby="dok-why"{% endif %}>고객 최종 시안 동의 기록</button>
+{{ blocked(checks.get("record_design_ok"), "dok-why") }}
+</form></section>
+{% endif %}
+
+{% if st == "CUSTOMER_DESIGN_APPROVED" %}
+<section class="card" aria-labelledby="fs-t"><h2 id="fs-t">공장 사양서</h2>
+<form method="post" action="/orders/{{ o.order_no }}/factory-spec" data-guard>{{ csrf_input() }}
+<div class="grid-2">
+{% for k, lab in FACTORY_SPEC_FIELDS %}
+<div class="field"><label for="fs-{{ k }}">{{ lab }}</label><input id="fs-{{ k }}" name="{{ k }}" value="{{ fspec.get(k) or '' }}">
+<label class="choice t-sm"><input type="checkbox" name="{{ k }}_na" value="on" {% if fspec.get(k) == "해당 없음" %}checked{% endif %}> 해당 없음</label></div>
+{% endfor %}
+<div class="field"><label for="fs-stl">연결 STL 파일</label><select id="fs-stl" name="stl_asset_id">{% for d in designs %}{% if d.stl_asset_id %}<option value="{{ d.stl_asset_id }}" {% if fspec.get("stl_asset_id") == d.stl_asset_id %}selected{% endif %}>v{{ d.version }} · {{ assets[d.stl_asset_id].filename }}</option>{% endif %}{% endfor %}</select></div>
+</div>
+<div class="btn-row"><button class="btn btn-secondary" type="submit" {% if me != "maker" %}aria-disabled="true"{% endif %}>사양서 저장</button>
+<button class="btn btn-tertiary" type="submit" name="align_to_quote" value="1">공장 사양을 견적에 맞추기</button></div>
+</form></section>
+
+<section class="card" aria-labelledby="pk-t"><h2 id="pk-t">발주 패킷</h2>
+{% set vp = packets|selectattr("status", "equalto", "VALID")|list %}
+{% if vp %}{% set pk = vp[0] %}
+<p>{{ chip("done", "유효", "check") }} 패킷 해시 <span class="mono">{{ pk.packet_hash[:16] }}…</span> · 디자인 v{{ (designs|selectattr("id", "equalto", pk.design_version_id)|first).version }} · <a href="/packets/{{ pk.id }}.zip">ZIP 내려받기</a></p>
+{% endif %}
+{% for p in packets if p.status == "VOID" %}<p class="meta">{{ chip("ended", "무효") }} {{ p.void_reason }} · {{ p.created_at|kdatetime }}</p>{% endfor %}
+<form method="post" action="/orders/{{ o.order_no }}/actions/build_packet">{{ csrf_input() }}<input type="hidden" name="version" value="{{ o.version }}"><input type="hidden" name="_tab" value="making">
+<p class="t-sm">패킷을 만들기 전에 견적 사양과 공장 사양을 대조해요. 다르면 만들 수 없어요(사유만 적고 진행하는 방법은 없어요).</p>
+<button class="btn btn-secondary" type="submit" {% if checks.get("build_packet") %}aria-disabled="true" aria-describedby="pk-why"{% endif %}>발주 패킷 만들기</button>
+{{ blocked(checks.get("build_packet"), "pk-why") }}
+</form>
+{% if checks.get("build_packet")|selectattr("code", "equalto", "G-SPEC-DIFF")|list %}
+<form method="post" action="/orders/{{ o.order_no }}/actions/open_issue">{{ csrf_input() }}<input type="hidden" name="type" value="CHANGE_REQUEST"><input type="hidden" name="fault" value="CUSTOMER_CHANGE"><input type="hidden" name="_tab" value="quote">
+<input type="hidden" name="note" value="견적 사양과 공장 사양 차이 — 고객 재동의 필요"><button class="btn btn-tertiary" type="submit">변경 요청으로 처리(고객 재동의)</button></form>
+{% endif %}
+</section>
+
+<section class="card" id="send" aria-labelledby="send-t"><h2 id="send-t">공장 발주</h2>
+{% set send_extra %}<div class="field"><label for="exp">공장 예상 수령일</label><input id="exp" type="date" name="expected_at" value="{{ internal_eta.isoformat() if internal_eta else '' }}"><p class="help">내부 예상일 — 고객 약속일과 별개예요.</p></div>
+<div class="field"><label for="vr">공장 참조(선택)</label><input id="vr" name="vendor_ref"></div>{% endset %}
+<button class="btn btn-primary btn-lg" type="button" data-open="dlg-send" {% if checks.get("send_factory") %}aria-disabled="true" aria-describedby="send-why"{% endif %}>공장 발주</button>
+{{ blocked(checks.get("send_factory"), "send-why") }}
+{{ approval("dlg-send", "/orders/" ~ o.order_no ~ "/actions/send_factory", "공장에 발주할까요?", [("패킷 해시", (vp[0].packet_hash[:16] ~ "…") if vp else "—"), ("디자인", "v" ~ latest.version if latest else "—")], "STL과 사양서를 확인하고 공장에 보냈을 때 누르세요.", approver, send_extra, None, o.version, "making", false, "", confirm == "send_factory", "발주 기록") }}
+</section>
+{% endif %}
+
+{% set sent = packets|selectattr("status", "equalto", "SENT")|list %}
+{% if sent %}{% set sp = sent[0] %}
+<section class="card" aria-labelledby="sent-t"><h2 id="sent-t">발주 기록</h2>
+<dl class="kv"><dt>발주 패킷</dt><dd><span class="mono">{{ sp.packet_hash[:16] }}…</span> · <a href="/packets/{{ sp.id }}.zip">ZIP 내려받기</a></dd>
+<dt>디자인</dt><dd>v{{ (designs|selectattr("id", "equalto", sp.design_version_id)|first).version }} · STL 해시 <span class="mono">{{ sp.stl_hash[:12] }}…</span></dd>
+<dt>공장 사양서</dt><dd>{% for k, lab in FACTORY_SPEC_FIELDS %}{{ lab }} {{ fspec.get(k) or "—" }}{% if not loop.last %} · {% endif %}{% endfor %}</dd>
+<dt>발주일 · 예상 수령일</dt><dd>{{ sp.sent_at|kdate }} · {{ fjob.expected_at|kdate if fjob and fjob.expected_at else "—" }}</dd></dl>
+</section>
+{% endif %}
+{% if st == "FACTORY_SENT" %}
+<section class="card" id="receive" aria-labelledby="rcv-t"><h2 id="rcv-t">완제품 수령</h2>
+<p>공장 제작 중 · 예상 수령 {{ fjob.expected_at|kdate if fjob else "—" }}</p>
+<form method="post" action="/orders/{{ o.order_no }}/actions/receive" data-confirm-required>{{ csrf_input() }}<input type="hidden" name="version" value="{{ o.version }}"><input type="hidden" name="_tab" value="qc">
+{{ text("received_at", "수령일", "", True, errors, None, "date") }}
+<div class="internal"><div class="internal-head">{{ icon("lock", "sm") }}내부 전용 — 실제 비용</div>
+<div class="grid-3">{{ text("actual_cost", "실제 공장 비용(원)", "", True, None, None, "text", 'class="money" inputmode="numeric"') }}{{ text("defect_cost", "불량비", "", False, None, None, "text", 'class="money" inputmode="numeric"') }}{{ text("logistics_cost", "물류비", "", False, None, None, "text", 'class="money" inputmode="numeric"') }}</div>
+<p class="t-sm">실제 공장 비용이 달라져도 고객과 합의한 금액은 바뀌지 않아요.</p></div>
+<label class="choice"><input type="checkbox" name="confirm" value="on"> 완제품을 실제로 받았습니다</label><p class="err need-confirm" hidden>확인란을 체크해야 진행돼요.</p>
+<button class="btn btn-primary btn-lg" type="submit" data-primary>완제품 수령 기록</button>
+{{ blocked(checks.get("receive"), "rcv-why") }}
+</form></section>
+{% endif %}

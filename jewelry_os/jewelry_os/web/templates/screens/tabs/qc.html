@@ -1,0 +1,66 @@
+{% from "components.html" import icon, chip, blocked, banner, csrf_input, approval, evidence, area, text with context %}
+{# S-03f 검수·배송 탭 — UI-07 #}
+{% set st = o.lifecycle_state %}
+{% set approver = user.display_name ~ "(" ~ user.role_label ~ ")" %}
+<section class="card" id="qc-form" aria-labelledby="qc-t"><h2 id="qc-t">검수표</h2>
+{% if st == "FACTORY_RECEIVED" %}
+<form method="post" action="/orders/{{ o.order_no }}/actions/record_qc" data-guard>{{ csrf_input() }}<input type="hidden" name="_tab" value="qc">
+<div class="table-wrap"><table><thead><tr><th scope="col">항목</th><th scope="col">결과</th><th scope="col">메모</th></tr></thead><tbody>
+{% set prev = qc.checklist if qc else {} %}
+{% for k, lab in QC_ITEMS %}<tr><th scope="row">{{ lab }}</th>
+<td><fieldset class="choices"><legend class="sr-only">{{ lab }} 결과</legend><label class="choice"><input type="radio" name="{{ k }}" value="pass" {% if prev.get(k, {}).get("result") == "pass" %}checked{% endif %}> 통과</label><label class="choice"><input type="radio" name="{{ k }}" value="fail" {% if prev.get(k, {}).get("result") == "fail" %}checked{% endif %}> 불통과</label></fieldset></td>
+<td><input name="{{ k }}_memo" value="{{ prev.get(k, {}).get('memo', '') }}" aria-label="{{ lab }} 메모"></td></tr>{% endfor %}
+</tbody></table></div>
+<p class="help">모든 항목을 통과로 기록하면 검수 통과로 넘어가요.</p>
+<label class="choice"><input type="checkbox" name="confirm" value="on"> 완제품을 직접 검수했습니다(전부 통과일 때 검수 통과로 기록돼요)</label>
+<button class="btn btn-primary btn-lg" type="submit" {% if me != "maker" %}aria-disabled="true"{% endif %}>검수 기록</button>
+</form>
+{% if qc and qc.result == "FAIL" %}
+{{ banner("danger", "검수에서 통과하지 못한 항목이 있어요.", "재작업 문제로 기록하세요. 귀책 구분이 필요해요.", ic="octagon") }}
+<button class="btn btn-secondary" type="button" data-open="dlg-issue">재작업 문제로 기록</button>
+{% endif %}
+{% elif qc %}<p>{{ chip("done" if qc.result == "PASS" else "issue", {"PASS": "검수 통과", "FAIL": "불통과", "INCOMPLETE": "기록 중"}[qc.result]) }} {{ qc.inspected_at|kdatetime }}</p>
+{% else %}<p class="t-muted">완제품을 받으면 검수표를 채울 수 있어요.</p>{% endif %}
+</section>
+
+{% if margin %}
+<section class="card" aria-labelledby="mg-t"><h2 id="mg-t">원가 정산</h2>
+<div class="internal"><div class="internal-head">{{ icon("lock", "sm") }}내부 전용 — 고객 문서·문구에 나가지 않아요</div>
+<dl class="kv"><dt>견적 총액</dt><dd>{{ margin.total|won }}</dd><dt>예상 원가</dt><dd>{{ margin.cost_estimate|won }}</dd><dt>예상 마진</dt><dd>{{ margin.margin_est|won }}</dd>
+{% if margin.actual_cost is defined %}<dt>실제 비용(공장·불량·물류)</dt><dd>{{ margin.actual_cost|won }}</dd><dt>실제 마진</dt><dd>{{ margin.margin_actual|won }} ({{ "+" if margin.diff >= 0 else "" }}{{ margin.diff|won }})</dd>{% endif %}</dl>
+<p class="t-sm">실제 공장 비용이 달라져도 고객과 합의한 금액은 바뀌지 않아요.</p></div></section>
+{% endif %}
+
+{% if st == "QC_PASSED" %}
+<section class="card" aria-labelledby="bal-t"><h2 id="bal-t">잔금</h2>
+{% if o.payment_policy == "FULL" %}<p>전액 결제 정책 — 잔금 없음. 오른쪽 ‘결제 조건 확인’을 누르세요.</p>
+{% else %}<p>잔금 결제는 <a href="/orders/{{ o.order_no }}/payment">결제 탭</a>에서 요청하고 확인해요.</p>{% endif %}
+</section>
+{% endif %}
+
+{% if st == "FINAL_PAYMENT_VERIFIED" %}
+<section class="card" id="ship" aria-labelledby="sh-t"><h2 id="sh-t">배송</h2>
+<form method="post" action="/orders/{{ o.order_no }}/actions/ship" data-confirm-required>{{ csrf_input() }}<input type="hidden" name="version" value="{{ o.version }}"><input type="hidden" name="_tab" value="qc">
+<p class="help">주소는 배송을 위해서만 저장되고 암호화돼요.</p>
+<div class="grid-2">{{ text("recipient", "수취인 이름", form.get("recipient"), True, errors, None, "text", 'autocomplete="name"') }}{{ text("recipient_phone", "수취인 연락처", "", False, None, None, "text", 'autocomplete="tel"') }}</div>
+{{ area("address", "주소", "", False, None, None, 2) }}
+<div class="grid-3">
+<div class="field"><label for="sm">배송 방법 <span class="req">(필수)</span></label><select id="sm" name="method"><option value="">고르세요</option><option>택배</option><option>직접 전달</option></select></div>
+{{ text("carrier", "택배사", "") }}{{ text("tracking_no", "송장번호", "") }}</div>
+<div class="field"><label for="ps">네이버 판매 상태 <span class="req">(필수)</span></label><select id="ps" name="platform_status"><option value="">고르세요</option><option>발송처리</option><option>배송중</option><option>직접전달</option></select></div>
+<label class="choice"><input type="checkbox" name="confirm" value="on"> 배송 정보와 네이버 상태를 확인했습니다</label><p class="err need-confirm" hidden>확인란을 체크해야 진행돼요.</p>
+<button class="btn btn-primary btn-lg" type="submit" data-primary>발송 기록</button>
+</form></section>
+{% endif %}
+
+{% if st == "SHIPPED" %}
+<section class="card" id="close" aria-labelledby="cl-t"><h2 id="cl-t">주문 완료</h2>
+<form method="post" action="/orders/{{ o.order_no }}/actions/close" data-confirm-required>{{ csrf_input() }}<input type="hidden" name="version" value="{{ o.version }}"><input type="hidden" name="_tab" value="history">
+{{ area("evidence", "배달 확인 근거", "", True, errors, "예: 택배 조회 ‘배달 완료’, 고객 수령 메시지", 2) }}
+<label class="choice"><input type="checkbox" name="confirm" value="on"> 배달 완료를 확인했습니다</label><p class="err need-confirm" hidden>확인란을 체크해야 진행돼요.</p>
+<button class="btn btn-primary btn-lg" type="submit" data-primary {% if me != "operator" %}aria-disabled="true" aria-describedby="cl-role"{% endif %}>주문 완료 처리</button>
+{% if me != "operator" %}<p class="err" id="cl-role">운영자 계정만 할 수 있어요.</p>{% endif %}
+{{ blocked(checks.get("close"), "cl-why") }}
+</form></section>
+{% endif %}
+{% if shipment %}<section class="card"><h2>발송 기록</h2><p>{{ shipment.method }} · {{ shipment.carrier or "" }} {{ shipment.tracking_no or "" }} · {{ shipment.platform_status }} · {{ shipment.shipped_at|kdatetime }}</p></section>{% endif %}

@@ -1,0 +1,8 @@
+﻿# 실행 2026-10-17 10:49:45 · rev.7 회귀(H1H3 PM Review r1 + 설치 CLI) · Python 3.13.14 · Windows 11 · Edge 155 headless (browser 줄은 10:35 실행)
+tc-u | exit=0 | 27s | 102 passed in 25.40s
+tc-i | exit=0 | 5s | 13 passed in 3.90s
+tc-s | exit=0 | 30s | 58 passed in 29.16s
+tc-s-browser | exit=0 | 111s | 6 passed in 110.03s (0:01:50)
+contrast | exit=0 | failed=0
+tokens-css-check | exit=0 | tokens.css = design-tokens.json
+screenshots | 90 files (SRS-153 6 widths x 15 screens)

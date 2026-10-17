@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>견적서 v{{ pq.version }} · {{ pq.shop_name }}</title>
+<link rel="stylesheet" href="/static/css/tokens.css"><link rel="stylesheet" href="/static/css/app.css"><link rel="stylesheet" href="/static/css/doc.css"><script src="/static/js/doc.js" defer></script></head>
+<body class="doc-body">
+<nav class="doc-tools no-print" aria-label="문서 도구"><button class="btn btn-primary" type="button" id="print-btn">인쇄 / PDF로 저장</button> <a class="btn btn-secondary" href="/docs/quote/{{ qid }}.txt">카톡용 텍스트</a></nav>
+<main class="doc" id="main">
+{% if pq.is_test %}<p class="test-strip" role="note">시험 견적 — 실제 결제용 아님</p>{% endif %}
+<header class="doc-head"><div class="doc-shop">{{ pq.shop_name }}</div><h1>견적서</h1>
+<p class="doc-meta">견적 v{{ pq.version }} · 발행 {{ pq.issued_at|kdate }} · 유효기간 {{ pq.valid_until|kdate }}까지</p></header>
+<p class="doc-to"><strong>{{ pq.customer_name }}</strong> 님께</p>
+<section><h2>제작 사양</h2><dl class="kv">{% if pq.product_type %}<dt>제품</dt><dd>{{ pq.product_type }}</dd>{% endif %}
+{% for k, lab in SPEC_FIELDS %}{% if pq.spec.get(k) %}<dt>{{ lab }}</dt><dd>{{ pq.spec[k] }}</dd>{% endif %}{% endfor %}</dl>
+{% if pq.spec_summary %}<p>{{ pq.spec_summary }}</p>{% endif %}</section>
+<section><h2>금액</h2><table class="doc-table"><thead><tr><th scope="col">항목</th><th scope="col" class="num">금액</th></tr></thead><tbody>
+{% for it in pq["items"] %}<tr><td>{{ it.label }}</td><td class="num">{{ it.amount|won }}</td></tr>{% endfor %}</tbody>
+<tfoot><tr><th scope="row">총액</th><td class="num doc-total">{{ pq.total|won }}</td></tr></tfoot></table>
+<p class="t-sm">{{ "부가세 포함" if pq.tax_included else "부가세 별도" }} · {{ "배송비 포함" if pq.shipping_included else "배송비 별도" }}</p></section>
+<section><h2>결제 안내</h2>
+{% if pq.payment_policy == "FULL" %}<p>전액 {{ pq.total|won }}을 한 번에 결제해요.</p>{% else %}<p>예약금 {{ pq.deposit|won }} · 잔금 {{ pq.balance|won }}{% if pq.balance %}(완성·검수 후){% endif %}</p>{% endif %}
+<p>결제는 네이버 스마트스토어에서 진행돼요. 결제가 확인된 뒤 제작을 시작해요.</p></section>
+<section><h2>완성 예정</h2><p>{{ pq.promised_date|kdate }}</p><p class="t-sm">지금 단계: {{ pq.phase_label }}</p></section>
+<footer class="doc-foot"><p>이 견적은 제작 의뢰 확인용이며, 결제가 확인된 뒤 제작을 시작해요.{% if pq.terms_label %} 수정·환불 기준: {{ pq.terms_label }}.{% endif %}</p>
+<p class="t-caption">주문번호 {{ pq.order_no }} · 문의는 카카오톡 채널로 해 주세요.</p></footer>
+</main></body></html>

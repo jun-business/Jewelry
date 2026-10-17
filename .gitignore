@@ -1,0 +1,28 @@
+# ---- Python·도구 ----
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+jewelry_os/tools/node_modules/
+
+# ---- 실행 데이터·비밀(절대 올리지 않음) ----
+secrets.env
+*.josbak
+*-keys.txt
+jos.lock
+*.db
+*.db-wal
+*.db-shm
+logs/
+
+# ---- 시험 산출물(로그·XML은 증거로 올리고, 스크린샷만 제외) ----
+jewelry_os/reports/screens/
+
+# ---- 개인 환경 ----
+.claude/
+
+# ---- 개인 사업 자료(필요하면 아래 줄을 지우고 올리세요) ----
+구글 폼/
+스마트스토어/
+*.drawio
+*.drawio.bkp

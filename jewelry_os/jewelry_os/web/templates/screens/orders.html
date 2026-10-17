@@ -1,0 +1,57 @@
+{% extends "base.html" %}{% from "components.html" import icon, order_chips with context %}
+{% block title %}주문{% endblock %}
+{% block content %}
+<div class="page-head"><h1>주문</h1><a class="btn btn-secondary" href="/orders/new">{{ icon("plus") }}수기 접수</a></div>
+<nav class="queue-tabs" aria-label="주문 큐" data-scroll-x>
+{% for key, lab in QUEUES %}
+<a href="/orders?queue={{ key }}{% if q %}&q={{ q|urlencode }}{% endif %}" {% if key == queue %}aria-current="page"{% endif %}>{{ lab }} <span class="n" data-queue-count="{{ key }}">{{ counts[key] }}</span></a>
+{% endfor %}
+</nav>
+{% if queue == "waitlisted" %}<p class="banner info">{{ icon("info") }}<span class="b-body">동시 진행 상한이 차서 기다리는 문의예요. 순서대로 열어 수락하거나 대기를 풀 수 있어요.</span></p>{% endif %}
+<form class="filterbar" method="get" action="/orders" role="search">
+<input type="hidden" name="queue" value="{{ queue }}">
+<div class="grow"><label class="sr-only" for="q">검색</label><input id="q" name="q" type="search" value="{{ q }}" placeholder="주문번호 일부·고객 이름"></div>
+<div><label class="sr-only" for="sort">정렬</label><select id="sort" name="sort">
+{% for k, lab in [("updated", "최종 변경순"), ("created", "접수순"), ("promised", "약속일순")] %}<option value="{{ k }}" {% if sort == k %}selected{% endif %}>{{ lab }}</option>{% endfor %}
+</select></div>
+<button class="btn btn-secondary" type="submit">{{ icon("search", "sm") }}찾기</button>
+</form>
+{% if not items %}
+<div class="card empty">{{ icon("check", "lg") }}
+{% set empty_text = {"review": "검토할 새 의뢰가 없어요", "needs_info": "고객 답을 기다리는 주문이 없어요", "waitlisted": "기다리는 문의가 없어요", "issues": "지금은 문제가 없어요", "ended": "끝난 주문이 없어요"} %}
+<h2>{% if q %}‘{{ q }}’와 맞는 주문이 없어요{% else %}{{ empty_text.get(queue, "이 목록에 주문이 없어요") }}{% endif %}</h2>
+{% if q %}<p>주문번호 숫자 4자리로도 찾을 수 있어요.</p>{% elif queue == "review" %}<p>새 의뢰는 자동으로 가져와요.</p>{% endif %}
+</div>
+{% else %}
+<div class="table-wrap responsive">
+<table>
+<caption class="sr-only">주문 목록 — 총 {{ total }}건</caption>
+<thead><tr><th scope="col">주문번호</th><th scope="col">고객</th><th scope="col">상품</th><th scope="col">현재 단계</th><th scope="col">다음 조치</th><th scope="col">승인 상태</th><th scope="col" class="col-wide">약속일</th><th scope="col" class="col-wide">최종 변경</th></tr></thead>
+<tbody>
+{% for it in items %}{% set o = it.o %}
+<tr data-order="{{ o.order_no }}">
+<td class="nowrap"><a class="mono" href="/orders/{{ o.order_no }}">{{ o.order_no }}</a></td>
+<td class="nowrap">{{ o.customer_name }}</td>
+<td>{{ o.product_type or "—" }}<div class="meta">{{ (o.summary or "")[:40] }}</div></td>
+<td>{{ order_chips(o, it.holds, it.issues) }}</td>
+<td class="t-sm">{{ it.next.sentence }}<div class="meta col-narrow">약속일 {{ o.promised_date|kdate if o.promised_date else "—" }} · {{ o.updated_at|rel or o.updated_at|kdate }}</div></td>
+<td class="t-sm nowrap">{{ it.approval }}</td>
+<td class="t-sm col-wide nowrap">{{ o.promised_date|kdate if o.promised_date else "—" }}</td>
+<td class="meta col-wide nowrap">{{ o.updated_at|rel or o.updated_at|kdate }}</td>
+</tr>
+{% endfor %}
+</tbody></table></div>
+<ul class="cardlist">
+{% for it in items %}{% set o = it.o %}
+<li><a href="/orders/{{ o.order_no }}" data-order="{{ o.order_no }}">
+<span class="mono">{{ o.order_no }}</span> {{ order_chips(o, it.holds, it.issues) }}
+<div>{{ o.customer_name }} · {{ o.product_type or "—" }}</div>
+<div class="t-sm">{{ it.next.sentence }}</div>
+<div class="meta">{{ it.approval }} · {{ o.updated_at|rel }}</div></a></li>
+{% endfor %}
+</ul>
+<div class="pager"><span class="t-sm">총 {{ total }}건</span>
+<span class="btn-row">{% if page > 1 %}<a class="btn btn-secondary btn-sm" href="?queue={{ queue }}&q={{ q|urlencode }}&sort={{ sort }}&page={{ page - 1 }}">이전</a>{% endif %}
+{% if total > page * 50 %}<a class="btn btn-secondary btn-sm" href="?queue={{ queue }}&q={{ q|urlencode }}&sort={{ sort }}&page={{ page + 1 }}">다음</a>{% endif %}</span></div>
+{% endif %}
+{% endblock %}

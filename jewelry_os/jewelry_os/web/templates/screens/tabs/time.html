@@ -1,0 +1,16 @@
+{% from "components.html" import icon, csrf_input, text with context %}
+{# S-03h 작업시간 탭 — FR-ADM-008 #}
+<section class="card" aria-labelledby="wt-t"><h2 id="wt-t">작업시간</h2>
+<p>총 <strong>{{ work._total // 60 }}시간 {{ work._total % 60 }}분</strong>
+{% for k, lab in WORK_KIND_LABEL.items() %}{% if work.get(k) %} · {{ lab }} {{ work[k] }}분{% endif %}{% endfor %}</p>
+<form method="post" action="/orders/{{ o.order_no }}/actions/log_work">{{ csrf_input() }}<input type="hidden" name="_tab" value="time">
+<div class="grid-3">
+<div class="field"><label for="wk">종류</label><select id="wk" name="kind">{% for k, lab in WORK_KIND_LABEL.items() %}<option value="{{ k }}">{{ lab }}</option>{% endfor %}</select></div>
+<div class="field"><label for="wm">시간(분)</label><input id="wm" name="minutes" type="number" min="1" list="min-presets"><datalist id="min-presets"><option value="15"><option value="30"><option value="60"><option value="120"></datalist></div>
+{{ text("work_date", "날짜", "", False, None, None, "date") }}</div>
+{{ text("note", "메모", "") }}
+<button class="btn btn-primary" type="submit">기록</button></form>
+{% if work_logs %}<div class="table-wrap"><table><thead><tr><th scope="col">날짜</th><th scope="col">종류</th><th scope="col" class="num">분</th><th scope="col">메모</th><th scope="col">기록자</th></tr></thead><tbody>
+{% for w in work_logs %}<tr><td>{{ w.work_date|kdate }}</td><td>{{ WORK_KIND_LABEL[w.kind] }}</td><td class="num">{{ w.minutes }}</td><td>{{ w.note or "" }}</td><td class="meta">{{ w.display_name }}</td></tr>{% endfor %}
+</tbody></table></div>{% endif %}
+</section>

@@ -1,0 +1,6 @@
+{% extends "base.html" %}{% from "components.html" import icon with context %}
+{% block title %}{{ title }}{% endblock %}
+{% block content %}
+<div class="card empty" role="alert">{{ icon("info", "lg") }}<h1>{{ title }}</h1><p>{{ message }}</p>
+{% if link %}<a class="btn btn-primary" href="{{ link[0] }}">{{ link[1] }}</a>{% endif %}</div>
+{% endblock %}

@@ -1,0 +1,34 @@
+{% from "components.html" import text, icon, banner with context %}<!doctype html>
+<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>처음 설정 · Jewelry OS</title><link rel="stylesheet" href="/static/css/tokens.css"><link rel="stylesheet" href="/static/css/app.css"></head>
+<body><main id="main" class="auth wide"><div class="card">
+<h1>Jewelry OS 처음 설정</h1>
+<p class="t-muted">한 번만 하면 돼요. 나중에 설정 화면에서 모두 바꿀 수 있어요.</p>
+<ol class="chips" aria-label="설정 단계"><li class="chip progress">1 계정</li><li class="chip version">2 운영 기본값</li><li class="chip version">3 연동 모드</li></ol>
+{% if errors.get("_") %}{{ banner("danger", errors["_"], ic="octagon", role="alert") }}{% endif %}
+{% if errors %}<div class="banner danger" role="alert">{{ icon("octagon") }}<div class="b-body"><strong>입력을 확인해 주세요</strong><span>{{ errors|length }}개 항목에 문제가 있어요.</span></div></div>{% endif %}
+<form method="post" action="/setup">
+<fieldset><legend>1. 아버님(제작 책임) 계정</legend>
+<div class="grid-2">{{ text("maker_display_name", "이름", form.get("maker_display_name"), True, errors) }}{{ text("maker_username", "아이디", form.get("maker_username"), True, errors, attrs='autocomplete="username"') }}
+{{ text("maker_password", "비밀번호", "", True, errors, "10자 이상", "password", 'autocomplete="new-password"') }}{{ text("maker_password2", "비밀번호 확인", "", True, errors, None, "password", 'autocomplete="new-password"') }}</div>
+</fieldset>
+<fieldset><legend>운영자(사업 책임자) 계정</legend>
+<div class="grid-2">{{ text("operator_display_name", "이름", form.get("operator_display_name"), True, errors) }}{{ text("operator_username", "아이디", form.get("operator_username"), True, errors) }}
+{{ text("operator_password", "비밀번호", "", True, errors, "10자 이상", "password", 'autocomplete="new-password"') }}{{ text("operator_password2", "비밀번호 확인", "", True, errors, None, "password", 'autocomplete="new-password"') }}</div>
+</fieldset>
+<fieldset><legend>2. 운영 기본값</legend>
+<div class="grid-2">{{ text("capacity_limit", "동시 진행 상한(건)", form.get("capacity_limit") or 3, False, errors, "수락 후 발송 전 주문 수", "number", 'min="1"') }}
+{{ text("lock_minutes", "화면 잠금(분)", form.get("lock_minutes") or 15, False, errors, None, "number", 'min="1"') }}
+{{ text("quiet_start", "알림 휴지 시작", form.get("quiet_start") or "00:00", False, errors, None, "time") }}{{ text("quiet_end", "알림 휴지 끝", form.get("quiet_end") or "07:00", False, errors, None, "time") }}</div>
+<fieldset><legend>결제 정책</legend><div class="choices">
+<label class="choice"><input type="radio" name="payment_policy" value="THIRDS" checked> 예약금 1/3 · 잔금 2/3</label>
+<label class="choice"><input type="radio" name="payment_policy" value="FULL"> 전액 한 번에</label></div>
+<p class="help">정책 승인(GATE-SS-02) 전에는 시험 운영 모드로 동작해요.</p></fieldset>
+<label class="choice"><input type="checkbox" name="load_holidays" value="on" checked> 2026–2027 공휴일 기본 목록 불러오기(설정에서 확인·수정)</label>
+</fieldset>
+<fieldset><legend>3. Google 폼 연동</legend>
+<p>처음에는 <strong>시험용 Mock</strong>으로 시작해요. 실제 Google 계정 연결(시험 폼)은 설정 → Google 연동에서 할 수 있고, 고객 공개 폼은 Gate 통과 후 연결돼요.</p>
+<p class="t-sm t-muted">데이터는 이 PC의 사용자 폴더(%LOCALAPPDATA%\JewelryOS)에만 저장돼요. 백업 키는 그 폴더의 secrets.env에 있어요 — PC 밖 안전한 곳에 따로 적어 두세요.</p>
+</fieldset>
+<div class="dlg-actions"><button class="btn btn-primary btn-lg" type="submit">설정 마치기</button></div>
+</form></div></main></body></html>

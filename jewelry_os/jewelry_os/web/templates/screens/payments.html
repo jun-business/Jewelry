@@ -1,0 +1,20 @@
+{% extends "base.html" %}{% from "components.html" import icon, chip, manual_note with context %}
+{% block title %}결제{% endblock %}
+{% block content %}
+<div class="page-head"><div><h1>결제 관리</h1>{{ manual_note(("수동 대조 · 마지막 입력 " ~ last.recorder ~ " " ~ (last.recorded_at|kdatetime)) if last else "수동 대조 — 아직 입력 없음") }}</div></div>
+<nav class="queue-tabs" aria-label="결제 보기" data-scroll-x>{% for k, lab in [("todo", "확인 필요"), ("issues", "불일치·환불"), ("recv", "받을 돈"), ("events", "전체 이벤트")] %}<a href="/payments?tab={{ k }}" {% if tab == k %}aria-current="page"{% endif %}>{{ lab }}</a>{% endfor %}</nav>
+{% if tab == "todo" %}
+{% if todo %}<div class="table-wrap"><table><caption class="sr-only">확인이 필요한 결제 요청</caption><thead><tr><th scope="col">주문번호</th><th scope="col">고객</th><th scope="col">구분</th><th scope="col" class="num">기대 금액</th><th scope="col">견적</th><th scope="col">관리코드</th><th scope="col">요청일</th><th scope="col"><span class="sr-only">조치</span></th></tr></thead><tbody>
+{% for r in todo %}<tr><td><a class="mono" href="/orders/{{ r.order_no }}/payment">{{ r.order_no }}</a></td><td>{{ r.customer_name }}</td><td>{{ PAY_PHASE_LABEL[r.phase] }}{% if r.is_test %} {{ chip("test", "시험") }}{% endif %}</td><td class="num">{{ r.expected_krw|won }}</td><td>v{{ r.quote_version }}</td><td class="mono">{{ r.seller_code }}</td><td class="t-sm">{{ r.created_at|kdate }} · {{ r.created_at|rel }}</td><td><a class="btn btn-secondary btn-sm" href="/orders/{{ r.order_no }}/payment#pay-form">확인 입력</a></td></tr>{% endfor %}
+</tbody></table></div>{% else %}<div class="card empty">{{ icon("check", "lg") }}<p>확인할 결제가 없어요.</p></div>{% endif %}
+{% elif tab == "issues" %}
+{% if issues %}<ul class="timeline">{% for i in issues %}<li>{{ icon("octagon", "sm") }}<span><a href="/orders/{{ i.order_no }}/payment">{{ i.order_no }}</a> · {{ ISSUE_LABEL[i.type] }} · {{ i.note or "" }} <span class="meta">{{ i.opened_at|kdatetime }}</span></span></li>{% endfor %}</ul>{% else %}<div class="card empty">{{ icon("check", "lg") }}<p>지금은 결제 문제가 없어요.</p></div>{% endif %}
+{% elif tab == "recv" %}
+<div class="card"><h2>받을 돈</h2><p class="kpi"><span class="v">{{ recv.live|won }}</span></p><p class="t-sm">시험 금액 별도 {{ recv.test|won }}</p></div>
+{% if recv.rows %}<div class="table-wrap"><table><thead><tr><th scope="col">주문번호</th><th scope="col">고객</th><th scope="col">구분</th><th scope="col" class="num">금액</th><th scope="col">요청일</th></tr></thead><tbody>{% for r in recv.rows %}<tr><td><a class="mono" href="/orders/{{ r.order_no }}/payment">{{ r.order_no }}</a></td><td>{{ r.customer_name }}</td><td>{{ PAY_PHASE_LABEL[r.phase] }}{% if r.is_test %} {{ chip("test", "시험") }}{% endif %}</td><td class="num">{{ r.expected_krw|won }}</td><td>{{ r.created_at|kdate }}</td></tr>{% endfor %}</tbody></table></div>{% endif %}
+{% else %}
+<div class="table-wrap"><table><thead><tr><th scope="col">주문번호</th><th scope="col">구분</th><th scope="col">상태</th><th scope="col" class="num">금액</th><th scope="col">상품주문번호</th><th scope="col">기록</th></tr></thead><tbody>
+{% for e in events %}<tr><td><a class="mono" href="/orders/{{ e.order_no }}/payment">{{ e.order_no }}</a></td><td>{{ PAY_PHASE_LABEL[e.phase] }}</td><td>{{ NAVER_STATUS.get(e.naver_status, "환불") }}</td><td class="num">{{ e.amount_krw|won }}</td><td class="mono">{{ e.naver_product_order_id }}</td><td class="meta">{{ e.recorder }} · {{ e.recorded_at|kdatetime }}</td></tr>{% else %}<tr><td colspan="6" class="t-muted">아직 이벤트가 없어요.</td></tr>{% endfor %}
+</tbody></table></div>
+{% endif %}
+{% endblock %}

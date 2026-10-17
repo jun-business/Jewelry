@@ -1,0 +1,125 @@
+{% extends "base.html" %}{% from "components.html" import icon, chip, order_chips, blocked, banner, csrf_input, approval, evidence, area, text with context %}
+{% block title %}{{ o.order_no }}{% endblock %}
+{% block bodyclass %}{{ "has-action-bar" if na.action and not ended else "" }}{% endblock %}
+{% block content %}
+{% set back = request.cookies.get("jos_list") or "/orders" %}
+{% set me = user.role %}
+{% set tab_url = "/orders/" ~ o.order_no ~ "/" ~ tab %}
+<div class="order-head">
+<a class="btn btn-tertiary" href="{{ back }}" data-testid="order.back">{{ icon("back") }}목록으로</a>
+<div class="ids">
+<h1 class="mono" id="order-title">{{ o.order_no }}</h1>
+<button class="btn btn-tertiary btn-sm" type="button" data-copy="order-no-val" aria-label="주문번호 복사">{{ icon("copy", "sm") }}복사</button><input type="hidden" id="order-no-val" value="{{ o.order_no }}">
+<a href="/customers/{{ o.customer_id }}">{{ o.customer_name }}</a>
+<span>{{ o.product_type or "제품 미정" }}</span>
+{{ order_chips(o, holds, issues) }}
+<span class="meta">{{ o.created_at|kdate }} 접수 · {{ "Google 폼" if o.source == "form" else "수기 접수" }}</span>
+</div>
+{% if steps %}
+<ol class="stepper" aria-label="진행 단계">{% for s in steps %}<li class="s-{{ s.state }}" {% if s.state == 'current' %}aria-current="step"{% endif %}><span class="sr-only">{{ {"done": "완료", "current": "현재", "todo": "예정"}[s.state] }}: </span>{{ s.label }}{% if s.state == 'current' %}<span class="sub">{{ o.lifecycle_state|state_label }}</span>{% endif %}</li>{% endfor %}</ol>
+{% set cur = steps|selectattr("state", "equalto", "current")|list %}
+<p class="step-compact">{{ (cur[0].label if cur else "배송·완료") }} · {{ o.lifecycle_state|state_label }} ({{ step_no }}/5단계)</p>
+{% else %}
+<p class="banner info">{{ icon("info") }}<span class="b-body">진행 종료 · {{ o.lifecycle_state|state_label }}{% if o.closed_at %}({{ o.closed_at|kdate }}){% endif %}</span></p>
+{% endif %}
+</div>
+
+{% if unmet %}<div class="banner danger" role="alert" id="unmet-top">{{ icon("octagon") }}<div class="b-body"><strong>진행할 수 없어요</strong>{{ blocked(unmet, "unmet-list") }}</div></div>{% endif %}
+{% if errors %}<div class="banner danger" role="alert">{{ icon("octagon") }}<div class="b-body"><strong>입력을 확인해 주세요</strong><ul>{% for k, v in errors.items() %}{% if not k.startswith("_unmet") %}<li>{{ v }}</li>{% endif %}{% endfor %}</ul></div></div>{% endif %}
+{% if "NO_CONSENT" in hold_codes %}{{ banner("warning", "이 응답에는 개인정보 동의가 없어요.", "AI 정리도 하지 않았어요. 고객에게 동의를 받아 증빙을 기록하세요.", ("/orders/" ~ o.order_no ~ "/intake#consent", "동의 증빙 기록"), "alert") }}{% endif %}
+{% for i in issues %}
+<div class="banner danger" data-issue="{{ i.type }}">{{ icon("octagon") }}<div class="b-body"><strong>{{ ISSUE_LABEL[i.type] }} · {{ i.opened_at|kdate }} 열림</strong><span>{{ i.note or "" }}</span>
+{% set d = i.detail_json|fromjson if i.detail_json else {} %}{% if i.type == "PAYMENT_MISMATCH" %}<span class="t-sm">기대 {{ d.get("expected")|won }} · 입력 {{ d.get("paid")|won }} · 차이 {{ d.get("diff")|won }}</span>{% endif %}</div>
+<button class="btn btn-secondary btn-sm" type="button" data-open="dlg-resolve-{{ i.id }}">해결하기</button></div>
+<dialog id="dlg-resolve-{{ i.id }}" aria-labelledby="rt-{{ i.id }}"><form class="dlg" method="post" action="/orders/{{ o.order_no }}/actions/resolve_issue">{{ csrf_input() }}<input type="hidden" name="issue_id" value="{{ i.id }}"><input type="hidden" name="_tab" value="{{ tab }}">
+<h2 id="rt-{{ i.id }}">{{ ISSUE_LABEL[i.type] }} 해결</h2>
+{% if i.type == "PAYMENT_MISMATCH" %}<fieldset><legend>해결 방법</legend>{% for v in ["추가 결제 예정", "금액 정정", "취소로 전환"] %}<label class="choice"><input type="radio" name="resolution" value="{{ v }}" {% if loop.first %}checked{% endif %}> {{ v }}</label>{% endfor %}</fieldset>
+{% elif i.type in ("REFUND_REVIEW", "CANCEL_REQUEST") %}<fieldset><legend>결과 <span class="req">(필수)</span></legend><label class="choice"><input type="radio" name="outcome" value="continue"> {{ "고객 철회 — 계속 진행" if i.type == "CANCEL_REQUEST" else "계속 진행" }}</label><label class="choice"><input type="radio" name="outcome" value="cancel"> 취소로 전환(취소 대화상자로)</label></fieldset>{{ area("resolution", "해결 내용", "", True) }}
+{% elif i.type == "DELIVERY_DELAY" %}{{ text("new_eta", "새 예상일", "", True, None, None, "date") }}{{ area("notice", "고객 지연 안내 기록", "", True, None, "발송 기록된 상담 답변 또는 안내한 내용") }}{{ area("resolution", "해결 내용", "", True) }}
+{% elif i.type == "CHANGE_REQUEST" %}<p class="t-sm">보통은 새 견적 승인 + 고객 재동의로 자동 해결돼요. 고객이 변경을 철회한 경우에만 운영자가 닫아요.</p>{{ area("resolution", "해결 내용(변경 철회 사유)", "", True) }}
+{% else %}{{ area("resolution", "해결 내용", "", True) }}{% endif %}
+<div class="dlg-actions"><button type="button" class="btn btn-secondary" data-close>취소</button><button class="btn btn-primary" type="submit">해결로 기록</button></div></form></dialog>
+{% endfor %}
+
+{% for cov in change_views if cov.co_open %}{% include "screens/tabs/_change_order.html" %}{% endfor %}
+
+<div class="detail">
+<div class="detail-main">
+<nav class="tabs" aria-label="주문 상세 탭" data-scroll-x>
+{% for key, lab in tabs %}<a href="/orders/{{ o.order_no }}/{{ key }}" {% if key == tab %}aria-current="page"{% endif %}>{{ lab }}{% if tab_alert.get(key) %}<span class="dot" aria-hidden="true"></span><span class="sr-only"> (확인 필요)</span>{% endif %}</a>{% endfor %}
+</nav>
+{% include "screens/tabs/" ~ tab ~ ".html" %}
+</div>
+<aside class="rail" aria-label="다음 할 일과 요약">
+<section class="card next-card" aria-labelledby="na-t" data-testid="order.next-action">
+<h2 id="na-t">다음 할 일</h2>
+<p class="t-lg"><strong>{{ na.sentence }}</strong></p>
+{% if na.system %}<p class="t-muted">{{ icon("refresh", "sm") }} 보통 1분 이내에 끝나요.</p>{% endif %}
+{% if na.roles and not na.system %}<p class="who">담당: {{ na.roles|role_names }} 계정</p>{% endif %}
+{% if na.unmet %}<ul class="checklist" id="na-unmet">{% for u in na.unmet %}<li data-unmet-code="{{ u.code }}"><span class="no">{{ icon("x", "sm") }}</span><span><span class="sr-only">미충족: </span>{{ u.message }}{% if u.fix and not u.fix.startswith('/') %} <a href="/orders/{{ o.order_no }}/{{ u.fix }}">해결하기</a>{% elif u.fix %} <a href="{{ u.fix }}">해결하기</a>{% endif %}</span></li>{% endfor %}</ul>{% endif %}
+{% if na.action %}
+<div class="next-main">{% include "screens/tabs/_primary.html" %}</div>
+{% endif %}
+{% if not ended %}
+<details class="t-sm"><summary>다른 조치</summary>
+<ul class="nav">
+<li><button class="btn btn-tertiary" type="button" data-open="dlg-issue">{{ icon("alert", "sm") }}문제 기록</button></li>
+<li><a class="btn btn-tertiary" href="/orders/{{ o.order_no }}/time">{{ icon("clock", "sm") }}작업시간 기록</a></li>
+{% if me == "operator" %}<li><button class="btn btn-tertiary" type="button" data-open="dlg-cancel">{{ icon("xoct", "sm") }}주문 취소</button></li>{% endif %}
+{% if revert_ok %}<li><button class="btn btn-tertiary" type="button" data-open="dlg-revert">{{ icon("back", "sm") }}직전 단계 되돌리기</button></li>{% endif %}
+</ul></details>
+{% endif %}
+</section>
+<section class="card" aria-labelledby="sum-t"><h2 id="sum-t">요약</h2>
+<dl class="kv">
+<dt>약속일</dt><dd>{{ o.promised_date|kdate if o.promised_date else "—" }}</dd>
+<dt>견적 총액</dt><dd>{{ q_appr.total_krw|won if q_appr else "—" }}{% if q_appr and q_appr.is_test %} {{ chip("test", "시험 견적", "flask") }}{% endif %}</dd>
+<dt>결제</dt><dd>{% for r in pay_reqs %}{{ PAY_PHASE_LABEL[r.phase] }} {{ PAY_STATUS_LABEL.get(r.status, r.status) if r.status != "PAID" else "확인 대기" }}{% if not loop.last %} · {% endif %}{% else %}—{% endfor %}</dd>
+<dt>작업시간</dt><dd>{{ (work._total // 60) }}시간 {{ work._total % 60 }}분</dd>
+</dl></section>
+</aside>
+</div>
+
+{% if na.action and not ended %}
+<div class="action-bar" role="region" aria-label="대표 조치">
+{% if na.unmet %}<a class="btn btn-secondary btn-lg" href="#na-unmet">진행할 수 없어요 · 이유 보기</a>
+{% else %}<a class="btn btn-primary btn-lg" href="#na-t">{{ na.label }}</a>{% endif %}
+</div>
+{% endif %}
+
+{# 공통 대화상자 #}
+<dialog id="dlg-issue" aria-labelledby="iss-t"><form class="dlg" method="post" action="/orders/{{ o.order_no }}/actions/open_issue">{{ csrf_input() }}<input type="hidden" name="_tab" value="{{ tab }}">
+<h2 id="iss-t">문제 기록</h2>
+<fieldset><legend>유형 <span class="req">(필수)</span></legend>
+{% set types = ["CHANGE_REQUEST", "REWORK", "DELIVERY_DELAY", "CANCEL_REQUEST"] + (["DISPUTED"] if me == "operator" else []) %}
+{% for t in types %}<label class="choice"><input type="radio" name="type" value="{{ t }}" {% if t == "CHANGE_REQUEST" and not can_change %}disabled aria-describedby="chg-note"{% endif %}> {{ ISSUE_LABEL[t] }}</label>{% endfor %}
+{% if not can_change %}<p class="help" id="chg-note">공장 발주 뒤에는 변경 요청 대신 재작업 문제로 기록하세요. 귀책이 ‘고객 변심’이면 변경 가능 판정·추가 견적·고객 동의·결제 확인을 거쳐 재작업해요.</p>{% endif %}
+</fieldset>
+<fieldset><legend>귀책(재작업·변경·취소 요청일 때 필수)</legend>{% for k, v in FAULT_LABEL.items() %}<label class="choice"><input type="radio" name="fault" value="{{ k }}"> {{ v }}</label>{% endfor %}</fieldset>
+{{ area("note", "내용", "", True) }}
+<div class="dlg-actions"><button type="button" class="btn btn-secondary" data-close>취소</button><button class="btn btn-primary" type="submit">기록</button></div></form></dialog>
+
+{% if me == "operator" and not ended %}
+{% set paid_total = pay_events|selectattr("event_type", "equalto", "PAID")|sum(attribute="amount_krw") %}
+{% set cancel_extra %}
+<fieldset><legend>귀책 <span class="req">(필수)</span></legend>{% for k, v in FAULT_LABEL.items() %}<label class="choice"><input type="radio" name="fault" value="{{ k }}"> {{ v }}</label>{% endfor %}</fieldset>
+<fieldset><legend>환불 결정 <span class="req">(필수)</span></legend>
+<label class="choice"><input type="radio" name="refund_decision" value="FULL"> 전액 환불</label>
+<label class="choice"><input type="radio" name="refund_decision" value="PARTIAL"> 일부 환불</label>
+<label class="choice"><input type="radio" name="refund_decision" value="NONE_PAID" {% if paid_total > 0 %}disabled aria-describedby="nopaid-note"{% endif %}> 환불할 결제 없음</label>
+{% if paid_total > 0 %}<p class="help" id="nopaid-note">확인된 결제 {{ paid_total|won }}가 있어 고를 수 없어요.</p>{% endif %}
+<div class="grid-2"><div class="field"><label for="f-refund_amount">일부 환불 금액</label><input id="f-refund_amount" name="refund_amount" class="money" inputmode="numeric"></div>
+<div class="field"><label for="f-refund_basis">근거(정책)</label><input id="f-refund_basis" name="refund_basis" placeholder="{{ '수정·환불 정책 v' ~ q_appr.terms_version if q_appr and q_appr.terms_version else '적용 정책' }}"></div></div>
+</fieldset>
+{{ evidence("", None, "증빙") }}
+{% endset %}
+{{ approval("dlg-cancel", "/orders/" ~ o.order_no ~ "/actions/cancel", "주문을 취소할까요?", [("주문", o.order_no), ("현재 단계", o.lifecycle_state|state_label), ("확인된 결제", paid_total|won)], "취소하면 이 주문은 ‘진행 종료’가 돼요. 확인되지 않은 결제 요청은 취소되고 열린 문제는 모두 닫혀요. 실제 환불은 결제 탭에서 환불 금액을 입력해 기록하세요.", user.display_name ~ "(" ~ user.role_label ~ ")", cancel_extra, None, o.version, tab, True, "취소 사유", confirm == "cancel", "주문 취소", True) }}
+{% endif %}
+{% if revert_ok %}
+{{ approval("dlg-revert", "/orders/" ~ o.order_no ~ "/actions/revert", "직전 단계로 되돌릴까요?", [("현재 단계", o.lifecycle_state|state_label)], "되돌림도 이력에 남아요.", user.display_name ~ "(" ~ user.role_label ~ ")", "", None, o.version, tab, True, "되돌리는 이유", false, "되돌리기") }}
+{% endif %}
+
+<dialog id="lightbox" class="lightbox" aria-label="이미지 확대 보기"><div class="dlg">
+<div class="card-head"><span class="lb-cap t-sm"></span><span class="btn-row"><button class="btn btn-secondary btn-sm" type="button" data-step="-1">이전</button><button class="btn btn-secondary btn-sm" type="button" data-step="1">다음</button><button class="btn btn-secondary btn-sm" type="button" data-zoom="0.25" aria-label="확대">+</button><button class="btn btn-secondary btn-sm" type="button" data-zoom="-0.25" aria-label="축소">−</button><button class="btn btn-primary btn-sm lb-close" type="button" data-close>닫기(Esc)</button></span></div>
+<img alt=""></div></dialog>
+{% endblock %}
