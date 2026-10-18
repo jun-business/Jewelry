@@ -35,6 +35,7 @@
 | D-16 | 귀책 값: 고객 변심·요청 변경 / 제품 하자 / 계약 사양 불일치 / 불명. 옛 값 “판매자 귀책”은 표시만, 새 입력 거부 | D-10 “변심과 하자·계약 불일치 구분” | CONFIRMED(D-10 범위) |
 | D-17 | 스키마 v2 이행(결제 요청 표 재생성)은 앱 기동 시 자동, 기존 데이터 보존 | 실 PC 설치 전 변경 | 시험 `tests/unit/test_migration.py` PASS |
 | D-18 | (2026-10-18) **실제 폼 질문 ID 연결** — 운영자가 설정 > 폼 매핑에서 미인식 질문 ID를 항목에 연결(설정 `intake_question_binding`, 감사). Forms API `forms.get`(forms.body 범위) 대신 **응답에서 본 질문 ID + 가린 예시 답변**으로 고른다. 저장 후 받은 응답 전체 재해석 — 해석이 바뀐 응답만 새 revision, 시스템 보류(NEEDS_INFO·NO_CONSENT)만 자동 해제, 주문·고객은 빈 값만 채움. 예시 답변은 미연결 질문에만 보관하고 고객 삭제 시 비움, 삭제된 고객 응답은 재해석 안 함 | 실 PC 시험(d29e3d1 이후)에서 글 답이 전부 비어 들어옴 — 인수 조건 C-1의 선행 결함. OAuth 범위 유지(현 scope 재동의 불필요) | SRS-004 r2 · TC-S-057 · TC-U-056~058 PASS — 실계정 확인은 C-1 |
+| D-19 | (2026-10-18, 사업 책임자) **브랜드 확정** — 상호 **틴틴골드**(tntngold), 로고 = TN 모노그램 + 별(원본 `docs/design/brand/tntngold_logo_source.webp`). 적용: 상호 기본값, 사이드바 마크, 로그인 로고, **고객 견적 문서 머리 로고**, 파비콘(`tools/make_brand_assets.py`로 생성). 기술 표기(CLI·작업 스케줄러·오프라인 안내)는 소프트웨어 이름 “Jewelry OS” 유지 | CONFIRMED | TBD-001 종료, `tests/acceptance/test_brand.py` |
 
 ## 4. 이전 결정
 스테이지 1~15의 PM 결정(진행 방식, 단계 조정, 모델, 스택 등)은 `PROJECT_REGISTER.md` 5부 변경 로그와 3부 ASM 레지스터가 원본이다.

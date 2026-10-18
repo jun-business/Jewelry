@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>{% block title %}Jewelry OS{% endblock %} · {{ shop_name }}</title>
+<link rel="icon" href="/favicon.ico" sizes="any"><link rel="icon" type="image/png" href="/static/img/favicon.png"><link rel="apple-touch-icon" href="/static/img/apple-touch-icon.png">
 <link rel="stylesheet" href="/static/css/tokens.css">
 <link rel="stylesheet" href="/static/css/app.css">
 <script src="/static/js/app.js" defer></script>
@@ -14,7 +15,7 @@
 {% if user %}
 <div class="shell">
 <nav class="sidebar" aria-label="주 메뉴">
-<a class="brand" href="/">{{ icon("gem") }}<span class="name">{{ shop_name }}</span></a>
+<a class="brand" href="/"><img class="brand-mark" src="/static/img/mark.png" alt="" width="32" height="32"><span class="name">{{ shop_name }}</span></a>
 {% set nav = [("/", "home", "홈", None), ("/orders", "list", "주문", queue_counts.get('review') if queue_counts else None), ("/payments", "card", "결제", queue_counts.get('payment') if queue_counts else None), ("/cs", "message", "상담", None), ("/schedule", "calendar", "일정", None), ("/customers", "users", "고객", None), ("/analytics", "chart", "실적", None), ("/settings", "settings", "설정", None), ("/system", "server", "시스템 상태", None)] %}
 <ul class="nav">
 {% for href, ic, lab, cnt in nav %}

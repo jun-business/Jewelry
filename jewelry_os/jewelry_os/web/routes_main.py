@@ -101,6 +101,14 @@ async def order_list(request: Request, queue: str = "", q: str = "", sort: str =
     return resp
 
 
+@router.get("/favicon.ico")
+async def favicon(request: Request):
+    from fastapi.responses import FileResponse
+    from .app import HERE
+    return FileResponse(HERE / "static" / "img" / "favicon.ico", media_type="image/x-icon",
+                        headers={"Cache-Control": "max-age=86400"})
+
+
 @router.get("/sw.js")
 async def service_worker(request: Request):
     from fastapi.responses import FileResponse

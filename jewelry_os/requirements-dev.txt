@@ -2,3 +2,4 @@
 -r requirements.txt
 pytest==9.1.1
 playwright==1.64.0
+pillow==13.0.0  # tools/make_brand_assets.py

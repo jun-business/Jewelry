@@ -34,7 +34,7 @@ DEFAULTS = {
     "ai_monthly_call_limit": 300,
     "ai_monthly_cost_limit_krw": 30000,
     "ai_send_images": False,
-    "shop_name": "Jewelry OS",           # TBD-001
+    "shop_name": "틴틴골드",               # D-19 (TBD-001 확정)
     "consent_version": "consent_v1",
     "tax_type": "unset",                 # H1 r1 Q9: unset | general | simplified | exempt (TBD-009)
     "simplified_vat_rate_pct": 20,       # 간이과세 업종별 부가가치율(%) — 업종 확인 필요(TBD-009)

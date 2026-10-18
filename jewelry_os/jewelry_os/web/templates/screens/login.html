@@ -1,8 +1,8 @@
 {% from "components.html" import icon, banner with context %}<!doctype html>
 <html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<title>로그인 · {{ shop_name }}</title><link rel="stylesheet" href="/static/css/tokens.css"><link rel="stylesheet" href="/static/css/app.css"></head>
+<title>로그인 · {{ shop_name }}</title><link rel="icon" href="/favicon.ico" sizes="any"><link rel="icon" type="image/png" href="/static/img/favicon.png"><link rel="apple-touch-icon" href="/static/img/apple-touch-icon.png"><link rel="stylesheet" href="/static/css/tokens.css"><link rel="stylesheet" href="/static/css/app.css"></head>
 <body><main id="main" class="auth"><div class="card">
-<h1>{{ icon("gem", "lg") }} {{ shop_name }}</h1>
+<h1 class="auth-logo"><img src="/static/img/logo.webp" alt="{{ shop_name }}" width="200" height="200"></h1>
 {% if setup %}{{ banner("success", "설정이 끝났어요. 만든 계정으로 로그인하세요.", ic="check") }}{% endif %}
 {% if expired %}{{ banner("info", "오래 사용해서 다시 로그인해야 해요(12시간).", "로그인하면 보던 화면으로 돌아가요.") }}{% endif %}
 {% if error %}<div class="banner danger" role="alert">{{ icon("octagon") }}<div class="b-body"><strong>{{ error }}</strong></div></div>{% endif %}

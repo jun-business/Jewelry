@@ -3,6 +3,9 @@
 .doc-tools { max-width: 794px; margin: 16px auto 0; padding: 0 16px; display: flex; flex-wrap: wrap; gap: 8px; }
 .doc { max-width: 794px; margin: 16px auto 48px; background: #fff; color: #1F1D1A; padding: 48px 56px; border-radius: 8px; box-shadow: var(--jos-shadow-1); }
 .doc-head { border-bottom: 2px solid var(--jos-color-brand-gold); padding-bottom: 16px; margin-bottom: 24px; }
+.doc-brand { margin-bottom: 8px; }
+.doc-logo { width: 120px; height: auto; display: block; }
+@media print { .doc-logo { width: 100px; } }
 .doc-shop { font-weight: 700; letter-spacing: .04em; color: #8A6A26; }
 .doc h1 { font-size: 28px; margin: 8px 0; }
 .doc h2 { font-size: 16px; margin: 24px 0 8px; color: #45423B; }
