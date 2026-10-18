@@ -59,6 +59,7 @@
 {{ text("title", "제목", "") }}{{ area("body", "본문", "", True, None, None, 6) }}<button class="btn btn-primary" type="submit">초안 만들기</button></form>{% endif %}
 
 {% elif section == "google" %}
+{% if unmapped_count %}{{ banner("warning","연결하지 않은 폼 질문 " ~ unmapped_count ~ "개가 있어요", "질문을 항목에 연결해야 이름·연락처·설명·동의를 읽을 수 있어요.", ("/settings/mapping", "질문 연결하기"), "alert") }}{% endif %}
 <form class="card" method="post" action="/settings/google">{{ csrf_input() }}<h2>Google 연동</h2>
 <fieldset><legend>모드</legend><label class="choice"><input type="radio" name="google_mode" value="mock" {% if s.google_mode == "mock" %}checked{% endif %}> 시험용 Mock</label><label class="choice"><input type="radio" name="google_mode" value="live" {% if s.google_mode == "live" %}checked{% endif %}> 실제 Google 계정</label></fieldset>
 <fieldset><legend>폼 용도</legend><label class="choice"><input type="radio" name="google_form_purpose" value="test" {% if s.google_form_purpose == "test" %}checked{% endif %}> 시험 폼(고객에게 공개하지 않음)</label>
@@ -118,6 +119,16 @@
 <section class="card"><h2>기록 이력</h2><ul class="timeline">{% for h in gate_history %}<li>{{ icon("commit", "sm") }}<span>{{ h.gate_id }} · {{ "통과" if h.status == "PASSED" else "미통과" }} · {{ h.display_name }} · {{ h.recorded_at|kdatetime }}<div class="t-sm">{{ h.evidence }}</div></span></li>{% else %}<li><span class="t-muted">아직 기록이 없어요.</span></li>{% endfor %}</ul></section>
 
 {% elif section == "mapping" %}
+<form class="card" method="post" action="/settings/mapping">{{ csrf_input() }}<h2>폼 질문 연결</h2>
+<p class="help">실제 Google 폼은 질문마다 고유 ID를 붙여요. 시험 응답 1건을 보내고 “지금 가져오기”를 누르면 아래에 질문 ID와 예시 답변이 나타나요. 질문마다 어떤 항목인지 고르고 저장하면, 이미 받은 응답도 다시 읽어요. 사진 문항은 자동으로 인식해서 여기에 나오지 않아요.</p>
+{% if binding_rows %}
+<div class="table-wrap"><table><thead><tr><th scope="col">질문 ID</th><th scope="col">예시 답변</th><th scope="col">연결할 항목</th></tr></thead><tbody>{% for r in binding_rows %}<tr>
+<td class="mono">{{ r.qid }}<input type="hidden" name="qid" value="{{ r.qid }}"></td>
+<td>{% if r.sample %}{{ r.sample }}{% elif r.field %}<span class="t-muted">연결됨</span>{% else %}<span class="t-muted">—</span>{% endif %}</td>
+<td><label class="sr-only" for="bind-{{ loop.index }}">{{ r.qid }} 질문의 항목</label><select id="bind-{{ loop.index }}" name="field_{{ r.qid }}"><option value="">(연결 안 함)</option>{% for k, lab in field_label.items() %}<option value="{{ k }}" {% if r.field == k %}selected{% endif %}>{{ lab }}{% if k in required_fields %} (필수){% endif %}</option>{% endfor %}</select></td></tr>{% endfor %}</tbody></table></div>
+<div class="btn-row"><button class="btn btn-primary" type="submit" {% if not op %}aria-disabled="true"{% endif %}>연결 저장</button></div>
+{% else %}<p class="t-muted">아직 연결할 질문이 없어요. 시험용 Mock은 기본 매핑을 그대로 써요.</p>{% endif %}
+</form>
 <section class="card"><h2>폼 매핑 · {{ mapping.version }}</h2><p class="help">{{ mapping.note }}</p>
 <div class="table-wrap"><table><thead><tr><th scope="col">질문 ID</th><th scope="col">필드</th><th scope="col">필수</th></tr></thead><tbody>{% for qid, sp in mapping.questions.items() %}<tr><td class="mono">{{ qid }}</td><td>{{ sp.field }}</td><td>{{ "예" if sp.required else "아니오" }}</td></tr>{% endfor %}</tbody></table></div></section>
 {% endif %}

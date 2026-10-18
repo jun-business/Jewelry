@@ -12,7 +12,8 @@ from conftest import MAKER_PW, T0, add_response, answers
 from jewelry_os.adapters import google as g
 from jewelry_os.core import clock, security
 from jewelry_os.domain import money
-from jewelry_os.services import alerts, analysis, backup, capacity, intake, manufacturing, settings
+from jewelry_os.core.db import jdump, jload
+from jewelry_os.services import alerts, analysis, backup, capacity, intake, manufacturing, orders, settings
 from webutil import web
 
 
@@ -143,6 +144,77 @@ def test_tcu_055_file_fail_then_retry(ctx):
     a = ctx.db.one("SELECT * FROM assets WHERE order_id=? AND kind='reference'", (o["id"],))
     assert a["fetch_status"] == "OK" and a["file_hash"]
     assert ctx.db.scalar("SELECT status FROM system_jobs WHERE id=?", (job["id"],)) == "DONE"
+
+
+def test_tcu_056_file_upload_by_shape(ctx):
+    """d29e3d1: 매핑에 없는(실제 폼) 질문 ID의 파일 답도 모양(fileUploadAnswers)으로 찾는다. 중복 fileId는 1번만."""
+    m = intake.load_mapping()
+    a = dict([g.text_answer("q01_display_name", "김하늘"),
+              g.files_answer("9f8e7d6c", [("F1", "a.jpg"), ("F2", "b.png")]),
+              g.file_answer("0a1b2c3d", "F3", "c.jpg"),
+              g.file_answer("q10_reference_files", "F1", "a.jpg")])
+    got = intake.parse_answers(m, a)["reference_files"]
+    assert [f["file_id"] for f in got] == ["F1", "F2", "F3"]  # 매핑된 문항 먼저, 모양으로 찾은 것은 중복 없이 뒤에
+    assert [f["name"] for f in got] == ["a.jpg", "b.png", "c.jpg"]
+    assert intake.parse_answers(m, {"x": "not-a-dict", **dict([g.text_answer("y", "글")])}).get("reference_files") is None
+    # 동기화: 예전 코드로 파일 없이 저장된 revision → 같은 원문이라도 파일이 새로 잡히면 revision 2 + 가져오기 작업
+    ctx.files.files["F9"] = g.sample_jpeg("F9")
+    ctx.forms.add("r1", {**answers(), **dict([g.file_answer("9f8e7d6c", "F9", "ring.jpg")])}, "2026-10-20T01:00:00Z")
+    intake.sync_once(ctx)
+    intake.fetch_pending_files(ctx)
+    with ctx.db.tx() as c:  # 예전 코드(d29e3d1 이전)는 이 파일을 못 봤다 — 자산·revision에서 지워 재현
+        c.execute("DELETE FROM assets")
+    iid = ctx.db.scalar("SELECT id FROM intake_responses")
+    with ctx.db.tx() as c:
+        rv = ctx.db.one("SELECT * FROM intake_revisions WHERE intake_id=?", (iid,))
+        old = {k: v for k, v in jload(rv["answers_json"]).items() if k != "reference_files"}
+        c.execute("UPDATE intake_revisions SET answers_json=? WHERE id=?", (jdump(old), rv["id"]))
+    st = intake.sync_once(ctx)
+    assert st["revised"] == 1
+    assert ctx.db.scalar("SELECT COUNT(*) FROM system_jobs WHERE kind='fetch_files' AND status='PENDING'") == 1
+    intake.fetch_pending_files(ctx)
+    assert ctx.db.scalar("SELECT COUNT(*) FROM assets WHERE kind='reference' AND fetch_status='OK'") == 1
+    assert intake.sync_once(ctx)["revised"] == 0  # 멱등
+
+
+def test_tcu_057_binding_overlay_and_validation():
+    """SRS-004 r2: 운영자 질문 연결 = 번들 매핑 위에 실제 질문 ID를 덧붙임. 자리표시 ID는 남는다."""
+    m = intake.load_mapping(binding={"7a1b2c3d": "display_name"})
+    assert m["questions"]["7a1b2c3d"] == {**intake.load_mapping()["questions"]["q01_display_name"]}
+    assert "q01_display_name" in m["questions"]
+    a = {"7a1b2c3d": {"questionId": "7a1b2c3d", "textAnswers": {"answers": [{"value": "김하늘"}]}}}
+    assert intake.parse_answers(intake.load_mapping(), a)["display_name"] is None  # 연결 전(문제 재현)
+    assert intake.parse_answers(m, a)["display_name"] == "김하늘"
+    assert intake.parse_answers(m, dict([g.text_answer("q01_display_name", "자리표시")]))["display_name"] == "자리표시"
+    full = {"q_name": "display_name", "q_kind": "contact_kind", "q_val": "contact_value", "q_prod": "product_type",
+            "q_desc": "description", "q_ok": "consent"}
+    assert intake.validate_binding({**full, "q_none": ""}) == full  # 빈 선택은 버림
+    for bad in ({k: v for k, v in full.items() if k != "q_ok"},       # 필수 항목(동의) 빠짐
+                {**full, "q_dup": "description"},                      # 한 항목에 질문 둘
+                {**full, "q_addr": "address"},                         # 주소 금지
+                {**full, "q_ship": "shipping_address"},
+                {**full, "q_x": "favorite_color"},                     # 번들에 없는 항목
+                {**full, "bad id!": "size"}):                          # 질문 ID 형식
+        with pytest.raises(intake.MappingError):
+            intake.validate_binding(bad)
+
+
+def test_tcu_058_revision_clears_system_holds_only(ctx, operator):
+    """새 revision에서 조건이 채워지면 시스템이 건 NEEDS_INFO만 풀고, 사람이 건 보류는 남긴다."""
+    no = new_order(ctx, "a", desc=None)
+    oid = get(ctx, no)["id"]
+    ctx.forms.responses[0]["answers"] = answers()
+    assert intake.sync_once(ctx)["revised"] == 1
+    h = ctx.db.one("SELECT * FROM holds WHERE order_id=? AND reason='NEEDS_INFO'", (oid,))
+    assert h["cleared_at"] and h["cleared_by"] is None
+    no2 = new_order(ctx, "b")
+    oid2 = get(ctx, no2)["id"]
+    with ctx.db.tx() as c:
+        orders.set_hold(c, oid2, "NEEDS_INFO", operator, "사이즈를 다시 물어봄")
+    ctx.forms.responses[1]["answers"] = answers(desc="사이즈는 13호예요")
+    assert intake.sync_once(ctx)["revised"] == 1
+    assert ctx.db.scalar("SELECT COUNT(*) FROM holds WHERE order_id=? AND reason='NEEDS_INFO' AND cleared_at IS NULL",
+                         (oid2,)) == 1
 
 
 # ---------------- DD-004 금액 ----------------

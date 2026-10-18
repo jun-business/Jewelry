@@ -186,8 +186,12 @@ def settings_vm(ctx, section):
         vm["error_text"] = intake.ERROR_TEXT
         vm["live_allowed"] = settings.live_intake_allowed(ctx)
         vm["connected"] = bool(ctx.cfg.secret("JOS_GOOGLE_REFRESH_TOKEN"))
+        vm["unmapped_count"] = len(intake.unmapped_questions(ctx))
     if section == "mapping":
-        vm["mapping"] = intake.load_mapping()
+        vm["mapping"] = intake.current_mapping(ctx)
+        vm["binding_rows"] = intake.binding_rows(ctx)
+        vm["field_label"] = intake.FIELD_LABEL
+        vm["required_fields"] = intake.REQUIRED_FIELDS
     return vm
 
 
@@ -306,6 +310,18 @@ async def settings_post(request: Request, section: str):
             from ..bootstrap import configure_adapters
             configure_adapters(ctx)
             return flash_redirect("/settings/ai", "AI 설정을 저장했어요.")
+        if section == "mapping":  # 실제 폼 질문 ID → 필드 연결(SRS-004 r2)
+            qids = f.getlist("qid")
+            try:
+                st = intake.save_binding(ctx, {q: f.get(f"field_{q}") or "" for q in qids}, user)
+            except intake.MappingError as e:
+                return _settings_error(request, "mapping", errors={"_": str(e)}, status=422)
+            alerts.evaluate(ctx)
+            if not st["ok"]:
+                return flash_redirect("/settings/mapping", "질문 연결을 저장했어요. 받은 응답을 다시 읽지 못했어요 — "
+                                      + intake.ERROR_TEXT.get(st["error"], "동기화에 실패했어요."), "error")
+            return flash_redirect("/settings/mapping", f"질문 연결을 저장했어요. 받은 응답 {st['total']}건을 다시 읽어 "
+                                                       f"{st['revised']}건을 고쳤어요.")
         if section == "backup":
             if f.get("backup_keep_days"):
                 settings.put(ctx, "backup_keep_days", int(f["backup_keep_days"]), user)

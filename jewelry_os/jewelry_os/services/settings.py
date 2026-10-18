@@ -28,6 +28,7 @@ DEFAULTS = {
     "google_mode": "mock",               # mock | live
     "google_form_purpose": "test",       # test | public
     "google_form_id": "mock-form",
+    "intake_question_binding": {},       # 실제 폼 질문 ID → intake 필드(SRS-004 r2, 설정 > 폼 매핑)
     "ai_provider": "mock",               # mock | claude
     "ai_model": "claude-opus-5-5",
     "ai_monthly_call_limit": 300,

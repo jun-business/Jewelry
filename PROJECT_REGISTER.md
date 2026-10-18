@@ -1,7 +1,7 @@
 # PROJECT REGISTER — Jewelry OS R1
 
 ## 0. 인수인계 (항상 파일 맨 위)
-- **직전에 한 일**: H1/H3 PM Review r1 반영 — Q2·Q9·Q10 수정 구현, 원격 관리자 분리 추적, 회귀 179 PASS, H3 조건부 인수(시험 운영 모드만) 기록 — rev.7
+- **직전에 한 일**: (2026-10-18) 실제 Google 폼 질문 ID 연결(D-18, SRS-004 r2, TC-S-057, TC-U-056~058) — 회귀 184 PASS. 그 전: H1/H3 PM Review r1 반영, H3 조건부 인수(시험 운영 모드만) — rev.7
 - **진행 중 작업**: 없음
 - **다음에 할 일**: 사용자 몫 — H3 추가 검증 조건 5개(아래 「인수 조건」), TBD-009 과세 유형 입력, 실 PC 설치(`docs/INSTALL_운영가이드.md`)
 - **사용자 대기**: 인수 조건 C-1~C-5 · TC-S-015·045·047 AWAITING_ACTUAL · 섹션 D 가정(ASM-002·015·017·018) 재확인 · TBD-001~006·008·009
@@ -15,7 +15,7 @@
 - 리비전: rev.7
 - PRD 원본: Jewelry_OS_PRD_v1.0.md · 원본 버전 v1.0 Draft (2026-10-16 사용자 제공)
 - 현재 게이트: 전 스테이지 마감 · **H3 조건부 인수 승인(2026-10-17) — 로컬 PC 시험 운영 모드만, 실고객 운영·실결제 비승인**. 인수 조건 C-1~C-5 대기
-- 최종 갱신: 2026-10-17
+- 최종 갱신: 2026-10-18
 - **모델 카탈로그**: 확인 2026-10-16 · C=claude-opus-5-5 · T1=claude-opus-5-5 · T2=claude-sonnet-5-5 · T3=claude-haiku-5-5 · UNRANKED=claude-fable-5-1(서열 미확인 — 사용자 확인 불가로 미사용) · 출처: 가용=실행 환경 모델 목록 / 서열=PM 판단(공식 서열 미확인 → ASM 아님, 기록만)
 - **PM 세션**: claude-opus-5-5 · high · Doc Lock 충족(T1 이상). 한계: C와 T1이 같은 모델이라 “작성자와 다른 모델 검토”는 같은 모델의 독립 인스턴스로 대체(변경 로그 기록)
 - 스테이지 완료 체크리스트:
@@ -27,7 +27,7 @@
 - **PRD 인수 현황(R1)**: 충족 30 / 조건부 충족 11 / 미충족 0 / 미판정 0 (PRD 요구 26 + IMPLICIT 14 + PDS 요청 1 = 41) · **분리 추적 미완료 1(REMOTE-ADMIN, R2)** · H3 = 조건부 인수 승인
 - **해석 확인 현황**: EXP CONFIRMED 8 / ASSUMED 8 / UNCONFIRMED 0 / REJECTED 0 (H1 r1 답 반영)
 - **SRS 상태 분포**: 167건 — PASS 159(그중 HUMAN 확인도 남은 10) · AWAITING_ACTUAL 7 · 미완료(R2) 1 · FAIL 0
-- **시험(rev.7 회귀)**: TC-U 102 · TC-I 13 · TC-S AGENT 58(+browser 6) = 179 PASS / TC-S HUMAN 3 AWAITING_ACTUAL
+- **시험(rev.7 + D-18 회귀)**: TC-U 105 · TC-I 13 · TC-S AGENT 60(+browser 6) = 184 PASS / TC-S HUMAN 3 AWAITING_ACTUAL
 - **사람 대기 큐**: 인수 조건 5 (C-1~C-5)
 - **리스크 요약**: 미해결 고아 0 / UNVERIFIED 가정 9 / 미해결 결함 0 / 최대 재터치 2 (EXP-016, ASM-005·019·020 각 1)
 
@@ -106,7 +106,7 @@
 | SRS-001 | FR-F-001 | 운영 · D | TC-S-047 | AWAITING_ACTUAL |
 | SRS-002 | FR-F-002 | 구현 + 운영 · T + D | TC-S-004, TC-S-023, TC-S-047 | PASS (+HUMAN 대기) |
 | SRS-003 | FR-F-003 | 구현 · T | TC-S-023, TC-S-047 | PASS (+HUMAN 대기) |
-| SRS-004 | FR-F-004 | 구현 · T | TC-S-023 | PASS |
+| SRS-004 | FR-F-004 | 구현 · T | TC-S-023, TC-S-057 | PASS (r2 실제 폼 질문 연결 — 실계정 확인은 C-1) |
 | SRS-005 | FR-F-005 | 운영 · D | TC-S-023, TC-S-047 | PASS (+HUMAN 대기) |
 | SRS-006 | FR-F-006 | 구현 + 운영 · T + D | TC-S-023, TC-S-047 | PASS (+HUMAN 대기) |
 | SRS-007 | FR-F-007 | 구조 · I | TC-S-023, TC-S-046 | PASS |
@@ -186,7 +186,7 @@
 | SRS-081 | FR-OPS-002 | 구현 · T | TC-S-032, TC-S-035 | PASS |
 | SRS-082 | FR-OPS-003 | 구현 · T | TC-S-033 | PASS |
 | SRS-083 | FR-OPS-004 | 구현 · T | TC-S-034 | PASS |
-| SRS-084 | FR-OPS-005 | 구현 · T | TC-S-035 | PASS |
+| SRS-084 | FR-OPS-005 | 구현 · T | TC-S-035, TC-S-057 | PASS |
 | SRS-085 | FR-OPS-006 | 구현 · T | TC-S-021, TC-S-052 | PASS |
 | SRS-086 | FR-OPS-007 | 구현 · T | TC-S-020 | PASS |
 | SRS-087 | FR-OPS-008 | 구현 · T | TC-S-008 | PASS |
@@ -301,7 +301,7 @@
 ### 2-5. H3 인수 조건 (2026-10-17 조건부 인수 승인 — 실고객 운영·실결제 비승인)
 | 조건 | 내용 | 확인 방법 | 상태 |
 |---|---|---|---|
-| C-1 | 실제 Google Forms 및 AI API 연동 시험 | TBD-004 · TC-S-024·052를 실계정으로 재실행(14_TR §6) | OPEN |
+| C-1 | 실제 Google Forms 및 AI API 연동 시험 | TBD-004 · 시험 응답 1건 → 설정 > 폼 매핑에서 질문 연결(INSTALL §5, D-18) → TC-S-024·052·057을 실계정으로 재실행(14_TR §6) | OPEN |
 | C-2 | 아버님 사용성 시험 | TC-S-015(14_TR 부록 A) | OPEN |
 | C-3 | 실제 자택 PC 재부팅·복구 시험 | TC-S-045(14_TR 부록 B, INSTALL 가이드 §6) | OPEN |
 | C-4 | 조건부 충족 11개 항목의 시험 증빙 확인 | 15_TRP §2 조건부 행의 남은 증거(TC-S-015·045·047) | OPEN |
@@ -373,6 +373,7 @@
 | 2026-10-17 | H1/H3 사후 확인 r1 | Q1·3·4·5·6·7·8 승인, Q2·Q9·Q10 수정 승인, H3 조건부 인수(시험 운영 모드만, 실고객·실결제 비승인), 원격 관리자 분리 | PRD 작성자 답 | DECISION_LOG D-1~D-17, EXP 8건 CONFIRMED, ASM 12건 확인(3건 수정) | ASM-005·019·020 1회 |
 | 2026-10-17 | 역방향 반영 | SRS-134·163·168 개정, SRS-169·170·171 신설 · BD-008 권한 4행·§6.3 REWORK · TC-S-005 r2, TC-S-054~056 신설 · DD-001 스키마 v2(이행 자동) · 코드 Q2·Q9·Q10 | H1 수정 승인 | 회귀 179 PASS(14_TR §8) | SRS 1회, BD 1회, TC-S 1회 |
 | 2026-10-17 | 설치·배포 | requirements·설치/업데이트/실행 스크립트·키 관리 CLI(set-secret·export/import-keys)·자동 시작 pythonw·`.gitignore`·README·`docs/INSTALL_운영가이드.md`, anthropic 1.15.0 고정 + 어댑터 계약 시험, 깨끗한 설치 확인 | 사용자 요청(실행 방법·Git·아버님 PC 설치) | 14_TR §8, 회귀 179 PASS | — |
+| 2026-10-18 | SRS-004 r2 · 코드 | 실제 Google 폼 질문 ID 연결: 설정 > 폼 매핑(미인식 질문 ID + 가린 예시 답변) → `intake_question_binding`(operator, 감사), `load_mapping` 덧붙임(자리표시 ID 유지), 저장 후 전체 재해석(해석 변경분만 revision · 시스템 보류 해제 · 빈 값 채움 · AI 1회). d29e3d1(파일 답 모양 인식) 유지 + 첫 단위 시험 | 아버님 PC 실폼 시험에서 글 답 전부 None → NEEDS_INFO·NO_CONSENT, AI 미실행(인수 조건 C-1 선행 결함). OAuth 범위 유지 | D-18, TC-S-057 신설, TC-U-056~058, INSTALL §5, 14_TR §9, 회귀 184 PASS | SRS-004 1회 |
 
 ## 6. 산출물 품질 게이트
 | 스테이지 | 7기준 판정 | 전체 | 산출물 경로 | 저작 (티어·모델·추론 강도) | 검토 주체 (여러 값) | 검토 (모델·추론 강도) | 재작성 | 근거 |

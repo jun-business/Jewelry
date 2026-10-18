@@ -89,4 +89,6 @@ def erase(ctx, cid, actor, reason):
             c.execute("UPDATE shipments SET recipient_enc=NULL WHERE order_id=?", (o["id"],))
             c.execute("UPDATE cs_messages SET content_redacted=NULL, summary='(삭제된 고객의 메시지)' WHERE thread_id IN "
                       "(SELECT id FROM cs_threads WHERE order_id=?)", (o["id"],))
+        from .intake import UNMAPPED_META  # 미인식 질문 예시값도 비운다(어느 응답의 값인지 남기지 않으므로 전부)
+        c.execute("DELETE FROM meta WHERE key=?", (UNMAPPED_META,))
         audit.record(c, "customer", cid, actor, "customer_erased", prev=audit.PII, next=audit.PII, reason=reason)
