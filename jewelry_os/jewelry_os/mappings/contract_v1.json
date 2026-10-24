@@ -76,9 +76,9 @@
     }
   ],
   "prefill_check": {
-    "status": "UNVERIFIED",
-    "checked_at": null,
-    "evidence": null
+    "status": "VERIFIED",
+    "checked_at": "2026-10-24",
+    "evidence": "게시된 Form B(rev 00000079) 응답 화면에서 사전입력 링크(시험 주문 JOS-2026-0010·Q00007-v1·확인코드)가 Q1·Q2·Q3에 그대로 채워짐을 확인(제출하지 않음)"
   },
   "policy_sections": {
     "withdrawal": {
