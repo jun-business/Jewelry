@@ -54,9 +54,26 @@ def effective_google_mode(ctx) -> str:
     return mode
 
 
+LEGACY_D20 = {"google_mode": ("mock", "auto"), "google_form_id": ("mock-form", DEFAULTS["google_form_id"])}
+D20_MARK = "_migrated_d20"
+
+
+def migrate_legacy(ctx) -> None:
+    """D-20 이전에 설치된 PC는 첫 설정에서 google_mode=mock, 폼 ID=mock-form이 저장돼 있다.
+    그대로 두면 Google 계정을 연결해도 시험용으로 남으므로 한 번만 새 기본값으로 바꾼다."""
+    if ctx.db.one("SELECT 1 FROM settings WHERE key=?", (D20_MARK,)):
+        return
+    for key, (old, new) in LEGACY_D20.items():
+        if ctx.db.one("SELECT 1 FROM settings WHERE key=?", (key,)) and get(ctx, key) == old:
+            put(ctx, key, new, None)
+    with ctx.db.tx() as c:
+        c.execute("INSERT INTO settings(key, value_json, updated_by, updated_at) VALUES (?,?,?,?)",
+                  (D20_MARK, jdump(True), None, clock.now_iso()))
+
+
 def all_settings(ctx) -> dict:
     out = dict(DEFAULTS)
-    for r in ctx.db.all("SELECT key, value_json FROM settings"):
+    for r in ctx.db.all("SELECT key, value_json FROM settings WHERE key NOT LIKE '\\_%' ESCAPE '\\'"):
         out[r["key"]] = jload(r["value_json"])
     return out
 

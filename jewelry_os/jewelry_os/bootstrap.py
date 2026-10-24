@@ -18,6 +18,7 @@ def build_ctx(cfg: Config | None = None, *, forms=None, files=None, analyzer=Non
     db = Database(cfg.db_path)
     ctx = Ctx(cfg=cfg, db=db)
     ctx.forms, ctx.files, ctx.analyzer = forms, files, analyzer
+    settings.migrate_legacy(ctx)
     configure_adapters(ctx, keep_injected=True)
     return ctx
 

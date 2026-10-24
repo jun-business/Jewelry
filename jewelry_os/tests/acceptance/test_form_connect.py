@@ -49,3 +49,22 @@ def test_settings_auto_mode_rules(ctx, operator):
     assert r.status_code == 409  # 고객 공개 폼은 Gate 통과 전 거부(자동 모드도 같음)
     assert w.post("/settings/google", data={"google_mode": "auto", "google_form_purpose": "test",
                                             "google_form_id": FORM_ID}).status_code == 303
+
+
+def test_legacy_install_migrates_to_auto_once(ctx, operator):
+    """D-20 이전 설치(첫 설정에서 mock·mock-form 저장)도 업데이트 후 Google 연결이 바로 쓰인다 — 한 번만."""
+    from jewelry_os.bootstrap import build_ctx
+    settings.put(ctx, "google_mode", "mock", None)
+    settings.put(ctx, "google_form_id", "mock-form", None)
+    with ctx.db.tx() as c:
+        c.execute("DELETE FROM settings WHERE key=?", (settings.D20_MARK,))
+    ctx.cfg.set_secret("JOS_GOOGLE_REFRESH_TOKEN", "RT")
+    c2 = build_ctx(ctx.cfg)
+    assert settings.get(c2, "google_mode") == "auto" and settings.get(c2, "google_form_id") == FORM_ID
+    assert settings.effective_google_mode(c2) == "live" and isinstance(c2.forms, g.GoogleForms)
+    assert settings.D20_MARK not in settings.all_settings(c2)
+    settings.put(c2, "google_mode", "mock", operator)  # 이후 직접 고른 시험용은 다시 바꾸지 않는다
+    c3 = build_ctx(ctx.cfg)
+    assert settings.get(c3, "google_mode") == "mock"
+    c2.db.close()
+    c3.db.close()
