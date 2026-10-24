@@ -598,7 +598,7 @@ def test_linked_customers_share_contract_history_and_identity(ctx, maker, operat
     계약 증거의 고객 ID는 그대로(불변), 연결 사실은 계약 이력에 남는다."""
     o1 = order_at(ctx, maker, operator, "CUSTOMER_ACCEPTED", rid="r1", name="김하늘", contact="010-1111-2222")
     r1 = ctx.db.scalar("SELECT id FROM contract_requests")  # 고객1 · 확인된 이메일 customer{id}@example.com
-    o2 = _qa(ctx, maker, operator, "r2", name="김하늘", contact="010-1111-2222")  # 같은 사람, 새 고객 기록
+    o2 = _qa(ctx, maker, operator, "r2", name="김하늘", contact="010-1111-9999")  # 같은 사람이 다른 번호로 — 수동 연결
     r2 = _issue(ctx, o2, operator)
     c1, c2 = o1["customer_id"], o2["customer_id"]
     assert c1 != c2 and [k["id"] for k in contracts.of_customer(ctx, c2)] == [r2]

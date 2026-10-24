@@ -12,7 +12,7 @@ from ..adapters.google import SourceError
 from ..core import clock
 from ..core.db import jdump, jload
 from ..domain.guards import TransitionBlocked, unmet
-from . import audit, files, orders, settings
+from . import audit, customers, files, orders, settings
 
 log = logging.getLogger("jos.intake")
 MAPPINGS_DIR = Path(__file__).resolve().parent.parent / "mappings"
@@ -295,6 +295,7 @@ def _ingest_one(ctx, form_id, mapping, r, is_test_form) -> str:
                           "created_at) VALUES (?,1,?,?,?,?)", (iid, last, dg, jdump(parsed), clock.now_iso()))
                 cust = orders.create_customer(ctx, c, parsed.get("display_name") or "(이름 없음)", parsed.get("contact_kind"),
                                               parsed.get("contact_value"), mapping["consent_version"] if parsed["consent"] else None)
+                cust = customers.auto_link(ctx, c, cust)  # 이름·전화번호가 같으면 기존 고객 묶음으로(D-26)
                 oid = orders.create_order(ctx, c, customer_id=cust, source="form", intake_id=iid,
                                           product_type=parsed.get("product_type"),
                                           summary=(parsed.get("description") or "")[:80] or None,
@@ -447,6 +448,7 @@ def manual_intake(ctx, actor, form: dict) -> str:
     with ctx.db.tx() as c:
         cid = orders.create_customer(ctx, c, form["display_name"].strip(), form.get("contact_kind") or "kakao",
                                      form["contact_value"].strip(), settings.get(ctx, "consent_version"))
+        cid = customers.auto_link(ctx, c, cid)  # 이름·전화번호가 같으면 기존 고객 묶음으로(D-26)
         oid = orders.create_order(ctx, c, customer_id=cid, source="manual", product_type=form["product_type"],
                                   summary=form["description"][:80], source_channel="manual",
                                   is_test=settings.test_mode(ctx), actor=actor)

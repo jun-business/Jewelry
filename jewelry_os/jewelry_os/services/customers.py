@@ -1,6 +1,8 @@
 """고객 이력·연결·개인정보 삭제(IMPLICIT-14, SRS-084·158)."""
 from __future__ import annotations
 
+import re
+
 from ..core import clock
 from ..core.db import jdump, jload
 from ..domain.guards import TransitionBlocked, unmet
@@ -75,22 +77,74 @@ def reveal_contact(ctx, cid, actor) -> str | None:
     return ctx.dec(c["contact_enc"]) if c["contact_enc"] else None
 
 
+AUTO_LINK_REASON = "이름·전화번호 일치 — 자동 연결"
+
+
+def norm_name(v: str | None) -> str:
+    return re.sub(r"\s+", "", v or "")
+
+
+def norm_phone(v: str | None) -> str | None:
+    """전화번호만 비교(숫자만, +82 → 0). 전화번호 모양이 아니면(카카오 ID 등) None — 자동 연결하지 않는다."""
+    d = re.sub(r"\D", "", v or "")
+    if d.startswith("82") and len(d) >= 11:
+        d = "0" + d[2:]
+    return d if d.startswith("0") and 9 <= len(d) <= 11 else None
+
+
+def same_person(ctx, c, cid) -> int | None:
+    """이름·전화번호가 같은 다른 고객 묶음의 대표 ID(없으면 None). 삭제된 고객은 대상이 아니다."""
+    me = c.execute("SELECT * FROM customers WHERE id=?", (cid,)).fetchone()
+    name, phone = norm_name(me["display_name"]), norm_phone(ctx.dec(me["contact_enc"]))
+    if not name or name == "(이름없음)" or not phone or me["deleted_at"]:
+        return None
+    mine = root_id(c, cid)
+    for r in c.execute("SELECT * FROM customers WHERE id<>? AND deleted_at IS NULL AND REPLACE(display_name, ' ', '')=? "
+                       "ORDER BY id", (cid, name)).fetchall():
+        if norm_phone(ctx.dec(r["contact_enc"])) == phone and root_id(c, r["id"]) != mine:
+            return root_id(c, r["id"])
+    return None
+
+
+def auto_link(ctx, c, cid) -> int:
+    """새 고객이 기존 고객과 이름·전화번호가 같으면 그 고객 묶음에 자동 연결. 반환: 주문에 쓸 고객 ID."""
+    target = same_person(ctx, c, cid)
+    if target is None:
+        return cid
+    _link(c, target, root_id(c, cid), None, AUTO_LINK_REASON)
+    return target
+
+
+def auto_link_existing(ctx) -> int:
+    """이미 있는 중복 고객을 한 번 정리(오래된 고객 쪽으로). 반환: 연결한 수."""
+    n = 0
+    with ctx.db.tx() as c:
+        for r in c.execute("SELECT id FROM customers WHERE merged_into IS NULL AND deleted_at IS NULL ORDER BY id").fetchall():
+            if root_id(c, r["id"]) == r["id"] and auto_link(ctx, c, r["id"]) != r["id"]:
+                n += 1
+    return n
+
+
 def link(ctx, cid, other_id, actor, reason):
-    """수동 “같은 고객으로 연결”(자동 병합 없음). other → cid 로 합침."""
+    """수동 “같은 고객으로 연결”. other → cid 로 합침(이름·전화번호가 같으면 접수 때 자동으로도 연결)."""
     if not (reason or "").strip():
         raise TransitionBlocked([unmet("G-REASON")])
     if cid == other_id:
         raise ValueError("같은 고객이에요")
     with ctx.db.tx() as c:
-        c.execute("UPDATE customers SET merged_into=? WHERE id=?", (cid, other_id))
-        c.execute("UPDATE orders SET customer_id=? WHERE customer_id=?", (cid, other_id))
-        # 계약 증거의 고객 ID는 바꾸지 않고, 연결 사실을 각 계약 이력에 남긴다(고객 묶음으로 조회·검증)
-        for r in c.execute("SELECT id, order_id FROM contract_requests WHERE customer_id=?", (other_id,)).fetchall():
-            c.execute("INSERT INTO contract_events(request_id, order_id, event, actor_id, actor_role, detail_json, created_at) "
-                      "VALUES (?,?,?,?,?,?,?)", (r["id"], r["order_id"], "customer_linked", getattr(actor, "id", None),
-                                                 getattr(actor, "role", "system"),
-                                                 jdump({"from": other_id, "to": cid, "reason": reason}), clock.now_iso()))
-        audit.record(c, "customer", cid, actor, "customer_linked", prev=str(other_id), next=str(cid), reason=reason)
+        _link(c, cid, other_id, actor, reason)
+
+
+def _link(c, cid, other_id, actor, reason):
+    c.execute("UPDATE customers SET merged_into=? WHERE id=?", (cid, other_id))
+    c.execute("UPDATE orders SET customer_id=? WHERE customer_id=?", (cid, other_id))
+    # 계약 증거의 고객 ID는 바꾸지 않고, 연결 사실을 각 계약 이력에 남긴다(고객 묶음으로 조회·검증)
+    for r in c.execute("SELECT id, order_id FROM contract_requests WHERE customer_id=?", (other_id,)).fetchall():
+        c.execute("INSERT INTO contract_events(request_id, order_id, event, actor_id, actor_role, detail_json, created_at) "
+                  "VALUES (?,?,?,?,?,?,?)", (r["id"], r["order_id"], "customer_linked", getattr(actor, "id", None),
+                                             getattr(actor, "role", "system"),
+                                             jdump({"from": other_id, "to": cid, "reason": reason}), clock.now_iso()))
+    audit.record(c, "customer", cid, actor, "customer_linked", prev=str(other_id), next=str(cid), reason=reason)
 
 
 def erase(ctx, cid, actor, reason):
@@ -101,9 +155,12 @@ def erase(ctx, cid, actor, reason):
         raise TransitionBlocked([unmet("G-REASON")])
     from ..core.db import jdump
     with ctx.db.tx() as c:
-        c.execute("UPDATE customers SET display_name='삭제된 고객', contact_enc=NULL, deleted_at=? WHERE id=?",
-                  (clock.now_iso(), cid))
-        for o in c.execute("SELECT id, intake_id FROM orders WHERE customer_id=?", (cid,)).fetchall():
+        ids = group_ids(c, cid)  # 연결된 고객 기록 모두(자동 연결된 같은 사람의 이전 기록 포함)
+        marks = ",".join("?" * len(ids))
+        c.execute(f"UPDATE customers SET display_name='삭제된 고객', contact_enc=NULL, deleted_at=? WHERE id IN ({marks})",
+                  (clock.now_iso(), *ids))
+        c.execute(f"DELETE FROM customer_identities WHERE customer_id IN ({marks})", ids)  # 확인된 계약 이메일
+        for o in c.execute(f"SELECT id, intake_id FROM orders WHERE customer_id IN ({marks})", ids).fetchall():
             if o["intake_id"]:
                 for rv in c.execute("SELECT id, answers_json FROM intake_revisions WHERE intake_id=?",
                                     (o["intake_id"],)).fetchall():

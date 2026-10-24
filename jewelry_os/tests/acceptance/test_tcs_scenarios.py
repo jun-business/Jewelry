@@ -619,7 +619,7 @@ def test_tcs_017_manual_intake(ctx, operator):
 # ---------------- TC-S-018 고객 이력·받을 돈 ----------------
 def test_tcs_018_customers_receivables(ctx, maker, operator):
     a = order_at(ctx, maker, operator, "PAYMENT_PENDING", rid="x1")
-    b = order_at(ctx, maker, operator, "OWNER_REVIEW", rid="x2")
+    b = order_at(ctx, maker, operator, "OWNER_REVIEW", rid="x2", contact="010-2222-3333")  # 전화가 달라 자동 연결 안 됨
     assert a["customer_id"] != b["customer_id"]  # ①
     w = web(ctx, "operator")
     assert w.post(f"/customers/{a['customer_id']}/link", data={"other_id": str(b["customer_id"]),

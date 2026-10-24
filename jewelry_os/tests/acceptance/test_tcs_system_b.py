@@ -62,13 +62,13 @@ def build_section_c(ctx, maker, operator, tax_type="general"):
     approve_policies(ctx, operator)
     w = web(ctx, "maker")
     # A: ad · 완료 · 세금 포함 1,200,000 · 실원가 600,000 · 변동비 50,000 · 300분 · 약속일 준수
-    a = new_order(ctx, "A", source="광고를 보고")
+    a = new_order(ctx, "A", source="광고를 보고", contact="010-1000-0001")
     advance(ctx, a, "FREE_CONCEPT", maker, operator)
     _quote(ctx, maker, a, 1_200_000, True, 50_000, "2026-12-15")
     advance(ctx, a, "CLOSED", maker, operator)  # 수령 실원가 = 총액 ÷ 2 = 600,000
     _work(ctx, maker, a, 270)
     # B: instagram · 완료 · 세금 별도 800,000 · 실원가 420,000 · 변동비 30,000 · 240분 · 약속일 미준수 · 재작업 1
-    b = new_order(ctx, "B", source="인스타그램")
+    b = new_order(ctx, "B", source="인스타그램", contact="010-1000-0002")
     advance(ctx, b, "FREE_CONCEPT", maker, operator)
     _quote(ctx, maker, b, 800_000, False, 30_000, "2026-10-19")
     advance(ctx, b, "FACTORY_SENT", maker, operator)
@@ -79,13 +79,13 @@ def build_section_c(ctx, maker, operator, tax_type="general"):
     advance(ctx, b, "CLOSED", maker, operator)
     _work(ctx, maker, b, 210)
     # C: ad · 결제 확인 후 제작 중 · 1,000,000 · 120분
-    c_ = new_order(ctx, "C", source="광고를 보고")
+    c_ = new_order(ctx, "C", source="광고를 보고", contact="010-1000-0003")
     advance(ctx, c_, "FREE_CONCEPT", maker, operator)
     _quote(ctx, maker, c_, 1_000_000, True, 0, "2026-12-20")
     advance(ctx, c_, "DETAIL_CAD", maker, operator)
     _work(ctx, maker, c_, 90)
     # D: ad · 거절(부적합) · 30분 / E: referral · 거절(일정 불가) · 20분 / F: 미응답 · 검토 중
-    d = new_order(ctx, "D", source="광고를 보고")
+    d = new_order(ctx, "D", source="광고를 보고", contact="010-1000-0004")
     _work(ctx, maker, d, 30)
     assert act(w, d, "decline", reason="부적합").status_code == 409  # 분류 없는 거절 409
     assert act(w, d, "decline", category="UNFIT", reason="부적합").status_code == 303

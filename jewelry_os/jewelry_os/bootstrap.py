@@ -4,7 +4,7 @@ from __future__ import annotations
 from .adapters import ai as ai_ad
 from .adapters import google as g
 from .context import Ctx
-from .core import logging_setup, security
+from .core import clock, logging_setup, security
 from .core.config import Config, load_config
 from .core.db import Database
 from .services import capacity, settings
@@ -19,8 +19,19 @@ def build_ctx(cfg: Config | None = None, *, forms=None, files=None, analyzer=Non
     ctx = Ctx(cfg=cfg, db=db)
     ctx.forms, ctx.files, ctx.analyzer = forms, files, analyzer
     settings.migrate_legacy(ctx)
+    _auto_link_once(ctx)
     configure_adapters(ctx, keep_injected=True)
     return ctx
+
+
+def _auto_link_once(ctx: Ctx) -> None:
+    """D-26: 이름·전화번호가 같은 기존 중복 고객을 한 번 자동 연결(이후 접수분은 접수할 때)."""
+    if ctx.db.one("SELECT 1 FROM meta WHERE key='auto_link_v1'") or not ctx.cfg.secret("JOS_DATA_KEY"):
+        return
+    from .services import customers
+    customers.auto_link_existing(ctx)
+    with ctx.db.tx() as c:
+        c.execute("INSERT OR IGNORE INTO meta(key, value) VALUES ('auto_link_v1', ?)", (clock.now_iso(),))
 
 
 def configure_adapters(ctx: Ctx, keep_injected=False) -> None:
