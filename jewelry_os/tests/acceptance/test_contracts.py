@@ -652,3 +652,15 @@ def test_kakao_channel_on_quote_document_and_text(ctx, maker, operator):
     assert "카카오톡 채널 틴틴골드" not in w.get(f"/docs/quote/{qid}.txt").text
     assert 'value="' in w.get("/settings/policy").text and web(ctx, "maker").post(
         "/settings/policy", data={"kakao_channel_url": ""}).status_code == 403
+
+
+def test_quote_documents_state_balance_before_factory(ctx, maker, operator):
+    """2026-10-25 시뮬레이션에서 발견: 견적서가 잔금을 '완성·검수 후'로 안내 — Form B Q5·D-24와 맞춘다."""
+    o = _qa(ctx, maker, operator)
+    qid = ctx.db.scalar("SELECT id FROM quotes WHERE order_id=? AND status='APPROVED'", (o["id"],))
+    w = web(ctx, "operator")
+    doc, txt = w.get(f"/docs/quote/{qid}").text, w.get(f"/docs/quote/{qid}.txt").text
+    for t in (doc, txt):
+        assert "최종 CAD 승인 후" in t and "제작 발주 전" in t and "완성·검수 후" not in t
+    snap = __import__("json").loads(contracts.quote_snapshot(ctx, ctx.db.one("SELECT * FROM quotes WHERE id=?", (qid,))))
+    assert "최종 CAD 승인 후" in snap["text"]

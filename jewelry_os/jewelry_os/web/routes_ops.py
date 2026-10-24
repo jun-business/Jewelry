@@ -588,9 +588,11 @@ async def quote_doc_txt(request: Request, qid: int):
     if pq.payment_policy == "FULL":
         lines.append(f"결제: 전액 {won(pq.total)}")
     else:
-        lines.append(f"결제: 예약금 {won(pq.deposit)} · 잔금 {won(pq.balance)}")
+        lines.append(f"결제: 예약금 {won(pq.deposit)}(계약 동의 후·상세 CAD 시작 전) · "
+                     f"잔금 {won(pq.balance)}(최종 CAD 승인 후·제작 발주 전)")  # D-24, Form B Q5
     lines += [f"완성 예정: {kdate(pq.promised_date)}", f"견적 유효기간: {kdate(pq.valid_until)}까지",
-              "결제는 네이버 스마트스토어에서 진행돼요. 결제가 확인된 뒤 제작을 시작해요.", f"지금 단계: {pq.phase_label}"]
+              "결제는 네이버 스마트스토어에서 진행돼요. 예약금이 확인되면 상세 CAD를, 잔금이 확인되면 제작을 시작해요.",
+              f"지금 단계: {pq.phase_label}"]
     kakao = settings.get(request.state.ctx, "kakao_channel_url")
     if kakao:
         lines.append(f"문의: 카카오톡 채널 {pq.shop_name} {settings.kakao_chat_url(kakao)}")

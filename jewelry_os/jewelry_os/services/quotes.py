@@ -280,7 +280,8 @@ def public_text(pq: PublicQuote) -> str:
     lines.append(f"총액: {won(pq.total)} ({'부가세 포함' if pq.tax_included else '부가세 별도'}, "
                  f"{'배송비 포함' if pq.shipping_included else '배송비 별도'})")
     lines.append(f"결제: 전액 {won(pq.total)}" if pq.payment_policy == "FULL" else
-                 f"결제: 예약금 {won(pq.deposit)} · 잔금 {won(pq.balance)}")
+                 f"결제: 예약금 {won(pq.deposit)}(계약 동의 후·상세 CAD 시작 전) · "
+                 f"잔금 {won(pq.balance)}(최종 CAD 승인 후·제작 발주 전)")
     lines.append(f"완성 예정: {pq.promised_date or '-'}")
     if pq.terms_label:
         lines.append(f"수정·환불 기준: {pq.terms_label}")
