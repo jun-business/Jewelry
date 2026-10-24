@@ -1,6 +1,6 @@
 {% from "components.html" import icon with context %}<!doctype html>
 <html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<title>화면 잠김 · 틴틴골드</title><link rel="icon" href="/favicon.ico" sizes="any"><link rel="icon" type="image/png" href="/static/img/favicon.png"><link rel="apple-touch-icon" href="/static/img/apple-touch-icon.png"><link rel="stylesheet" href="/static/css/tokens.css"><link rel="stylesheet" href="/static/css/app.css"></head>
+<title>화면 잠김 · 틴틴골드</title><link rel="icon" href="/favicon.ico" sizes="any"><link rel="icon" type="image/png" href="/static/img/favicon.png"><link rel="apple-touch-icon" href="/static/img/apple-touch-icon.png"><link rel="stylesheet" href="/static/css/tokens.css?v={{ asset_v }}"><link rel="stylesheet" href="/static/css/app.css?v={{ asset_v }}"></head>
 <body><main id="main" class="auth"><form class="card" method="post" action="/locked/unlock">
 <h1>{{ icon("lock", "lg") }} 화면이 잠겼어요</h1>
 <p class="t-muted">오랫동안 사용하지 않아 잠갔어요. 비밀번호를 입력하면 하던 화면으로 돌아가요.</p>

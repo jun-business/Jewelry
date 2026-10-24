@@ -10,6 +10,18 @@ from ..domain.money import won
 WEEKDAY = "월화수목금토일"
 
 
+
+def asset_version() -> str:
+    """static/css·js 내용의 짧은 해시. 파일이 바뀌면 값이 바뀐다(기동 시 1회 계산)."""
+    import hashlib
+    from pathlib import Path
+    h = hashlib.sha1()
+    static = Path(__file__).resolve().parent / "static"
+    for f in sorted([*static.glob("css/*.css"), *static.glob("js/*.js")]):
+        h.update(f.name.encode())
+        h.update(f.read_bytes())
+    return h.hexdigest()[:10]
+
 def kdate(v) -> str:
     if not v:
         return "—"
@@ -126,6 +138,7 @@ def install(env) -> None:
                        fromjson=lambda s: _json.loads(s) if s else {},
                        maybe_won=lambda v: won(int(str(v).replace(",", ""))) if str(v).replace(",", "").isdigit() else v,
                        role_names=lambda roles: "·".join(st.ROLE_LABEL.get(r, r) for r in roles))
+    env.globals["asset_v"] = asset_version()  # CSS·JS 링크의 ?v= — 업데이트 뒤 브라우저가 옛 파일을 쓰지 않게
     env.globals.update(S=st.S, LABEL=st.LABEL, HOLD_LABEL=st.HOLD_LABEL, ISSUE_LABEL=st.ISSUE_LABEL,
                        ISSUE_ICON=st.ISSUE_ICON, DECLINE_LABEL=st.DECLINE_LABEL, FAULT_LABEL=st.FAULT_LABEL, FAULT_LABEL_ALL=st.FAULT_LABEL_ALL,
                        TAX_TYPE_LABEL=st.TAX_TYPE_LABEL,

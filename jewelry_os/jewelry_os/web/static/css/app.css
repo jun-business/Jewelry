@@ -185,8 +185,11 @@ tbody tr:hover { background: var(--jos-color-surface-sunken); }
 tbody tr:last-child td { border-bottom: 0; }
 .cardlist { display: none; list-style: none; padding: 0; margin: 0; gap: var(--jos-space-3); }
 .cardlist li a { display: block; padding: var(--jos-space-4); background: var(--jos-color-surface); border: 1px solid var(--jos-color-border); border-radius: var(--jos-radius-md); text-decoration: none; color: var(--jos-color-text); }
-.queue-tabs { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 4px; margin-bottom: var(--jos-space-4); }
-.queue-tabs a { flex: none; display: inline-flex; gap: 6px; align-items: center; min-height: 40px; padding: 0 14px; border-radius: var(--jos-radius-pill); border: 1px solid var(--jos-color-border-strong); background: var(--jos-color-surface); color: var(--jos-color-text); text-decoration: none; }
+.queue-tabs { display: flex; gap: 6px; overflow-x: auto; padding: 0 0 4px; margin: 0 0 var(--jos-space-4); list-style: none; }
+.queue-tabs > li { flex: none; }  /* ul > li > a 형태(설정 메뉴)도 줄어들지 않게 */
+.settings-grid { grid-template-columns: minmax(0, 1fr); }  /* 설정은 오른쪽 레일이 없다 — 빈 360px 열을 두지 않음 */
+@media (min-width: 600px) { .settings-grid .queue-tabs { flex-wrap: wrap; overflow-x: visible; } }  /* 넓은 화면은 줄바꿈, 휴대폰은 가로 스크롤 */
+.queue-tabs a { flex: none; white-space: nowrap; display: inline-flex; gap: 6px; align-items: center; min-height: 40px; padding: 0 14px; border-radius: var(--jos-radius-pill); border: 1px solid var(--jos-color-border-strong); background: var(--jos-color-surface); color: var(--jos-color-text); text-decoration: none; }
 .queue-tabs a[aria-current="page"] { background: var(--jos-color-primary); border-color: var(--jos-color-primary); color: var(--jos-color-on-primary); }
 .queue-tabs .n { font-variant-numeric: tabular-nums; font-weight: 700; }
 .filterbar { display: flex; gap: var(--jos-space-3); flex-wrap: wrap; margin-bottom: var(--jos-space-4); }

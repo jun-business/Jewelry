@@ -4,7 +4,7 @@
 <div class="page-head"><h1>설정</h1></div>
 <div class="detail settings-grid">
 <div>
-<label class="sr-only" for="sec-select">설정 항목</label>
+
 <nav aria-label="설정 항목"><ul class="queue-tabs" data-scroll-x>{% for k, lab in sections %}<li><a href="/settings/{{ k }}" {% if k == section %}aria-current="page"{% endif %}>{{ lab }}</a></li>{% endfor %}</ul></nav>
 {% if unmet %}<div class="banner danger" role="alert">{{ icon("octagon") }}<div class="b-body"><strong>진행할 수 없어요</strong>{{ blocked(unmet, "s-unmet") }}</div></div>{% endif %}
 {% if errors %}<div class="banner danger" role="alert">{{ icon("octagon") }}<div class="b-body">{% for k, v in errors.items() %}<p>{{ v }}</p>{% endfor %}</div></div>{% endif %}

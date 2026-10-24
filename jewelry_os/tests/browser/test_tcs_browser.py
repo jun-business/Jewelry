@@ -71,6 +71,15 @@ def test_tcs_041_responsive(ctx, maker, operator, live, new_page):
             res = page.evaluate(OVERFLOW_JS)
             assert res["sw"] <= res["cw"], (w, name, res)
             assert not res["bad"], (w, name, res["bad"])
+            if name == "settings":  # 설정 메뉴 탭: 글자가 줄바꿈되지 않고, 600px 이상에서는 넘치지 않는다
+                tabs = page.evaluate("""() => { const ul = document.querySelector('.settings-grid .queue-tabs');
+                    const links = [...ul.querySelectorAll('a')];
+                    return {overflow: ul.scrollWidth > ul.clientWidth + 0.5,
+                            wrapped: links.filter(a => a.getClientRects().length > 1 || a.offsetHeight > 48).map(a => a.textContent),
+                            bullets: getComputedStyle(ul).listStyleType}; }""")
+                assert tabs["wrapped"] == [] and tabs["bullets"] == "none", (w, tabs)
+                if w >= 600:
+                    assert not tabs["overflow"], (w, tabs)
             if name.startswith("order-"):
                 sel = ".action-bar .btn-primary" if w < 600 else ".next-card .btn-primary"
                 loc = page.locator(sel).first

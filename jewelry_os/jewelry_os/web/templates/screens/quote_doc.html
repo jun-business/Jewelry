@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <title>견적서 v{{ pq.version }} · {{ pq.shop_name }}</title><link rel="icon" href="/favicon.ico" sizes="any"><link rel="icon" type="image/png" href="/static/img/favicon.png"><link rel="apple-touch-icon" href="/static/img/apple-touch-icon.png">
-<link rel="stylesheet" href="/static/css/tokens.css"><link rel="stylesheet" href="/static/css/app.css"><link rel="stylesheet" href="/static/css/doc.css"><script src="/static/js/doc.js" defer></script></head>
+<link rel="stylesheet" href="/static/css/tokens.css?v={{ asset_v }}"><link rel="stylesheet" href="/static/css/app.css?v={{ asset_v }}"><link rel="stylesheet" href="/static/css/doc.css?v={{ asset_v }}"><script src="/static/js/doc.js?v={{ asset_v }}" defer></script></head>
 <body class="doc-body">
 <nav class="doc-tools no-print" aria-label="문서 도구"><button class="btn btn-primary" type="button" id="print-btn">인쇄 / PDF로 저장</button> <a class="btn btn-secondary" href="/docs/quote/{{ qid }}.txt">카톡용 텍스트</a></nav>
 <main class="doc" id="main">
