@@ -118,16 +118,12 @@ powershell -ExecutionPolicy Bypass -File scripts\install.ps1
 .venv\Scripts\python -m jewelry_os set-secret ANTHROPIC_API_KEY
 ```
   그다음 앱의 설정 → AI에서 제공자를 `claude`로, 월 호출·비용 상한을 정하고 앱을 다시 시작합니다.
-- **Google Forms·Drive**: Google Cloud 콘솔에서 OAuth 클라이언트(유형 “데스크톱 앱”)를 만들고 Forms·Drive 읽기 API를 켭니다.
-```powershell
-.venv\Scripts\python -m jewelry_os set-secret JOS_GOOGLE_CLIENT_ID
-```
-```powershell
-.venv\Scripts\python -m jewelry_os set-secret JOS_GOOGLE_CLIENT_SECRET
-```
+- **Google Forms·Drive**: OAuth 클라이언트(“데스크톱 앱”) 값은 **코드에 들어 있습니다**(`jewelry_os/jewelry_os/google_client.json`, D-21) — PC마다 입력하지 않습니다. 처음 한 번만 Google Cloud 콘솔에서 만들어 그 파일에 붙여 넣고 GitHub에 올립니다(API: Google Forms·Drive 사용 설정, 동의 화면 ‘외부’, 테스트 사용자에 폼 주인 계정). PC마다 하는 일은 **Google 로그인 1번**뿐입니다:
+  운영자 계정으로 `http://127.0.0.1:8770` → 설정 → Google → **“Google 계정 연결”** → Google 화면에서 폼 주인 계정으로 로그인·허용(“확인되지 않은 앱”이면 고급 → 계속). 명령으로 하려면:
 ```powershell
 .venv\Scripts\python -m jewelry_os google-auth
 ```
+  동의 화면이 ‘테스트’ 상태면 Google이 7일마다 연결을 끊으니, 시험이 끝나면 **‘프로덕션으로 게시’**로 바꿉니다. PC별로 다른 클라이언트를 쓰려면 `set-secret JOS_GOOGLE_CLIENT_ID`/`JOS_GOOGLE_CLIENT_SECRET`(PC 값이 코드 값보다 우선).
   브라우저에서 Google 계정으로 허용한 뒤 앱을 다시 시작하면 끝입니다. **틴틴골드 의뢰 폼 ID는 코드에 들어 있고**(D-20), 새로 설치한 앱은 Google 모드가 **자동**이라 계정이 연결되는 순간 그 폼(시험 폼)에서 가져옵니다. 이미 설치된 PC는 설정 → Google에서 모드를 **자동**으로 한 번 저장하세요(예전 설정값이 남아 있을 수 있음). 앱 화면의 **Google 계정 연결** 버튼으로 연결하면 다시 시작하지 않아도 바로 바뀝니다. 고객 공개 폼은 GATE-OPS-01·LEGAL-01 통과 전 저장이 거부됩니다.
 - **폼 질문 연결(처음 한 번, 운영자 계정)** — 실제 폼은 질문마다 Google이 정한 고유 ID를 쓰므로, 연결하기 전에는 이름·연락처·설명·동의를 읽지 못해 주문에 “정보 부족”·“동의 없음”이 붙습니다.
   1. 시험 폼에 **시험 응답 1건**을 직접 제출합니다(모든 질문에 알아보기 쉬운 값, 사진 1장, 동의 체크).
@@ -145,7 +141,7 @@ powershell -ExecutionPolicy Bypass -File scripts\install.ps1
 ```
 기존 데이터는 `*.before-restore-*`로 옆에 남습니다.
 
-**새 PC로 옮기기**: ① 새 PC에 §3의 1~3 설치(마법사는 **진행하지 않음**) ② 키 가져오기 ③ 백업 복원 ④ 바로가기로 실행 → 기존 계정으로 로그인.
+**새 PC로 옮기기**: ① 새 PC에 §3의 1~3 설치(마법사는 **진행하지 않음**) ② 키 가져오기 ③ 백업 복원 ④ 바로가기로 실행 → 기존 계정으로 로그인. 키 파일에는 **Google 연결도 함께** 들어 있어(연결된 PC에서 내보냈을 때) 새 PC에서 Google 로그인을 다시 하지 않아도 됩니다.
 ```powershell
 .venv\Scripts\python -m jewelry_os import-keys E:\JewelryOS-keys.txt
 ```

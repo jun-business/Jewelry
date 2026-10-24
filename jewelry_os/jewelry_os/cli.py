@@ -24,6 +24,7 @@ def _task_xml(python: str, workdir: str, env: str) -> str:
 
 SETTABLE = {"ANTHROPIC_API_KEY", "JOS_GOOGLE_CLIENT_ID", "JOS_GOOGLE_CLIENT_SECRET"}
 KEY_NAMES = ("JOS_DATA_KEY", "JOS_BACKUP_KEY", "JOS_SECRET")
+OPTIONAL_KEYS = ("JOS_GOOGLE_REFRESH_TOKEN",)  # Google 연결 — 있으면 같이 옮겨 새 PC에서 다시 로그인하지 않게(D-21)
 
 
 def _keys_cmd(a, cfg) -> int:
@@ -39,8 +40,10 @@ def _keys_cmd(a, cfg) -> int:
         return 0
     if a.cmd == "export-keys":
         out = Path(a.file)
-        out.write_text("\n".join(f"{k}={cfg.secret(k)}" for k in KEY_NAMES) + "\n", encoding="utf-8")
-        print(f"키를 {out}에 내보냈어요. 이 파일이 있어야 백업을 복원하고 고객 연락처를 읽을 수 있어요 — "
+        names = list(KEY_NAMES) + [k for k in OPTIONAL_KEYS if cfg.secret(k)]
+        out.write_text("\n".join(f"{k}={cfg.secret(k)}" for k in names) + "\n", encoding="utf-8")
+        extra = " Google 연결도 들어 있어요(새 PC에서 다시 로그인하지 않아도 돼요)." if len(names) > len(KEY_NAMES) else ""
+        print(f"키를 {out}에 내보냈어요.{extra} 이 파일이 있어야 백업을 복원하고 고객 연락처를 읽을 수 있어요 — "
               "USB나 비밀번호 관리자에 따로 보관하고, 백업 파일과 같은 곳에 두지 마세요.")
         return 0
     if a.cmd == "import-keys":
@@ -48,9 +51,9 @@ def _keys_cmd(a, cfg) -> int:
         for line in Path(a.file).read_text(encoding="utf-8").splitlines():
             if "=" in line:
                 k, v = line.split("=", 1)
-                if k.strip() in KEY_NAMES and v.strip():
+                if k.strip() in KEY_NAMES + OPTIONAL_KEYS and v.strip():
                     vals[k.strip()] = v.strip()
-        if set(vals) != set(KEY_NAMES):
+        if not set(KEY_NAMES) <= set(vals):
             print("키 파일에 필요한 값이 모두 있지 않아요(JOS_DATA_KEY·JOS_BACKUP_KEY·JOS_SECRET).", file=sys.stderr)
             return 2
         if cfg.db_path.exists() and not a.force:
@@ -67,7 +70,8 @@ def _keys_cmd(a, cfg) -> int:
                 return 2
         for k, v in vals.items():
             cfg.set_secret(k, v)
-        print("키를 가져왔어요. 이제 restore 명령으로 백업을 복원하세요.")
+        google = " Google 연결도 가져왔어요." if "JOS_GOOGLE_REFRESH_TOKEN" in vals else ""
+        print(f"키를 가져왔어요.{google} 이제 restore 명령으로 백업을 복원하세요.")
         return 0
     return 1
 

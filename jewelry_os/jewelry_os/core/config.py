@@ -15,6 +15,23 @@ def _default_data_dir(env: str) -> Path:
     return base / "JewelryOS" / env
 
 
+BUNDLED_GOOGLE = {"JOS_GOOGLE_CLIENT_ID": "client_id", "JOS_GOOGLE_CLIENT_SECRET": "client_secret"}
+BUNDLED_FILE = Path(__file__).resolve().parents[1] / "google_client.json"
+
+
+def bundled_secret(name: str) -> str | None:
+    """코드에 들어 있는 Google 데스크톱 앱 클라이언트 값(jewelry_os/google_client.json, D-21). 비어 있으면 None."""
+    key = BUNDLED_GOOGLE.get(name)
+    if key is None:
+        return None
+    import json
+    try:
+        v = (json.loads(BUNDLED_FILE.read_text(encoding="utf-8")).get(key) or "").strip()
+    except (OSError, ValueError):
+        return None
+    return v or None
+
+
 @dataclass
 class Config:
     env: str = "prod"
@@ -43,7 +60,7 @@ class Config:
         return self.env == "test"
 
     def secret(self, name: str) -> str | None:
-        return os.environ.get(name) or self.secrets.get(name)
+        return os.environ.get(name) or self.secrets.get(name) or bundled_secret(name)
 
     def set_secret(self, name: str, value: str) -> None:
         self.secrets[name] = value
