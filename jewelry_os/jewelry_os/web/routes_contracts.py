@@ -14,7 +14,7 @@ from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import Response
 
 from ..domain.guards import TransitionBlocked
-from ..services import contracts, orders, refunds
+from ..services import contracts, orders, refunds, settings
 from .app import flash_redirect, form_of, render, templates
 
 router = APIRouter()
@@ -44,7 +44,8 @@ def quote_document_html(request, q) -> str:
     from ..services import quotes
     pq = quotes.public_quote(request.state.ctx, q["id"])
     html = templates.get_template("screens/quote_doc.html").render(
-        {"request": request, "pq": pq.__dict__, "qid": q["id"], "pq_ref": contracts.quote_ref(q), "asset_v": "evidence"})
+        {"request": request, "pq": pq.__dict__, "qid": q["id"], "pq_ref": contracts.quote_ref(q), "asset_v": "evidence",
+         "kakao_url": settings.get(request.state.ctx, "kakao_channel_url")})
 
     def css(m):
         p = STATIC / "css" / m.group(1)

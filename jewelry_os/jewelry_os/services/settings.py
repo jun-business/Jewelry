@@ -40,7 +40,8 @@ DEFAULTS = {
     "ai_monthly_call_limit": 300,
     "ai_monthly_cost_limit_krw": 30000,
     "ai_send_images": False,
-    "shop_name": "틴틴골드",               # D-19 (TBD-001 확정)
+    "shop_name": "틴틴골드",
+    "kakao_channel_url": "https://pf.kakao.com/_dxhAWX",  # 틴틴골드 카카오톡 채널 — 견적서·카톡용 텍스트 문의처(D-27)               # D-19 (TBD-001 확정)
     "consent_version": "consent_v1",
     "tax_type": "unset",                 # H1 r1 Q9: unset | general | simplified | exempt (TBD-009)
     "simplified_vat_rate_pct": 20,       # 간이과세 업종별 부가가치율(%) — 업종 확인 필요(TBD-009)
@@ -50,6 +51,23 @@ DEFAULTS = {
 def get(ctx, key: str):
     row = ctx.db.one("SELECT value_json FROM settings WHERE key=?", (key,))
     return jload(row["value_json"]) if row else DEFAULTS.get(key)
+
+
+def normalize_kakao_channel(v: str | None) -> str:
+    """카카오톡 채널 주소 검사·정리 → 채널 URL(https). 빈 값은 '표시 안 함'. 채팅 URL(/chat)을 넣어도 채널 URL로 저장."""
+    import re
+    v = (v or "").strip()
+    if not v:
+        return ""
+    v = re.sub(r"^(https?://)?", "https://", v, count=1)
+    m = re.fullmatch(r"https://pf\.kakao\.com/(_[A-Za-z0-9]{3,32})(/chat)?/?", v)
+    if not m:
+        raise ValueError("카카오톡 채널 주소는 https://pf.kakao.com/_로 시작해요(채널 관리자센터의 채널 URL).")
+    return f"https://pf.kakao.com/{m.group(1)}"
+
+
+def kakao_chat_url(channel_url: str | None) -> str:
+    return f"{channel_url}/chat" if channel_url else ""
 
 
 def effective_google_mode(ctx) -> str:

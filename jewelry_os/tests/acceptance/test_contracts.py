@@ -625,3 +625,30 @@ def test_linked_customers_share_contract_history_and_identity(ctx, maker, operat
     form_b_response(ctx, r3, email=f"customer{c1}@example.com")
     _sync(ctx)
     assert "IDENTITY_OTHER_CUSTOMER" in _codes(ctx, r3)
+
+
+def test_kakao_channel_on_quote_document_and_text(ctx, maker, operator):
+    """D-27 카카오톡 채널 주소 — 코드 기본값, 견적서·카톡용 텍스트·계약 증거 견적서에 문의처로 표시."""
+    from jewelry_os.services import settings
+    assert settings.get(ctx, "kakao_channel_url") == "https://pf.kakao.com/_dxhAWX"
+    for raw in ("http://pf.kakao.com/_dxhAWX", "pf.kakao.com/_dxhAWX/chat", " https://pf.kakao.com/_dxhAWX/ "):
+        assert settings.normalize_kakao_channel(raw) == "https://pf.kakao.com/_dxhAWX"
+    for bad in ("https://example.com/_dxhAWX", "https://pf.kakao.com/dxhAWX", "javascript:alert(1)"):
+        with pytest.raises(ValueError):
+            settings.normalize_kakao_channel(bad)
+    o = _qa(ctx, maker, operator)
+    qid = ctx.db.scalar("SELECT id FROM quotes WHERE order_id=? AND status='APPROVED'", (o["id"],))
+    w = web(ctx, "operator")
+    doc = w.get(f"/docs/quote/{qid}").text
+    assert 'href="https://pf.kakao.com/_dxhAWX"' in doc
+    assert "문의: 카카오톡 채널 틴틴골드 https://pf.kakao.com/_dxhAWX/chat" in w.get(f"/docs/quote/{qid}.txt").text
+    w.post(f"/orders/{o['order_no']}/contract/issue", data={})
+    from jewelry_os.services import files
+    k = ctx.db.one("SELECT * FROM contract_requests")
+    assert "pf.kakao.com/_dxhAWX" in files.read(ctx, ctx.db.one("SELECT * FROM assets WHERE id=?",
+                                                                    (k["quote_html_asset_id"],))).decode("utf-8")
+    assert w.post("/settings/policy", data={"kakao_channel_url": "https://evil.example/_x"}).status_code == 422
+    assert w.post("/settings/policy", data={"kakao_channel_url": ""}).status_code == 303  # 비우면 표시 안 함
+    assert "카카오톡 채널 틴틴골드" not in w.get(f"/docs/quote/{qid}.txt").text
+    assert 'value="' in w.get("/settings/policy").text and web(ctx, "maker").post(
+        "/settings/policy", data={"kakao_channel_url": ""}).status_code == 403

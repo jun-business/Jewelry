@@ -24,5 +24,5 @@
 <p>결제는 네이버 스마트스토어에서 진행돼요. 결제가 확인된 뒤 제작을 시작해요.</p></section>
 <section><h2>완성 예정</h2><p>{{ pq.promised_date|kdate }}</p><p class="t-sm">지금 단계: {{ pq.phase_label }}</p></section>
 <footer class="doc-foot"><p>이 견적은 제작 의뢰 확인용이며, 결제가 확인된 뒤 제작을 시작해요.{% if pq.terms_label %} 수정·환불 기준: {{ pq.terms_label }}.{% endif %}</p>
-<p class="t-caption">주문번호 {{ pq.order_no }} · 문의는 카카오톡 채널로 해 주세요.</p></footer>
+<p class="t-caption">주문번호 {{ pq.order_no }} · 문의는 카카오톡 채널{% if kakao_url %} <a href="{{ kakao_url }}" target="_blank" rel="noopener">{{ pq.shop_name }}</a> <span class="mono">{{ kakao_url }}</span>{% endif %}로 해 주세요.</p></footer>
 </main></body></html>

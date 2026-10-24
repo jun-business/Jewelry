@@ -268,6 +268,10 @@ async def settings_post(request: Request, section: str):
                     raise ValueError("부가가치율은 0~100 사이로 입력하세요.")
                 if settings.get(ctx, "simplified_vat_rate_pct") != rate:
                     settings.put(ctx, "simplified_vat_rate_pct", rate, user)
+            if "kakao_channel_url" in f:
+                url = settings.normalize_kakao_channel(f.get("kakao_channel_url"))
+                if settings.get(ctx, "kakao_channel_url") != url:
+                    settings.put(ctx, "kakao_channel_url", url, user)
             if f.get("payment_policy") in ("THIRDS", "FULL") and settings.get(ctx, "payment_policy") != f.get("payment_policy"):
                 settings.put(ctx, "payment_policy", f.get("payment_policy"), user)
             return flash_redirect("/settings/policy", "운영 정책을 저장했어요.")
@@ -447,7 +451,8 @@ async def quote_doc(request: Request, qid: int):
                                                        "link": ("/orders", "주문 목록")}, 403)
     q = ctx.db.one("SELECT * FROM quotes WHERE id=?", (qid,))
     return templates.TemplateResponse(request, "screens/quote_doc.html", {"pq": pq.__dict__, "qid": qid,
-                                                                          "pq_ref": contracts.quote_ref(q)})
+                                                                          "pq_ref": contracts.quote_ref(q),
+                                                                          "kakao_url": settings.get(ctx, "kakao_channel_url")})
 
 
 @router.get("/docs/quote/{qid:int}.txt")
@@ -470,6 +475,9 @@ async def quote_doc_txt(request: Request, qid: int):
         lines.append(f"결제: 예약금 {won(pq.deposit)} · 잔금 {won(pq.balance)}")
     lines += [f"완성 예정: {kdate(pq.promised_date)}", f"견적 유효기간: {kdate(pq.valid_until)}까지",
               "결제는 네이버 스마트스토어에서 진행돼요. 결제가 확인된 뒤 제작을 시작해요.", f"지금 단계: {pq.phase_label}"]
+    kakao = settings.get(request.state.ctx, "kakao_channel_url")
+    if kakao:
+        lines.append(f"문의: 카카오톡 채널 {pq.shop_name} {settings.kakao_chat_url(kakao)}")
     return PlainTextResponse("\n".join(lines))
 
 
