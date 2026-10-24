@@ -133,6 +133,28 @@ def test_tcs_042_accessibility(ctx, maker, operator, live, new_page):
 
 
 # ---------------- 051 결과 메시지·확대 ----------------
+def test_tcs_051_notification_panel(ctx, maker, operator, live, new_page):
+    """알림 패널: 항목 글자가 한 자씩 줄바꿈되지 않고(아이콘 + 제목 + 시각), 휴대폰 폭에서도 읽힌다."""
+    order_at(ctx, maker, operator, "QUOTE_APPROVED")
+    from jewelry_os.services import alerts
+    alerts.evaluate(ctx)
+    assert ctx.db.scalar("SELECT COUNT(*) FROM notifications WHERE resolved_at IS NULL") >= 1
+    for w in (1280, 320):
+        page = new_page(w, 800)
+        login(page, live, "maker")
+        page.click("#bell")
+        page.wait_for_selector("#notif-dialog[open] .notif-list li")
+        rows = page.evaluate("""() => [...document.querySelectorAll('#notif-dialog .notif-list li')].map(li => {
+            const t = li.querySelector('a, span'); const r = t.getBoundingClientRect();
+            const lh = parseFloat(getComputedStyle(t).lineHeight) || 24;
+            return {text: t.textContent, width: r.width, lines: Math.round(r.height / lh),
+                    icon: !!li.querySelector('svg.icon'), time: (li.querySelector('.meta') || {}).textContent}; })""")
+        assert rows, w
+        for r in rows:
+            assert r["icon"] and r["time"], (w, r)
+            assert r["width"] > 150 and r["lines"] <= 3, (w, r)  # 한 자씩 세로로 늘어서면 폭이 좁고 줄 수가 많다
+
+
 def test_tcs_051_status_and_lightbox(ctx, maker, operator, live, new_page):
     a, *_ = seed_screens(ctx, maker, operator)
     page = new_page(1280, 900)

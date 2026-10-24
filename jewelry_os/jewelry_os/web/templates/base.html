@@ -56,7 +56,7 @@
 <dialog id="more-dialog" aria-labelledby="more-t"><div class="dlg"><h2 id="more-t">더보기</h2>
 <ul class="nav">{% for href, ic, lab in [("/payments","card","결제"),("/schedule","calendar","일정"),("/customers","users","고객"),("/analytics","chart","실적"),("/settings","settings","설정"),("/system","server","시스템 상태")] %}<li><a href="{{ href }}">{{ icon(ic) }}<span class="lbl">{{ lab }}</span></a></li>{% endfor %}</ul>
 <div class="dlg-actions"><button class="btn btn-secondary" type="button" data-close>닫기</button></div></div></dialog>
-<dialog id="notif-dialog" aria-labelledby="notif-t"><div class="dlg"><h2 id="notif-t">알림</h2><ul class="timeline"></ul>
+<dialog id="notif-dialog" aria-labelledby="notif-t"><div class="dlg"><h2 id="notif-t">알림</h2><ul class="notif-list"></ul>
 <div class="dlg-actions"><button class="btn btn-secondary" type="button" data-close>닫기</button></div></div></dialog>
 <div id="lock-warning" class="toasts" hidden role="alertdialog" aria-labelledby="lw-t"><div class="toast"><span id="lw-t">1분 뒤 화면이 잠겨요.</span><button id="lock-continue" class="btn btn-primary btn-sm" type="button">계속 사용</button></div></div>
 <div id="lock-overlay" class="lock-overlay" hidden role="dialog" aria-modal="true" aria-labelledby="lock-t">

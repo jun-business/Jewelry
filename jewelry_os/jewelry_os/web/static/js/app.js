@@ -195,7 +195,18 @@
     e.preventDefault();
     const r = await api("/api/notifications"); const j = await r.json(); const ul = $("ul", np); ul.innerHTML = "";
     if (!j.items.length) ul.innerHTML = "<li class='t-muted'>새 알림이 없어요.</li>";
-    j.items.forEach((it) => { const li = document.createElement("li"); li.className = "alert-row"; const a = document.createElement(it.order_no ? "a" : "span"); if (it.order_no) a.href = "/orders/" + it.order_no; a.textContent = it.title; li.appendChild(a); ul.appendChild(li); });
+    const ICON = { customer_wait: "clock", delivery_risk: "alert", payment_issue: "octagon", system: "server" };
+    const ago = (iso) => { const m = Math.max(0, Math.round((Date.now() - Date.parse(iso)) / 60000));
+      return m < 1 ? "방금 전" : m < 60 ? m + "분 전" : m < 1440 ? Math.floor(m / 60) + "시간 전" : Math.floor(m / 1440) + "일 전"; };
+    j.items.forEach((it) => {
+      const li = document.createElement("li"); li.className = "sev-" + (it.severity || "info");
+      const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg"); svg.setAttribute("class", "icon"); svg.setAttribute("aria-hidden", "true");
+      const use = document.createElementNS("http://www.w3.org/2000/svg", "use"); use.setAttribute("href", "/static/icons.svg#i-" + (ICON[it.kind] || "info")); svg.appendChild(use);
+      const body = document.createElement("div");
+      const a = document.createElement(it.order_no ? "a" : "span"); if (it.order_no) a.href = "/orders/" + it.order_no; a.textContent = it.title;
+      const meta = document.createElement("span"); meta.className = "meta"; meta.textContent = it.at ? ago(it.at) : "";
+      body.append(a, meta); li.append(svg, body); ul.appendChild(li);
+    });
     np._opener = bell; np.showModal(); api("/api/notifications/read", { method: "POST" }).then(() => { const b = $(".badge", bell); if (b) b.remove(); });
   });
 
