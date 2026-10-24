@@ -76,6 +76,13 @@ def _keys_cmd(a, cfg) -> int:
     return 1
 
 
+def _ensure_std_streams() -> None:
+    """pythonw(창 없이 실행 — start.bat·자동 시작)에서는 stdout·stderr가 None이라 uvicorn 로그 설정이 죽는다."""
+    for name in ("stdout", "stderr"):
+        if getattr(sys, name) is None:
+            setattr(sys, name, open(os.devnull, "w", encoding="utf-8"))
+
+
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(prog="jewelry_os")
     ap.add_argument("--env", default=os.environ.get("JOS_ENV", "prod"))
@@ -105,6 +112,7 @@ def main(argv=None) -> int:
     cfg = load_config(env, a.data_dir)
 
     if a.cmd == "serve":
+        _ensure_std_streams()
         from .core.singleton import AlreadyRunning, InstanceLock
         try:
             lock = InstanceLock(cfg.data_dir).acquire()
