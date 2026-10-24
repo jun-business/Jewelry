@@ -203,7 +203,7 @@ def sync_once(ctx, fail_after_commit_of: int | None = None, full: bool = False) 
     mapping = current_mapping(ctx)
     src = ctx.forms
     # BD-002: live + 시험 폼이면 시험 주문. Mock 모드 응답은 시험 운영 모드·시험 견적 규칙(BD §6.4)으로 표지한다.
-    is_test_form = settings.get(ctx, "google_mode") == "live" and settings.get(ctx, "google_form_purpose") == "test"
+    is_test_form = settings.effective_google_mode(ctx) == "live" and settings.get(ctx, "google_form_purpose") == "test"
     since = None
     if settings.get(ctx, "sync_incremental") and not full:
         cur = _cursor(ctx, form_id)

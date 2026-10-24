@@ -165,7 +165,7 @@ def main(argv=None) -> int:
     if a.cmd == "google-auth":
         from .adapters.google import GoogleOAuth, run_loopback_flow
         run_loopback_flow(GoogleOAuth(cfg), webbrowser.open)
-        print("Google 계정을 연결했어요.")
+        print("Google 계정을 연결했어요. 앱이 켜져 있으면 다시 시작하세요(자동 모드면 그때부터 실제 폼에서 가져와요).")
         return 0
     if a.cmd == "seed-demo":
         from .bootstrap import build_ctx

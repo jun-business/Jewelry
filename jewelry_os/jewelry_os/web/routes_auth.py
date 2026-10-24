@@ -60,7 +60,7 @@ async def setup_post(request: Request):
                    "payment_policy": form.get("payment_policy") or "THIRDS",
                    "lock_minutes": int(form.get("lock_minutes") or 15),
                    "quiet_start": form.get("quiet_start") or "00:00", "quiet_end": form.get("quiet_end") or "07:00",
-                   "google_mode": "mock", "load_holidays": form.get("load_holidays", "on") == "on"})
+                   "google_mode": "auto", "load_holidays": form.get("load_holidays", "on") == "on"})
     except security.AuthError as e:
         return templates.TemplateResponse(request, "screens/setup.html",
                                           {"errors": {"_": e.message}, "form": form}, status_code=422)

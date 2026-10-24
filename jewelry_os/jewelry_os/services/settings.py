@@ -25,9 +25,9 @@ DEFAULTS = {
     "quote_valid_days": 14,
     "factory_days": 14,
     "backup_keep_days": 30,
-    "google_mode": "mock",               # mock | live
-    "google_form_purpose": "test",       # test | public
-    "google_form_id": "mock-form",
+    "google_mode": "auto",               # auto | mock | live — auto: Google 계정이 연결돼 있으면 live, 아니면 mock(D-20)
+    "google_form_purpose": "test",       # test | public — H3: 실고객 운영 승인 전까지 시험 폼
+    "google_form_id": "1xE5XV0lHA9URgOdTYFvcZhM5T-ZYbecH5bXDsSGxF_o",  # 틴틴골드 의뢰 폼(D-20)
     "intake_question_binding": {},       # 실제 폼 질문 ID → intake 필드(SRS-004 r2, 설정 > 폼 매핑)
     "ai_provider": "mock",               # mock | claude
     "ai_model": "claude-opus-5-5",
@@ -44,6 +44,14 @@ DEFAULTS = {
 def get(ctx, key: str):
     row = ctx.db.one("SELECT value_json FROM settings WHERE key=?", (key,))
     return jload(row["value_json"]) if row else DEFAULTS.get(key)
+
+
+def effective_google_mode(ctx) -> str:
+    """실제로 쓸 Google 모드. auto는 Google 계정 연결(refresh token) 여부로 정한다(D-20)."""
+    mode = get(ctx, "google_mode")
+    if mode == "auto":
+        return "live" if ctx.cfg.secret("JOS_GOOGLE_REFRESH_TOKEN") else "mock"
+    return mode
 
 
 def all_settings(ctx) -> dict:

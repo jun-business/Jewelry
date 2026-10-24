@@ -53,7 +53,7 @@ def test_tcs_001_first_run(tmp_path, fclock):
     assert cl.get("/setup").status_code == 404  # ②
     s = settings.all_settings(c)
     assert (s["capacity_limit"], s["sync_interval_min"], s["lock_minutes"], s["payment_policy"], s["google_mode"]) == \
-        (3, 5, 15, "THIRDS", "mock")  # ④
+        (3, 5, 15, "THIRDS", "auto")  # ④ D-20: 자동(연결 전엔 Mock)
     assert c.db.scalar("SELECT name FROM holidays WHERE date='2026-10-09'")  # ⑤
     r = cl.post("/login", data={"username": "father", "password": "maker-pass-123", "next": "/"})
     cl.cookies.set("jos_session", r.cookies.get("jos_session"))

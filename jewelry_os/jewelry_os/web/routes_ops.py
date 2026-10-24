@@ -186,6 +186,7 @@ def settings_vm(ctx, section):
         vm["error_text"] = intake.ERROR_TEXT
         vm["live_allowed"] = settings.live_intake_allowed(ctx)
         vm["connected"] = bool(ctx.cfg.secret("JOS_GOOGLE_REFRESH_TOKEN"))
+        vm["effective_mode"] = settings.effective_google_mode(ctx)
         vm["unmapped_count"] = len(intake.unmapped_questions(ctx))
     if section == "mapping":
         vm["mapping"] = intake.current_mapping(ctx)
@@ -284,9 +285,9 @@ async def settings_post(request: Request, section: str):
         if section == "google":
             mode = f.get("google_mode") or "mock"
             purpose = f.get("google_form_purpose") or "test"
-            if mode not in ("mock", "live") or purpose not in ("test", "public"):
+            if mode not in ("auto", "mock", "live") or purpose not in ("test", "public"):
                 return _settings_error(request, "google", errors={"_": "연동 모드와 폼 용도를 목록에서 고르세요."}, status=422)
-            if mode == "live" and purpose == "public" and not settings.live_intake_allowed(ctx):
+            if mode in ("auto", "live") and purpose == "public" and not settings.live_intake_allowed(ctx):
                 return _settings_error(request, "google", [unmet("G-GATE-LIVE")], status=409)
             if mode == "live" and purpose == "test" and not f.get("confirm_test_form"):
                 return _settings_error(request, "google", [unmet("G-CONFIRM")], status=409)
@@ -515,4 +516,6 @@ async def oauth_cb(request: Request, code: str = "", state: str = ""):
         ctx.extra["oauth"].exchange(code, f"http://127.0.0.1:{ctx.cfg.port}/oauth2cb")
     except Exception:
         return PlainTextResponse("Google 연결에 실패했어요. 다시 시도하세요.", 400)
+    from ..bootstrap import configure_adapters
+    configure_adapters(ctx)  # 자동 모드면 바로 실계정 폼으로(D-20)
     return RedirectResponse("/settings/google", 303)

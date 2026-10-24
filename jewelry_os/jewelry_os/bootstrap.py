@@ -24,7 +24,7 @@ def build_ctx(cfg: Config | None = None, *, forms=None, files=None, analyzer=Non
 
 def configure_adapters(ctx: Ctx, keep_injected=False) -> None:
     """설정값으로 어댑터 선택(BD-005). 시험에서 주입한 어댑터는 유지."""
-    mode = settings.get(ctx, "google_mode")
+    mode = settings.effective_google_mode(ctx)
     if not (keep_injected and ctx.forms is not None):
         if mode == "live":
             oauth = g.GoogleOAuth(ctx.cfg)

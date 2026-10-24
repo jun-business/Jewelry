@@ -61,7 +61,7 @@
 {% elif section == "google" %}
 {% if unmapped_count %}{{ banner("warning","연결하지 않은 폼 질문 " ~ unmapped_count ~ "개가 있어요", "질문을 항목에 연결해야 이름·연락처·설명·동의를 읽을 수 있어요.", ("/settings/mapping", "질문 연결하기"), "alert") }}{% endif %}
 <form class="card" method="post" action="/settings/google">{{ csrf_input() }}<h2>Google 연동</h2>
-<fieldset><legend>모드</legend><label class="choice"><input type="radio" name="google_mode" value="mock" {% if s.google_mode == "mock" %}checked{% endif %}> 시험용 Mock</label><label class="choice"><input type="radio" name="google_mode" value="live" {% if s.google_mode == "live" %}checked{% endif %}> 실제 Google 계정</label></fieldset>
+<fieldset><legend>모드</legend><label class="choice"><input type="radio" name="google_mode" value="auto" {% if s.google_mode == "auto" %}checked{% endif %}> 자동 — Google 계정이 연결되면 실계정, 아니면 시험용(지금: {{ "실계정" if effective_mode == "live" else "시험용 Mock" }})</label><label class="choice"><input type="radio" name="google_mode" value="mock" {% if s.google_mode == "mock" %}checked{% endif %}> 시험용 Mock</label><label class="choice"><input type="radio" name="google_mode" value="live" {% if s.google_mode == "live" %}checked{% endif %}> 실제 Google 계정</label></fieldset>
 <fieldset><legend>폼 용도</legend><label class="choice"><input type="radio" name="google_form_purpose" value="test" {% if s.google_form_purpose == "test" %}checked{% endif %}> 시험 폼(고객에게 공개하지 않음)</label>
 <label class="choice"><input type="radio" name="google_form_purpose" value="public" {% if s.google_form_purpose == "public" %}checked{% endif %} {% if not live_allowed %}disabled aria-describedby="gl-why"{% endif %}> 고객 공개 폼</label>
 {% if not live_allowed %}<p class="err" id="gl-why">고객 공개 폼은 Gate OPS-01·LEGAL-01 통과 후에 연결할 수 있어요. 지금은 시험 폼만 연결돼요.</p>{% endif %}
