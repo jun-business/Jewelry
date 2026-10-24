@@ -8,7 +8,12 @@
 {% if messages %}<div class="table-wrap"><table><thead><tr><th scope="col">방향</th><th scope="col">요지</th><th scope="col">기록</th></tr></thead><tbody>
 {% for m in messages %}<tr><td>{{ "고객 →" if m.direction == "in" else "→ 고객" }}</td><td>{{ m.summary }}{% if m.content_redacted and m.direction == "in" %}<div class="t-sm t-muted">{{ m.content_redacted }}</div>{% endif %}{% if m.link %} <a href="{{ m.link }}" rel="noopener" target="_blank">대화</a>{% endif %}</td><td class="meta">{{ m.recorder or "" }} · {{ m.event_at|kdatetime }}</td></tr>{% endfor %}
 </tbody></table></div>{% else %}<p class="t-muted">아직 기록된 대화가 없어요.</p>{% endif %}
-<details {% if not messages %}open{% endif %}><summary>고객 메시지 기록</summary>
+<details {% if not messages %}open{% endif %}><summary>카카오톡 대화 붙여넣기(한 번에)</summary>
+<form method="post" action="/orders/{{ o.order_no }}/cs/import" enctype="multipart/form-data">{{ csrf_input() }}
+{{ area("chat", "카카오톡 대화(채널 관리자 앱·PC에서 복사하거나 ‘대화 내보내기’ 내용)", "", False, None, "보낸 사람·시각을 읽어 메시지별로 나눠요. 같은 대화를 다시 붙여도 새 메시지만 들어가요. 전화번호는 가려져요.", 6) }}
+<div class="field"><label for="chat-file">또는 내보낸 .txt 파일</label><input id="chat-file" type="file" name="chat_file" accept=".txt,text/plain"></div>
+<button class="btn btn-primary" type="submit">대화 가져오기</button></form></details>
+<details><summary>고객 메시지 직접 기록</summary>
 <form method="post" action="/orders/{{ o.order_no }}/cs/messages">{{ csrf_input() }}
 {{ text("summary", "요지", "", True, errors, "전화번호·주소는 적지 마세요(자동으로 가려져요)") }}
 {{ area("content", "원문 붙여넣기(선택)", "", False, None, None, 3) }}

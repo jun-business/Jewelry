@@ -36,12 +36,6 @@
 {% endif %}
 {% endfor %}
 </section>
-<section class="card" aria-labelledby="recent-t"><h2 id="recent-t">최근 활동</h2>
-{% if not recent %}<p class="t-muted">아직 활동이 없어요.</p>{% endif %}
-<ul class="timeline">{% for a in recent %}<li>{{ icon("commit", "sm") }}<span>{{ a.actor_name or "시스템" }} · <a href="/orders/{{ a.order_no }}">{{ a.order_no }}</a> · {{ a.action|action_label(a) }} <span class="meta">{{ a.created_at|kdatetime }}</span></span></li>{% endfor %}</ul>
-</section>
-</div>
-<div>
 <section class="card" aria-labelledby="cap-t"><h2 id="cap-t">작업량</h2>
 {% set full = active >= limit %}
 <p>동시 진행 <strong>{{ active }}/{{ limit }}</strong>{% if active > limit %} <span class="chip issue">초과 {{ active - limit }}</span>{% endif %}</p>
@@ -49,6 +43,12 @@
 <p class="t-sm">대기 중인 문의 {{ waitlisted }}건</p>
 <h3>다가오는 CAD 날짜</h3>
 {% if week_slots %}<ul>{% for s in week_slots %}<li>{{ s.date|kdate }} · <a href="/orders/{{ s.order_no }}">{{ s.order_no }}</a></li>{% endfor %}</ul>{% else %}<p class="t-muted t-sm">정해진 CAD 날짜가 없어요.</p>{% endif %}
+</section>
+</div>
+<div>
+<section class="card" aria-labelledby="recent-t"><h2 id="recent-t">최근 활동</h2>
+{% if not recent %}<p class="t-muted">아직 활동이 없어요.</p>{% endif %}
+<ul class="timeline">{% for a in recent %}<li>{{ icon("commit", "sm") }}<span>{{ a.actor_name or "시스템" }} · <a href="/orders/{{ a.order_no }}">{{ a.order_no }}</a> · {{ a.action|action_label(a) }} <span class="meta">{{ a.created_at|kdatetime }}</span></span></li>{% endfor %}</ul>
 </section>
 <section class="card" aria-labelledby="sys-t"><h2 id="sys-t">시스템 상태</h2>
 {% set probs = status.problems %}

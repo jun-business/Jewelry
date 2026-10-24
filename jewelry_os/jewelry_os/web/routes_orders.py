@@ -467,6 +467,22 @@ async def memo_post(request: Request, no: str):
 
 
 # ---- 상담(CS) ----
+@router.post("/orders/{no}/cs/import")
+async def cs_import_order(request: Request, no: str):
+    """주문의 카카오톡 대화 붙여넣기(D-30)."""
+    from ..services import kakao_import
+    from .routes_ops import _chat_text
+    ctx = request.state.ctx
+    o = _order(ctx, no)
+    f = await form_of(request)
+    try:
+        st = kakao_import.import_chat(ctx, request.state.user, await _chat_text(f), order=o)
+    except TransitionBlocked as e:
+        return flash_redirect(f"/orders/{no}/cs", e.unmet[0].message, "error")
+    msg = f"카카오톡 대화 {st['new']}개를 기록했어요." + (f" 이미 있던 {st['dup']}개는 건너뛰었어요." if st["dup"] else "")
+    return flash_redirect(f"/orders/{no}/cs", msg)
+
+
 @router.post("/orders/{no}/cs/messages")
 async def cs_message(request: Request, no: str):
     ctx = request.state.ctx

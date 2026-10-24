@@ -389,6 +389,7 @@
 | 2026-10-24 | 카카오톡 채널 주소(D-27) | 설정 kakao_channel_url(코드 기본값 _dxhAWX, 형식 검사), 견적서·카톡용 텍스트·계약 증거 견적서에 문의처 표시 | 사용자 요청 | 시험 추가 1건 | — |
 | 2026-10-24 | 채널톡 연동 1단계(D-28) | adapters/channeltalk.py(Open API v5, x-access-key/secret, 429·5xx 재시도), 설정 화면 키 저장·연결 확인, set-secret·키 파일 이동 | 사용자 요청 | 시험 추가(test_channeltalk 5건) | 실키 확인 대기 |
 | 2026-10-24 | Gate 기준 갱신·BIZ-01(D-29) | GATES 문구 갱신, GATE-BIZ-01 추가·실거래 Gate 포함, Gate 보드 문구가 목록에서 생성 | Gate 보드 점검 | 시험 추가 1건, TC-S-014 갱신 | — |
+| 2026-10-24 | 카카오톡 대화 가져오기(D-30) | services/kakao_import.py, 주문 상담 탭·상담함 ‘주문 전 문의’·문의 대화 화면, 주문 연결 | 사용자 요청(무료·무등록) | 시험 추가 4건 | — |
 | 2026-10-18 | SRS-004 r2 · 코드 | 실제 Google 폼 질문 ID 연결: 설정 > 폼 매핑(미인식 질문 ID + 가린 예시 답변) → `intake_question_binding`(operator, 감사), `load_mapping` 덧붙임(자리표시 ID 유지), 저장 후 전체 재해석(해석 변경분만 revision · 시스템 보류 해제 · 빈 값 채움 · AI 1회). d29e3d1(파일 답 모양 인식) 유지 + 첫 단위 시험 | 아버님 PC 실폼 시험에서 글 답 전부 None → NEEDS_INFO·NO_CONSENT, AI 미실행(인수 조건 C-1 선행 결함). OAuth 범위 유지 | D-18, TC-S-057 신설, TC-U-056~058, INSTALL §5, 14_TR §9, 회귀 184 PASS | SRS-004 1회 |
 
 ## 6. 산출물 품질 게이트

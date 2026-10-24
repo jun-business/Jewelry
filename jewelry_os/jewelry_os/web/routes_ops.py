@@ -13,8 +13,8 @@ from ..core import clock, security
 from ..core.db import jdump, jload
 from ..domain.guards import TransitionBlocked, unmet
 from ..domain.states import GATES, LIVE_INTAKE_GATES
-from ..services import (alerts, analysis, audit, backup, capacity, contracts, cs, customers, files, intake, metrics, payments, quotes,
-                        settings, system)
+from ..services import (alerts, analysis, audit, backup, capacity, contracts, cs, customers, files, intake, metrics, orders,
+                        payments, quotes, settings, system)
 from .app import blocked_status, flash_redirect, form_of, render, templates
 
 router = APIRouter()
@@ -46,7 +46,72 @@ async def payments_page(request: Request, tab: str = "todo"):
 # ---------------- S-05 상담함 ----------------
 @router.get("/cs")
 async def cs_page(request: Request):
-    return render(request, "screens/cs_inbox.html", {"box": cs.inbox(request.state.ctx)})
+    from ..services import kakao_import
+    ctx = request.state.ctx
+    return render(request, "screens/cs_inbox.html", {"box": cs.inbox(ctx), "open_threads": kakao_import.open_threads(ctx)})
+
+
+async def _chat_text(f) -> str:
+    """붙여넣은 대화 + 올린 .txt(카카오톡 ‘대화 내보내기’)를 합친다."""
+    text = f.get("chat") or ""
+    up = f.get("chat_file")
+    if up is not None and hasattr(up, "read"):
+        data = await up.read()
+        if data:
+            for enc in ("utf-8-sig", "cp949"):
+                try:
+                    text += "\n" + data.decode(enc)
+                    break
+                except UnicodeDecodeError:
+                    continue
+    return text
+
+
+@router.post("/cs/import")
+async def cs_import(request: Request):
+    """주문 없는 카카오톡 문의 대화 가져오기(D-30)."""
+    from ..services import kakao_import
+    ctx = request.state.ctx
+    f = await form_of(request)
+    try:
+        st = kakao_import.import_chat(ctx, request.state.user, await _chat_text(f), title=f.get("title"))
+    except TransitionBlocked as e:
+        return flash_redirect("/cs#inquiries", e.unmet[0].message, "error")
+    return flash_redirect(f"/cs/threads/{st['thread_id']}", f"대화 {st['new']}개를 기록했어요.")
+
+
+@router.get("/cs/threads/{tid:int}")
+async def cs_thread_page(request: Request, tid: int):
+    from ..services import kakao_import
+    ctx = request.state.ctx
+    t = kakao_import.thread(ctx, tid)
+    if t is None:
+        raise HTTPException(404)
+    if t["order_id"]:
+        no = ctx.db.scalar("SELECT order_no FROM orders WHERE id=?", (t["order_id"],))
+        return RedirectResponse(f"/orders/{no}/cs", 303)
+    return render(request, "screens/cs_thread.html", {"t": t, "messages": kakao_import.thread_messages(ctx, tid)})
+
+
+@router.post("/cs/threads/{tid:int}/{op}")
+async def cs_thread_op(request: Request, tid: int, op: str):
+    from ..services import kakao_import
+    ctx = request.state.ctx
+    f = await form_of(request)
+    try:
+        if op == "import":
+            st = kakao_import.import_chat(ctx, request.state.user, await _chat_text(f), thread_id=tid)
+            msg = f"새 대화 {st['new']}개를 기록했어요." + (f" 이미 있던 {st['dup']}개는 건너뛰었어요." if st["dup"] else "")
+            return flash_redirect(f"/cs/threads/{tid}", msg)
+        if op == "link":
+            o = orders.get(ctx, (f.get("order_no") or "").strip())
+            if o is None:
+                return flash_redirect(f"/cs/threads/{tid}", "그 주문번호를 찾지 못했어요.", "error")
+            kakao_import.link_order(ctx, tid, o, request.state.user)
+            return flash_redirect(f"/orders/{o['order_no']}/cs", "문의 대화를 주문에 연결했어요.")
+    except TransitionBlocked as e:
+        return flash_redirect(f"/cs/threads/{tid}", e.unmet[0].message, "error")
+    raise HTTPException(404)
 
 
 # ---------------- S-06 일정 ----------------

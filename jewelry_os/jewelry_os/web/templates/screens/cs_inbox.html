@@ -1,4 +1,4 @@
-{% extends "base.html" %}{% from "components.html" import icon, chip, manual_note with context %}
+{% extends "base.html" %}{% from "components.html" import icon, chip, manual_note, csrf_input, area, text with context %}
 {% block title %}상담{% endblock %}
 {% block content %}
 <div class="page-head"><div><h1>상담함</h1>{{ manual_note() }}</div></div>
@@ -8,6 +8,14 @@
 <section class="card" aria-labelledby="s-t"><h2 id="s-t">발송 기록 대기 <span class="chip version">{{ box.to_send|length }}</span></h2>
 {% if box.to_send %}<ul class="timeline">{% for d in box.to_send %}<li>{{ icon("copy", "sm") }}<span><a href="/orders/{{ d.order_no }}/cs">{{ d.order_no }}</a> · 승인됨 · 복사해서 보낸 뒤 ‘발송 완료 기록’을 누르세요 <span class="meta">{{ d.approved_at|rel }}</span></span></li>{% endfor %}</ul>
 {% else %}<p class="t-muted">발송 기록을 기다리는 답변이 없어요.</p>{% endif %}</section>
+<section class="card" id="inquiries" aria-labelledby="q-t"><h2 id="q-t">주문 전 문의(카카오톡) <span class="chip version">{{ open_threads|length }}</span></h2>
+{% if open_threads %}<ul class="timeline">{% for t in open_threads %}<li>{{ icon("message", "sm") }}<span><a href="/cs/threads/{{ t.id }}">{{ t.title or "카카오톡 문의" }}</a> · 메시지 {{ t.n }}개 <span class="meta">{{ t.last_at|kdatetime if t.last_at else "" }}</span></span></li>{% endfor %}</ul>{% else %}<p class="t-muted">주문에 아직 연결되지 않은 문의가 없어요.</p>{% endif %}
+<details><summary>새 문의 대화 붙여넣기</summary>
+<form method="post" action="/cs/import" enctype="multipart/form-data">{{ csrf_input() }}
+{{ text("title", "제목(비우면 고객 이름으로)", "") }}
+{{ area("chat", "카카오톡 대화", "", False, None, "채널 관리자 앱·PC에서 대화를 복사해 붙여넣어요. 주문이 생기면 연결할 수 있어요.", 6) }}
+<div class="field"><label for="inq-file">또는 내보낸 .txt 파일</label><input id="inq-file" type="file" name="chat_file" accept=".txt,text/plain"></div>
+<button class="btn btn-secondary" type="submit">대화 가져오기</button></form></details></section>
 <section class="card" aria-labelledby="r-t"><h2 id="r-t">최근 기록</h2>
-{% if box.recent %}<ul class="timeline">{% for m in box.recent %}<li>{{ icon("hand", "sm") }}<span><a href="/orders/{{ m.order_no }}/cs">{{ m.order_no }}</a> · {{ "고객 →" if m.direction == "in" else "→ 고객" }} {{ m.summary }} <span class="meta">{{ m.event_at|kdatetime }}</span></span></li>{% endfor %}</ul>{% else %}<p class="t-muted">아직 기록이 없어요.</p>{% endif %}</section>
+{% if box.recent %}<ul class="timeline">{% for m in box.recent %}<li>{{ icon("hand", "sm") }}<span>{% if m.order_no %}<a href="/orders/{{ m.order_no }}/cs">{{ m.order_no }}</a>{% else %}<a href="/cs/threads/{{ m.thread_id }}">주문 전 문의</a>{% endif %} · {{ "고객 →" if m.direction == "in" else "→ 고객" }} {{ m.summary }} <span class="meta">{{ m.event_at|kdatetime }}</span></span></li>{% endfor %}</ul>{% else %}<p class="t-muted">아직 기록이 없어요.</p>{% endif %}</section>
 {% endblock %}

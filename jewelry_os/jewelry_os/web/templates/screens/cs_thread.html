@@ -1,0 +1,17 @@
+{% extends "base.html" %}{% from "components.html" import icon, csrf_input, area, text with context %}
+{% block title %}문의 대화{% endblock %}
+{% block content %}
+<div class="page-head"><div><a class="btn btn-tertiary" href="/cs#inquiries">{{ icon("back") }}상담함</a><h1>{{ t.title or "카카오톡 문의" }}</h1><p class="t-sm">주문에 아직 연결되지 않은 카카오톡 문의예요.</p></div></div>
+<section class="card" aria-labelledby="tm-t"><h2 id="tm-t">대화 {{ messages|length }}개</h2>
+{% if messages %}<div class="table-wrap"><table><thead><tr><th scope="col">방향</th><th scope="col">내용</th><th scope="col">시각</th></tr></thead><tbody>
+{% for m in messages %}<tr><td>{{ "고객 →" if m.direction == "in" else "→ 고객" }}</td><td class="pre-wrap">{{ m.content_redacted or m.summary }}</td><td class="meta">{{ m.event_at|kdatetime }}</td></tr>{% endfor %}
+</tbody></table></div>{% else %}<p class="t-muted">대화가 없어요.</p>{% endif %}</section>
+<section class="card" aria-labelledby="tl-t"><h2 id="tl-t">주문에 연결</h2>
+<form method="post" action="/cs/threads/{{ t.id }}/link" class="btn-row">{{ csrf_input() }}{{ text("order_no", "주문번호(예: JOS-2026-0010)", "") }}<button class="btn btn-primary" type="submit">연결</button></form>
+<p class="help">Form A로 의뢰가 들어와 주문이 생기면 연결하세요. 주문 상담 탭에 대화가 합쳐져요.</p></section>
+<section class="card" aria-labelledby="ta-t"><h2 id="ta-t">대화 더 붙여넣기</h2>
+<form method="post" action="/cs/threads/{{ t.id }}/import" enctype="multipart/form-data">{{ csrf_input() }}
+{{ area("chat", "카카오톡 대화", "", False, None, "이미 기록한 메시지는 건너뛰어요.", 5) }}
+<div class="field"><label for="ta-file">또는 내보낸 .txt 파일</label><input id="ta-file" type="file" name="chat_file" accept=".txt,text/plain"></div>
+<button class="btn btn-secondary" type="submit">대화 가져오기</button></form></section>
+{% endblock %}

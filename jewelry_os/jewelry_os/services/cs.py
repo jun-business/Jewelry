@@ -196,5 +196,5 @@ def inbox(ctx):
     to_send = ctx.db.all("SELECT d.*, t.order_id, o.order_no FROM cs_drafts d JOIN cs_threads t ON t.id=d.thread_id "
                          "JOIN orders o ON o.id=t.order_id WHERE d.status='APPROVED' ORDER BY d.approved_at")
     recent = ctx.db.all("SELECT m.*, t.order_id, o.order_no FROM cs_messages m JOIN cs_threads t ON t.id=m.thread_id "
-                        "JOIN orders o ON o.id=t.order_id ORDER BY m.recorded_at DESC LIMIT 20")
+                        "LEFT JOIN orders o ON o.id=t.order_id ORDER BY m.recorded_at DESC LIMIT 20")
     return {"pending": pending, "to_send": to_send, "recent": recent}

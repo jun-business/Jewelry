@@ -53,6 +53,7 @@ MESSAGES = {
     "G-ENDED": "이미 끝난 주문이에요.",
     "G-HOLD": "{hold_label} 상태라 진행할 수 없어요. ({hold_desc})",
     "G-L3-JUDGMENT": "운영자 판단 기록이 먼저 필요해요(L3).",
+    "G-CS-PASTE": "붙여넣은 내용에서 카카오톡 대화를 찾지 못했어요. 대화를 복사해 붙여넣거나 내보낸 .txt 파일을 올리세요.",
     "G-CS-UNAPPROVED": "아버님이 승인해야 복사할 수 있어요.",
     "G-DECLINE-CATEGORY": "거절 분류를 골라야 해요.",
     "G-FAULT": "귀책 구분을 골라야 해요.",
