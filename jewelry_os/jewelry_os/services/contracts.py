@@ -202,6 +202,13 @@ def notice_sha(body: dict) -> str:
     return sha256_text(jdump({"info": body.get("info"), "items": body.get("items"), "settings": body.get("settings")}))
 
 
+def current_form_body(ctx) -> dict:
+    """견적서에 넣을 Form B 원문 — 마지막으로 받은 실제 폼, 없으면 코드에 포함된 v1.1."""
+    fid = form_id(ctx)
+    r = ctx.db.one("SELECT body_json FROM contract_notices WHERE form_id=? ORDER BY id DESC LIMIT 1", (fid,)) if fid else None
+    return jload(r["body_json"], {}) if r else bundled_form()
+
+
 def quote_ref(q) -> str:
     """Q2에 넣는 견적서 번호·버전. 견적 문서에도 같은 값을 보여 준다."""
     return f"Q{q['id']:05d}-v{q['version']}"

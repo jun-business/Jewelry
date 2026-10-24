@@ -9,7 +9,7 @@ from ..core.db import jdump, jload
 from ..domain import transitions as tr
 from ..domain.guards import TransitionBlocked, unmet
 from ..domain.money import parse_won, split
-from ..domain.states import CONTRACT_SPEC_FIELDS, PHASE_LABEL, PHASE_OF, S, SPEC_FIELDS
+from ..domain.states import CONTRACT_SPEC_FIELDS, PHASE_LABEL, PHASE_OF, QUOTE_TERMS_FIELDS, S, SPEC_FIELDS
 from . import audit, files, orders, settings
 
 ITEM_KINDS = {"metal": "금속", "stone": "스톤", "engraving": "각인", "design": "설계비", "factory": "외주 제작비",
@@ -116,7 +116,8 @@ def save(ctx, quote_id, actor, f: QuoteForm) -> None:
         c.execute("UPDATE quotes SET spec_json=?, spec_summary=?, tax_included=?, shipping_included=?, total_krw=?, "
                   "deposit_krw=?, balance_krw=?, promised_date=?, valid_until=?, cost_estimate_krw=?, variable_cost_krw=?, "
                   "design_minutes_est=?, internal_note=? WHERE id=?",
-                  (jdump({k: (f.spec.get(k) or "").strip() for k, _ in SPEC_FIELDS + CONTRACT_SPEC_FIELDS}),
+                  (jdump({k: (f.spec.get(k) or "").strip() for k, _ in SPEC_FIELDS + CONTRACT_SPEC_FIELDS
+                          + QUOTE_TERMS_FIELDS}),
                    f.spec_summary or None,
                    None if f.tax_included is None else int(f.tax_included),
                    None if f.shipping_included is None else int(f.shipping_included), total, dep, bal,
@@ -258,10 +259,17 @@ class PublicQuote:
     terms_label: str | None
     phase_label: str
     is_test: bool
+    design_asset_id: int | None = None   # D-34 최신 시안 이미지(고객 문서에 표시)
+    design_label: str | None = None
+    revision_scope: str | None = None
+    delivery_plan: str | None = None
+    refund_terms: str | None = None      # Form B ‘제작 단계별 취소·환불 안내’와 같은 원문
+    terms_body: str | None = None        # 승인된 수정·환불 정책 본문
 
     ALLOWED = ("shop_name", "order_no", "customer_name", "version", "issued_at", "valid_until", "product_type", "spec",
                "spec_summary", "items", "total", "tax_included", "shipping_included", "deposit", "balance",
-               "payment_policy", "promised_date", "terms_label", "phase_label", "is_test")
+               "payment_policy", "promised_date", "terms_label", "phase_label", "is_test", "design_asset_id",
+               "design_label", "revision_scope", "delivery_plan", "refund_terms", "terms_body")
 
 
 def public_text(pq: PublicQuote) -> str:
@@ -273,7 +281,7 @@ def public_text(pq: PublicQuote) -> str:
         lines.insert(0, "※ 시험 견적 — 실제 결제용 아님")
     lines.append(f"제품: {pq.product_type or '-'}")
     labels = dict(SPEC_FIELDS + CONTRACT_SPEC_FIELDS)
-    lines += [f"{labels.get(k, k)}: {v}" for k, v in pq.spec.items()]
+    lines += [f"{labels.get(k, k)}: {v}" for k, v in pq.spec.items() if k in labels]
     if pq.spec_summary:
         lines.append(pq.spec_summary)
     lines += [f"· {it.label}: {won(it.amount)}" for it in pq.items]
@@ -283,6 +291,14 @@ def public_text(pq: PublicQuote) -> str:
                  f"결제: 예약금 {won(pq.deposit)}(계약 동의 후·상세 CAD 시작 전) · "
                  f"잔금 {won(pq.balance)}(최종 CAD 승인 후·제작 발주 전)")
     lines.append(f"완성 예정: {pq.promised_date or '-'}")
+    if pq.design_label:
+        lines.append(f"디자인: {pq.design_label}" + ("" if pq.design_asset_id else "(파일 별도 전달)"))
+    if pq.delivery_plan:
+        lines.append(f"배송 일정: {pq.delivery_plan}")
+    if pq.revision_scope:
+        lines.append(f"수정 가능 범위: {pq.revision_scope}")
+    if pq.refund_terms:
+        lines += ["[취소·환불 조건]", pq.refund_terms]
     if pq.terms_label:
         lines.append(f"수정·환불 기준: {pq.terms_label}")
     return "\n".join(lines)
@@ -296,6 +312,11 @@ def public_quote(ctx, quote_id) -> PublicQuote | None:
                    "WHERE o.id=?", (q["order_id"],))
     terms = ctx.db.one("SELECT * FROM policies WHERE id=?", (q["terms_policy_id"],)) if q["terms_policy_id"] else None
     items = tuple(PublicItem(i["label_public"], i["amount_krw"]) for i in items_of(ctx, quote_id))
+    spec = jload(q["spec_json"], {})
+    concept = ctx.db.one("SELECT c.version, a.id, a.mime FROM concepts c JOIN assets a ON a.id=c.asset_id WHERE c.order_id=? "
+                         "AND c.created_at<=? ORDER BY c.version DESC LIMIT 1", (q["order_id"], q["approved_at"]))
+    from . import contracts  # 지연 import(순환 방지)
+    refund = contracts.policy_section(contracts.current_form_body(ctx), "refund")
     return PublicQuote(
         shop_name=settings.get(ctx, "shop_name"), order_no=o["order_no"], customer_name=o["customer_name"] or "고객",
         version=q["version"], issued_at=q["approved_at"], valid_until=q["valid_until"], product_type=o["product_type"],
@@ -303,4 +324,9 @@ def public_quote(ctx, quote_id) -> PublicQuote | None:
         total=q["total_krw"], tax_included=bool(q["tax_included"]), shipping_included=bool(q["shipping_included"]),
         deposit=q["deposit_krw"], balance=q["balance_krw"], payment_policy=q["payment_policy"],
         promised_date=q["promised_date"], terms_label=f"{terms['title']} v{terms['version']}" if terms else None,
-        phase_label=PHASE_LABEL[PHASE_OF[S(o["lifecycle_state"])]], is_test=bool(q["is_test"]))
+        phase_label=PHASE_LABEL[PHASE_OF[S(o["lifecycle_state"])]], is_test=bool(q["is_test"]),
+        design_asset_id=concept["id"] if concept and (concept["mime"] or "").startswith("image/") else None,
+        design_label=f"시안 v{concept['version']}" if concept else None,
+        revision_scope=(spec.get("revision_scope") or "").strip() or settings.get(ctx, "quote_revision_scope_default"),
+        delivery_plan=(spec.get("delivery_plan") or "").strip() or settings.get(ctx, "quote_delivery_default"),
+        refund_terms=refund["text"] or None, terms_body=terms["body"] if terms else None)

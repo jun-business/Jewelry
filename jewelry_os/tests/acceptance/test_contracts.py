@@ -2,6 +2,7 @@
 
 지시서 번호: [B#] = Form B 자동화 지시 10번 항목, [V#] = v1.1 추가 지시 9번 항목."""
 import copy
+import json
 import sqlite3
 import urllib.parse
 
@@ -694,3 +695,28 @@ def test_send_bundle_quote_notice_link(ctx, maker, operator):
     assert "고객에게 보냄 기록</button>" not in w.get(f"/orders/{o['order_no']}/quote").text
     ev = ctx.db.one("SELECT detail_json FROM contract_events WHERE event='delivered' ORDER BY id DESC LIMIT 1")
     assert '"items":["quote","notice","link"]' in ev["detail_json"] and code not in ev["detail_json"]
+
+
+def test_quote_has_design_revision_delivery_refund_terms(ctx, maker, operator):
+    """D-34 Form B Q4가 말하는 견적서 항목(디자인·일정·수정 범위·취소·환불 조건)이 실제 견적서·증거 원본에 들어간다."""
+    o = _qa(ctx, maker, operator)
+    from jewelry_os.services import files, settings
+    qid = ctx.db.scalar("SELECT id FROM quotes WHERE order_id=? AND status='APPROVED'", (o["id"],))
+    pq = quotes.public_quote(ctx, qid)
+    assert pq.design_asset_id and pq.design_label == "시안 v1"
+    assert pq.revision_scope == settings.get(ctx, "quote_revision_scope_default")
+    assert "예약금 전액을 환불합니다" in pq.refund_terms and pq.delivery_plan
+    w = web(ctx, "operator")
+    doc = w.get(f"/docs/quote/{qid}").text
+    for h in ("디자인", "제작·배송 일정", "수정 가능 범위", "취소·환불 조건"):
+        assert f"<h2>{h}</h2>" in doc
+    txt = w.get(f"/docs/quote/{qid}.txt").text
+    assert "수정 가능 범위:" in txt and "취소·환불 조건:" in txt and "배송:" in txt
+    w.post(f"/orders/{o['order_no']}/contract/issue", data={})
+    k = ctx.db.one("SELECT * FROM contract_requests")
+    html = files.read(ctx, ctx.db.one("SELECT * FROM assets WHERE id=?", (k["quote_html_asset_id"],))).decode("utf-8")
+    assert 'src="data:image/png;base64,' in html and "/assets/" not in html  # 시안 이미지도 원본 안에
+    snap = json.loads(contracts.snapshot_of(ctx, k))["public_quote"]
+    assert snap["refund_terms"] and snap["revision_scope"] and snap["design_label"] == "시안 v1"
+    assert w.post("/settings/policy", data={"quote_delivery_default": "택배 발송, 2일 내 도착"}).status_code == 303
+    assert settings.get(ctx, "quote_delivery_default") == "택배 발송, 2일 내 도착"

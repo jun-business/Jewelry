@@ -110,6 +110,8 @@ QC_ITEMS = [("spec", "사양 일치"), ("purity_engraving", "금속 함량·각�
 SPEC_FIELDS = [("material", "소재"), ("purity", "함량"), ("size", "호수·규격"), ("stones", "스톤"), ("engraving", "각인")]
 # Form B v1.1(D-25): 견적서에 주문별로 적는 개별 제작 특성·청약철회 시 예상 손해 사유(고객 문서에 표시, 계약 증거)
 CONTRACT_SPEC_FIELDS = [("custom_made", "개별 주문제작 특성"), ("loss_reasons", "청약철회 시 예상되는 회복하기 어려운 손해 사유")]
+# D-34: Form B Q4가 말하는 견적서 항목 — 수정 가능 범위·배송 일정(비우면 설정의 기본 문구)
+QUOTE_TERMS_FIELDS = [("revision_scope", "수정 가능 범위"), ("delivery_plan", "배송 일정")]
 FACTORY_SPEC_FIELDS = SPEC_FIELDS + [("finish", "도금·마감"), ("special", "특수 지시")]
 
 # D-29(2026-10-24): 기준 문구를 지금 결정(D-24~D-28)에 맞추고 GATE-BIZ-01 추가

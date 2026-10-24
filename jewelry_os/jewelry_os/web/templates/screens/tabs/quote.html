@@ -49,6 +49,9 @@
 <h3>개별 주문제작 고지 <span class="req">(계약 동의 링크 전 필수)</span></h3>
 <p class="t-sm">고객 견적서에 그대로 나가요. Form B의 청약철회 별도 동의가 이 주문의 내용을 가리켜요.</p>
 {% for k, lab in CONTRACT_SPEC_FIELDS %}{{ area("spec_" ~ k, lab, sp.get(k) or "", False, None, None, 3) }}{% endfor %}
+<h3>수정 가능 범위·배송 일정</h3><p class="t-sm">비워 두면 기본 문구가 견적서에 들어가요(설정 › 운영 정책). 취소·환불 조건은 Form B의 단계별 안내가 자동으로 들어가요.</p>
+{{ area("spec_revision_scope", "수정 가능 범위", sp.get("revision_scope") or "", False, None, s_defaults.revision, 2) }}
+{{ area("spec_delivery_plan", "배송 일정", sp.get("delivery_plan") or "", False, None, s_defaults.delivery, 2) }}
 <div class="grid-2">
 <div class="field"><label for="pd">약속 납기(고객 약속일) <span class="req">(필수)</span></label><input id="pd" type="date" name="promised_date" value="{{ q.promised_date or '' }}" aria-describedby="pd-help"><p class="help" id="pd-help">내부 예상: {{ internal_eta|kdate }}(다음 CAD 날짜 + 제조 기간) — 자동으로 넣지 않아요.</p></div>
 <div class="field"><label for="vu">견적 유효기간 <span class="req">(필수)</span></label><input id="vu" type="date" name="valid_until" value="{{ q.valid_until or '' }}"></div>

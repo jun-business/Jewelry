@@ -92,6 +92,8 @@ def order_vm(ctx, o, user, tab):
     }
     vm.update(contract_vm(ctx, o, q_appr))
     vm["refunds"] = [refunds.view(ctx, r) for r in refunds.of_order(ctx, o["id"])]
+    vm["s_defaults"] = {"revision": "기본: " + settings.get(ctx, "quote_revision_scope_default"),
+                        "delivery": "기본: " + settings.get(ctx, "quote_delivery_default")}
     from ..services import cs_digest
     vm["digest"] = cs_digest.view(ctx, order=o) if tab == "cs" else None
     vm["balance_prepaid"] = any(r["phase"] == "BALANCE" and r["status"] == "PAID_VERIFIED" for r in pay_reqs)
@@ -406,8 +408,9 @@ async def quote_save(request: Request, qid: int):
         items.append({"kind": f.get(f"item_{i}_kind"), "label": f.get(f"item_{i}_label"),
                       "amount": f.get(f"item_{i}_amount"), "cost": f.get(f"item_{i}_cost"),
                       "note": f.get(f"item_{i}_note")})
-    from ..domain.states import CONTRACT_SPEC_FIELDS, SPEC_FIELDS
-    form = quotes.QuoteForm(items=items, spec={k: f.get(f"spec_{k}", "") for k, _ in SPEC_FIELDS + CONTRACT_SPEC_FIELDS},
+    from ..domain.states import CONTRACT_SPEC_FIELDS, QUOTE_TERMS_FIELDS, SPEC_FIELDS
+    form = quotes.QuoteForm(items=items, spec={k: f.get(f"spec_{k}", "") for k, _ in SPEC_FIELDS + CONTRACT_SPEC_FIELDS
+                                                + QUOTE_TERMS_FIELDS},
                             spec_summary=f.get("spec_summary") or "", tax_included=_bool(f, "tax_included"),
                             shipping_included=_bool(f, "shipping_included"), promised_date=f.get("promised_date"),
                             valid_until=f.get("valid_until"), variable_cost=int((f.get("variable_cost") or "0")

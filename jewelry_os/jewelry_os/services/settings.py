@@ -41,6 +41,10 @@ DEFAULTS = {
     "ai_monthly_cost_limit_krw": 30000,
     "ai_send_images": False,
     "shop_name": "틴틴골드",
+    "quote_revision_scope_default": "상세 CAD 단계에서 디자인 수정은 2회까지 포함돼요. 최종 CAD를 승인한 뒤에는 사양을 바꾸기 "
+                                    "어렵고, 꼭 필요하면 추가 견적과 재동의를 거쳐요.",  # D-34 기본 문구(사업 책임자 확인 필요)
+    "quote_delivery_default": "검수를 통과하고 잔금이 확인되면 택배로 발송해요. 보통 발송 다음 날부터 1~3일 안에 도착해요"
+                              "(도서산간 제외).",
     "kakao_channel_url": "https://pf.kakao.com/_dxhAWX",  # 틴틴골드 카카오톡 채널 — 견적서·카톡용 텍스트 문의처(D-27)               # D-19 (TBD-001 확정)
     "consent_version": "consent_v1",
     "tax_type": "unset",                 # H1 r1 Q9: unset | general | simplified | exempt (TBD-009)

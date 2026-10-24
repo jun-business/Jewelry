@@ -54,6 +54,14 @@ def quote_document_html(request, q) -> str:
     html = re.sub(r'<link rel="(?:icon|apple-touch-icon)"[^>]*>', "", html)
     html = re.sub(r'<script src="/static/js/[^"]*" defer></script>', "", html)
     html = re.sub(r'<nav class="doc-tools no-print".*?</nav>', "", html, flags=re.S)
+    ctx = request.state.ctx
+
+    def asset(m):  # 시안 이미지도 파일 안에 넣는다(서버 없이 열리게)
+        a = ctx.db.one("SELECT * FROM assets WHERE id=?", (int(m.group(1)),))
+        from ..services import files as fs
+        data = fs.read(ctx, a) if a else None
+        return f'src="data:{a["mime"]};base64,{base64.b64encode(data).decode()}"' if data else 'src=""'
+    html = re.sub(r'src="/assets/(\d+)"', asset, html)
     logo = STATIC / "img" / "logo.webp"
     if logo.exists():
         html = html.replace('src="/static/img/logo.webp"',

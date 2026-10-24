@@ -12,6 +12,7 @@
 <section><h2>제작 사양</h2><dl class="kv">{% if pq.product_type %}<dt>제품</dt><dd>{{ pq.product_type }}</dd>{% endif %}
 {% for k, lab in SPEC_FIELDS %}{% if pq.spec.get(k) %}<dt>{{ lab }}</dt><dd>{{ pq.spec[k] }}</dd>{% endif %}{% endfor %}</dl>
 {% if pq.spec_summary %}<p>{{ pq.spec_summary }}</p>{% endif %}</section>
+<section><h2>디자인</h2>{% if pq.design_asset_id %}<figure class="doc-design"><img src="/assets/{{ pq.design_asset_id }}" alt="{{ pq.design_label }} 이미지" style="max-width:100%;max-height:420px"><figcaption class="t-sm">{{ pq.design_label }} — 상세 CAD에서 이 디자인을 바탕으로 세부를 다듬어요.</figcaption></figure>{% elif pq.design_label %}<p>{{ pq.design_label }} 파일을 별도로 보내 드렸어요.</p>{% else %}<p>—</p>{% endif %}</section>
 {% if pq.spec.get("custom_made") or pq.spec.get("loss_reasons") %}<section><h2>개별 주문제작 및 청약철회 관련 고지</h2><dl class="kv">
 {% for k, lab in CONTRACT_SPEC_FIELDS %}{% if pq.spec.get(k) %}<dt>{{ lab }}</dt><dd>{{ pq.spec[k] }}</dd>{% endif %}{% endfor %}</dl>
 <p class="t-sm">주문제작품이라는 이유만으로 모든 취소·환불이 제한되지 않고, 예약금을 자동으로 가져가지 않아요. 상품 하자·계약과 다른 제작 등 법정 권리는 제한되지 않아요.</p></section>{% endif %}
@@ -22,7 +23,10 @@
 <section><h2>결제 안내</h2>
 {% if pq.payment_policy == "FULL" %}<p>전액 {{ pq.total|won }}을 한 번에 결제해요.</p>{% else %}<p>예약금 {{ pq.deposit|won }}(계약 동의 후 · 상세 CAD 시작 전) · 잔금 {{ pq.balance|won }}{% if pq.balance %}(최종 CAD 승인 후 · 제작 발주 전){% endif %}</p>{% endif %}
 <p>결제는 네이버 스마트스토어에서 진행돼요. 예약금이 확인되면 상세 CAD를 시작하고, 잔금이 확인되면 제작을 발주해요.</p></section>
-<section><h2>완성 예정</h2><p>{{ pq.promised_date|kdate }}</p><p class="t-sm">지금 단계: {{ pq.phase_label }}</p></section>
+<section><h2>제작·배송 일정</h2><dl class="kv"><dt>완성 예정</dt><dd>{{ pq.promised_date|kdate }}</dd>{% if pq.delivery_plan %}<dt>배송</dt><dd>{{ pq.delivery_plan }}</dd>{% endif %}</dl><p class="t-sm">지금 단계: {{ pq.phase_label }}</p></section>
+{% if pq.revision_scope %}<section><h2>수정 가능 범위</h2><p>{{ pq.revision_scope }}</p></section>{% endif %}
+<section><h2>취소·환불 조건</h2>{% if pq.refund_terms %}<p class="pre-wrap t-sm">{{ pq.refund_terms }}</p>{% endif %}
+{% if pq.terms_body %}<h3>{{ pq.terms_label }}</h3><p class="pre-wrap t-sm">{{ pq.terms_body }}</p>{% endif %}</section>
 <footer class="doc-foot"><p>이 견적은 제작 의뢰 확인용이며, 계약 동의와 결제가 확인된 뒤 작업을 시작해요.{% if pq.terms_label %} 수정·환불 기준: {{ pq.terms_label }}.{% endif %}</p>
 <p class="t-caption">주문번호 {{ pq.order_no }} · 문의는 카카오톡 채널{% if kakao_url %} <a href="{{ kakao_url }}" target="_blank" rel="noopener">{{ pq.shop_name }}</a> <span class="mono">{{ kakao_url }}</span>{% endif %}로 해 주세요.</p></footer>
 </main></body></html>

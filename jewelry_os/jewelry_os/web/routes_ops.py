@@ -346,6 +346,9 @@ async def settings_post(request: Request, section: str):
                     raise ValueError("부가가치율은 0~100 사이로 입력하세요.")
                 if settings.get(ctx, "simplified_vat_rate_pct") != rate:
                     settings.put(ctx, "simplified_vat_rate_pct", rate, user)
+            for k in ("quote_revision_scope_default", "quote_delivery_default"):  # D-34 견적서 기본 문구
+                if (f.get(k) or "").strip() and settings.get(ctx, k) != f[k].strip():
+                    settings.put(ctx, k, f[k].strip(), user)
             if "kakao_channel_url" in f:
                 url = settings.normalize_kakao_channel(f.get("kakao_channel_url"))
                 if settings.get(ctx, "kakao_channel_url") != url:
@@ -593,6 +596,11 @@ async def quote_doc_txt(request: Request, qid: int):
     lines += [f"완성 예정: {kdate(pq.promised_date)}", f"견적 유효기간: {kdate(pq.valid_until)}까지",
               "결제는 네이버 스마트스토어에서 진행돼요. 예약금이 확인되면 상세 CAD를, 잔금이 확인되면 제작을 시작해요.",
               f"지금 단계: {pq.phase_label}"]
+    if pq.delivery_plan:
+        lines.append(f"배송: {pq.delivery_plan}")
+    if pq.revision_scope:
+        lines.append(f"수정 가능 범위: {pq.revision_scope}")
+    lines.append("취소·환불 조건: 견적서 파일과 계약 동의서에 제작 단계별로 안내돼 있어요.")
     kakao = settings.get(request.state.ctx, "kakao_channel_url")
     if kakao:
         lines.append(f"문의: 카카오톡 채널 {pq.shop_name} {settings.kakao_chat_url(kakao)}")
