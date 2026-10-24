@@ -129,7 +129,7 @@
 {% elif section == "gates" %}
 {% set tm = test_mode %}
 <section class="card"><h2>Gate 보드</h2>
-<p>{% if tm %}{{ chip("test", "시험 운영 모드", "flask") }} OPS-01·SS-02·LEGAL-01 중 {{ unpassed_gates|length }}개 미통과{% else %}{{ chip("done", "실거래 가능", "check") }}{% endif %}</p>
+<p>{% if tm %}{{ chip("test", "시험 운영 모드", "flask") }} {{ TEST_MODE_GATES|map("replace", "GATE-", "")|join("·") }} 중 {{ unpassed_gates|length }}개 미통과{% else %}{{ chip("done", "실거래 가능", "check") }}{% endif %}</p>
 <div class="table-wrap"><table><thead><tr><th scope="col">Gate</th><th scope="col">통과 증거 기준(PRD §15)</th><th scope="col">상태</th><th scope="col">기록</th><th scope="col"><span class="sr-only">조치</span></th></tr></thead><tbody>
 {% for gid, name, crit in GATES %}{% set g = gates[gid] %}
 <tr data-gate="{{ gid }}"><th scope="row">{{ gid }}<div class="t-sm">{{ name }}</div></th><td class="t-sm">{{ crit }}</td><td>{{ chip("done" if g.passed else "hold", "통과" if g.passed else "미통과") }}</td>
