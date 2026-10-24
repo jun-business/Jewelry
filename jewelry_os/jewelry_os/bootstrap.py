@@ -13,7 +13,7 @@ from .services import capacity, settings
 def build_ctx(cfg: Config | None = None, *, forms=None, files=None, analyzer=None) -> Ctx:
     cfg = cfg or load_config()
     for k in ("ANTHROPIC_API_KEY", "JOS_GOOGLE_CLIENT_SECRET", "JOS_GOOGLE_REFRESH_TOKEN", "JOS_BACKUP_KEY",
-              "JOS_DATA_KEY", "JOS_SECRET"):
+              "JOS_DATA_KEY", "JOS_SECRET", "JOS_CHANNELTALK_ACCESS_KEY", "JOS_CHANNELTALK_ACCESS_SECRET"):
         logging_setup.register_secret(cfg.secret(k))
     db = Database(cfg.db_path)
     ctx = Ctx(cfg=cfg, db=db)

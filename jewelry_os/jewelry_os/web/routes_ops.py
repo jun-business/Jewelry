@@ -13,7 +13,7 @@ from ..core import clock, security
 from ..core.db import jdump, jload
 from ..domain.guards import TransitionBlocked, unmet
 from ..domain.states import GATES, LIVE_INTAKE_GATES
-from ..services import (alerts, analysis, backup, capacity, contracts, cs, customers, files, intake, metrics, payments, quotes,
+from ..services import (alerts, analysis, audit, backup, capacity, contracts, cs, customers, files, intake, metrics, payments, quotes,
                         settings, system)
 from .app import blocked_status, flash_redirect, form_of, render, templates
 
@@ -192,6 +192,10 @@ def settings_vm(ctx, section):
         vm["effective_mode"] = settings.effective_google_mode(ctx)
         vm["unmapped_count"] = len(intake.unmapped_questions(ctx))
         vm["form_b"] = contracts.live_status(ctx)  # D-24 Form B(계약 동의) 상태
+        from ..adapters import channeltalk
+        vm["ct_configured"] = channeltalk.configured(ctx.cfg)  # D-28 채널톡(카카오 상담톡) 키 — 값은 화면에 내지 않음
+        vm["ct_check"] = ctx.extra.pop("ct_check", None)
+        vm["ct_error_text"] = channeltalk.ERROR_TEXT
         vm["form_b_ready"] = contracts.readiness(ctx)
         vm["form_b_cursor"] = ctx.db.one("SELECT * FROM sync_cursors WHERE provider='google_forms' AND scope=?",
                                          (contracts.form_id(ctx),)) if contracts.form_id(ctx) else None
@@ -434,6 +438,36 @@ async def system_op(request: Request, op: str):
         ok = system.retry_job(ctx, int(op.split("-", 1)[1]))
         return flash_redirect("/system", "다시 처리했어요." if ok else "다시 처리했지만 실패했어요.",
                               "success" if ok else "error")
+    raise HTTPException(404)
+
+
+# ---------------- D-28 채널톡(카카오 상담톡) 키·연결 확인 ----------------
+@router.post("/settings/channeltalk/{op}")
+async def channeltalk_op(request: Request, op: str):
+    ctx = request.state.ctx
+    if request.state.user.role != "operator":
+        raise HTTPException(403)
+    f = await form_of(request)
+    from ..adapters import channeltalk
+    if op == "keys":
+        key, secret = (f.get("access_key") or "").strip(), (f.get("access_secret") or "").strip()
+        if not (key and secret):
+            return flash_redirect("/settings/google#channeltalk", "Access Key와 Access Secret을 모두 넣어야 해요.", "error")
+        ctx.cfg.set_secret("JOS_CHANNELTALK_ACCESS_KEY", key)
+        ctx.cfg.set_secret("JOS_CHANNELTALK_ACCESS_SECRET", secret)
+        from ..core import logging_setup
+        for v in (key, secret):
+            logging_setup.register_secret(v)
+        with ctx.db.tx() as c:
+            audit.record(c, "integration", "channeltalk", request.state.user, "channeltalk_keys_saved", prev=audit.PII)
+        op = "check"
+    if op == "check":
+        st = channeltalk.check(ctx.extra.get("channeltalk") or channeltalk.ChannelTalk(ctx.cfg))
+        ctx.extra["ct_check"] = st
+        if st["ok"]:
+            return flash_redirect("/settings/google#channeltalk", f"채널톡에 연결됐어요: {st['channel']} · 열린 상담 {st['opened']}건.")
+        return flash_redirect("/settings/google#channeltalk", channeltalk.ERROR_TEXT.get(st["error"], "연결하지 못했어요."),
+                              "error")
     raise HTTPException(404)
 
 

@@ -22,9 +22,11 @@ def _task_xml(python: str, workdir: str, env: str) -> str:
 """
 
 
-SETTABLE = {"ANTHROPIC_API_KEY", "JOS_GOOGLE_CLIENT_ID", "JOS_GOOGLE_CLIENT_SECRET"}
+SETTABLE = {"ANTHROPIC_API_KEY", "JOS_GOOGLE_CLIENT_ID", "JOS_GOOGLE_CLIENT_SECRET",
+            "JOS_CHANNELTALK_ACCESS_KEY", "JOS_CHANNELTALK_ACCESS_SECRET"}
 KEY_NAMES = ("JOS_DATA_KEY", "JOS_BACKUP_KEY", "JOS_SECRET")
-OPTIONAL_KEYS = ("JOS_GOOGLE_REFRESH_TOKEN",)  # Google 연결 — 있으면 같이 옮겨 새 PC에서 다시 로그인하지 않게(D-21)
+OPTIONAL_KEYS = ("JOS_GOOGLE_REFRESH_TOKEN",  # Google 연결 — 있으면 같이 옮겨 새 PC에서 다시 로그인하지 않게(D-21)
+                 "JOS_CHANNELTALK_ACCESS_KEY", "JOS_CHANNELTALK_ACCESS_SECRET")  # 채널톡 API 키(D-28)
 
 
 def _keys_cmd(a, cfg) -> int:

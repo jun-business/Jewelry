@@ -77,6 +77,18 @@
 <div class="btn-row"><form method="post" action="/system/sync-now">{{ csrf_input() }}<input type="hidden" name="back" value="/settings/google"><button class="btn btn-secondary" type="submit">{{ icon("refresh", "sm") }}지금 가져오기</button></form>
 {% if op %}<form method="post" action="/oauth/google/start">{{ csrf_input() }}<button class="btn btn-secondary" type="submit">Google 계정 연결</button></form>{% endif %}</div></div>
 
+<section class="card" id="channeltalk" aria-labelledby="ct-t"><h2 id="ct-t">카카오 상담(채널톡)</h2>
+<p class="t-sm">카카오톡 채널 상담을 채널톡(상담톡)으로 받고, 이 앱이 채널톡에 주기적으로 물어 가져와요(외부 접속 없음). 지금은 키 저장과 연결 확인(읽기만)까지예요.</p>
+<dl class="kv"><dt>API 키</dt><dd>{% if ct_configured %}{{ chip("done", "저장됨", "check") }} <span class="t-sm">(값은 이 PC의 secrets.env에만 있고 화면에 표시하지 않아요)</span>{% else %}{{ chip("hold", "없음") }}{% endif %}</dd>
+{% if ct_check %}<dt>연결 확인</dt><dd>{% if ct_check.ok %}{{ chip("done", "연결됨", "check") }} {{ ct_check.channel }} · 열린 상담 {{ ct_check.opened }}건{% else %}{{ chip("issue", "실패") }} {{ ct_error_text.get(ct_check.error, ct_check.error) }}{% endif %}</dd>{% endif %}</dl>
+{% if op %}<form method="post" action="/settings/channeltalk/keys" class="stack" autocomplete="off">{{ csrf_input() }}
+<div class="grid-2"><div class="field"><label for="ct-ak">Access Key</label><input id="ct-ak" name="access_key" type="password" autocomplete="off" spellcheck="false"></div>
+<div class="field"><label for="ct-as">Access Secret</label><input id="ct-as" name="access_secret" type="password" autocomplete="off" spellcheck="false"></div></div>
+<p class="help">채널톡 › 설정 › API 키 관리에서 만든 값. 저장하면 바로 연결을 확인해요(메시지는 보내지 않음).</p>
+<button class="btn btn-secondary" type="submit">{{ "키 바꾸기" if ct_configured else "키 저장" }}</button></form>
+{% if ct_configured %}<form method="post" action="/settings/channeltalk/check">{{ csrf_input() }}<button class="btn btn-tertiary" type="submit">{{ icon("refresh", "sm") }}연결 확인</button></form>{% endif %}{% endif %}
+</section>
+
 <section class="card" id="form-b" aria-labelledby="fb-t"><h2 id="fb-t">계약 동의 폼(Form B)</h2>
 <p class="t-sm">모든 고객이 함께 쓰는 폼 하나예요. 견적 확정 뒤 주문 화면에서 고객별 사전입력 링크를 만들어요. 문의 폼(Form A)과 따로 설정·수집해요.</p>
 <dl class="kv"><dt>폼 ID</dt><dd class="mono">{{ form_b_ready.form_id or "설정 대기" }}</dd>
