@@ -145,9 +145,13 @@ async def contract_op(request: Request, rid: int, op: str):
         if op == "delivered":
             ev = f.get("evidence")
             data = await ev.read() if ev is not None and hasattr(ev, "read") else b""
-            contracts.record_delivery(ctx, rid, user, f.get("channel") or "", f.get("delivery_note") or "",
-                                      (ev.filename, data) if data else None)
-            return flash_redirect(back, "고객에게 보낸 기록을 남겼어요.")
+            missing = contracts.record_delivery(ctx, rid, user, f.get("channel") or "", f.get("delivery_note") or "",
+                                                (ev.filename, data) if data else None, f.getlist("items"))
+            if missing:
+                return flash_redirect(back, "보낸 기록을 남겼어요. 아직 안 보낸 것: " +
+                                      ", ".join(contracts.SEND_ITEMS[m] for m in missing) + " — 보낸 뒤 다시 기록하세요.",
+                                      "error")
+            return flash_redirect(back, "견적서·사전 고지·계약 동의 링크를 모두 보낸 기록을 남겼어요.")
         if op == "review":
             st = contracts.review(ctx, rid, user, f.get("method") or "", f.get("review_note") or "",
                                   remember_email=f.get("remember_email") == "on")
@@ -157,6 +161,38 @@ async def contract_op(request: Request, rid: int, op: str):
     except TransitionBlocked as e:
         return flash_redirect(back, " ".join(u.message for u in e.unmet), "error")
     raise HTTPException(404)
+
+
+@router.get("/contracts/{rid:int}/quote-file")
+async def contract_quote_file(request: Request, rid: int):
+    """① 고객에게 보낼 확정 견적서 — 증거로 보관한 원본과 같은 파일(PDF, 없으면 HTML)."""
+    ctx = request.state.ctx
+    _admin(request)
+    req = contracts.get(ctx, rid)
+    if req is None:
+        raise HTTPException(404)
+    _save_quote_document(request, rid)
+    req = contracts.get(ctx, rid)
+    if not req["quote_pdf_asset_id"] and not ctx.cfg.is_test:  # HTML만 있으면 PDF를 한 번 더 시도
+        from ..services import files as fs
+        html = fs.read(ctx, ctx.db.one("SELECT * FROM assets WHERE id=?", (req["quote_html_asset_id"],)))
+        pdf = (ctx.extra.get("pdf_renderer") or edge_pdf)(html.decode("utf-8")) if html else None
+        if pdf:
+            contracts.attach_quote_document(ctx, rid, html.decode("utf-8"), pdf)
+            req = contracts.get(ctx, rid)
+    aid = req["quote_pdf_asset_id"] or req["quote_html_asset_id"]
+    a = ctx.db.one("SELECT * FROM assets WHERE id=?", (aid,))
+    from ..services import files as fs
+    data = fs.read(ctx, a)
+    if data is None:
+        raise HTTPException(404)
+    ext = "pdf" if req["quote_pdf_asset_id"] else "html"
+    shop = settings.get(ctx, "shop_name")
+    from urllib.parse import quote as q
+    name = f"{shop}_견적서_{req['quote_ref']}.{ext}"
+    return Response(data, media_type="application/pdf" if ext == "pdf" else "text/html; charset=utf-8",
+                    headers={"Content-Disposition": f"attachment; filename=\"quote_{req['quote_ref']}.{ext}\"; "
+                                                    f"filename*=UTF-8''{q(name)}"})
 
 
 # ---------------- 계약 증거 ----------------

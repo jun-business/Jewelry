@@ -36,14 +36,22 @@
 {% endif %}
 
 {% if k and contract_url and k.status in ("ISSUED", "RESPONSE_RECEIVED", "REVIEW_REQUIRED") %}
-<div class="field"><label for="ct-link">고객에게 보낼 링크(카카오톡으로 직접 전달)</label>
-<input id="ct-link" class="mono link-field" readonly value="{{ contract_url }}" aria-describedby="ct-link-help">
-<p class="help" id="ct-link-help">주문번호·견적번호·확인코드가 미리 채워져 있어요. 고객은 동의 항목만 고르면 돼요. 확인코드는 본인 인증이 아니에요 — 제출 후 본인 확인을 따로 해요.</p></div>
-<div class="btn-row"><button class="btn btn-secondary" type="button" data-copy="ct-link" data-copy-log="/contracts/{{ k.id }}/copied">{{ icon("copy", "sm") }}링크 복사</button></div>
-{% if not k.delivered_at %}
+<h3>고객에게 보낼 것(순서대로)</h3>
+<ol class="send-list">
+<li><strong>① 확정 견적서</strong>{% if "quote" in contract_sent %} {{ chip("done", "보냄", "check") }}{% endif %} — 개별 제작 특성·예상 손해 사유가 들어 있어요. 증거로 보관한 원본과 같은 파일이에요.
+<div class="btn-row"><a class="btn btn-secondary btn-sm" href="/contracts/{{ k.id }}/quote-file">{{ icon("file", "sm") }}견적서 파일 받기</a></div></li>
+<li><strong>② 사전 고지 + ③ 계약 동의 링크</strong>{% if "notice" in contract_sent %} {{ chip("done", "고지 보냄", "check") }}{% endif %}{% if "link" in contract_sent %} {{ chip("done", "링크 보냄", "check") }}{% endif %} — 주문번호·견적서 번호·확인코드와 링크를 한 메시지로 보내요.
+<label class="sr-only" for="ct-notice">카카오톡 안내문</label><textarea id="ct-notice" class="link-field" rows="12" readonly>{{ contract_notice }}</textarea>
+<div class="btn-row"><button class="btn btn-primary btn-sm" type="button" data-copy="ct-notice" data-copy-log="/contracts/{{ k.id }}/copied">{{ icon("copy", "sm") }}안내문 복사(고지+링크)</button>
+<button class="btn btn-tertiary btn-sm" type="button" data-copy="ct-link">{{ icon("copy", "sm") }}링크만 복사</button></div>
+<input type="hidden" id="ct-link" value="{{ contract_url }}"></li>
+</ol>
+<p class="help">확인코드는 응답을 이 주문에 잇는 값일 뿐 본인 인증이 아니에요 — 제출 후 본인 확인을 따로 해요.</p>
+{% if contract_sent|length < 3 %}
 <form method="post" action="/contracts/{{ k.id }}/delivered" enctype="multipart/form-data" class="stack">{{ csrf_input() }}
+<fieldset><legend>보낸 것</legend>{% for key, lab in SEND_ITEMS.items() %}<label class="choice"><input type="checkbox" name="items" value="{{ key }}" {% if key in contract_sent %}checked{% endif %}> {{ lab }}</label>{% endfor %}</fieldset>
 <div class="grid-3"><div class="field"><label for="ct-ch">보낸 채널</label><select id="ct-ch" name="channel">{% for kk, lab in CONTRACT_CHANNELS.items() %}<option value="{{ kk }}">{{ lab }}</option>{% endfor %}</select></div>
-{{ text("delivery_note", "메모(예: 카카오톡 상담방에 링크 전송)", "") }}
+{{ text("delivery_note", "메모(예: 카카오톡 상담방에 견적서 PDF와 안내문 전송)", "") }}
 <div class="field"><label for="ct-ev">전송 화면 캡처(선택)</label><input id="ct-ev" type="file" name="evidence" accept=".jpg,.jpeg,.png,.webp,.pdf"></div></div>
 <button class="btn btn-tertiary" type="submit">고객에게 보냄 기록</button></form>
 {% endif %}

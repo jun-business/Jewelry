@@ -24,7 +24,7 @@ MESSAGES = {
     "G-CONTRACT-FORM": "계약 동의 폼(Form B)을 쓸 수 없어요: {reason}",
     "G-CONTRACT-STATE": "계약 요청이 ‘{status}’ 상태라 할 수 없어요.",
     "G-CONTRACT-REVIEW": "본인 확인 방법을 고르고 확인 근거를 메모로 남겨야 해요.",
-    "G-CONTRACT-DELIVERY": "보낸 채널을 고르고 메모(예: 카카오톡 상담방에 보냄)를 남겨야 해요.",
+    "G-CONTRACT-DELIVERY": "보낸 채널·보낸 항목(견적서·사전 고지·링크 중 하나 이상)을 고르고 메모(예: 카카오톡 상담방에 보냄)를 남겨야 해요.",
     "G-QUOTE-LOSS-REASONS": "견적서에 개별 주문제작 특성과 청약철회 시 예상되는 손해 사유를 적어야 계약 동의 링크를 만들 수 있어요. 새 견적 버전에 적어 승인하세요.",
     "G-REFUND-INPUT": "{fields}을(를) 입력해야 해요.",
     "G-REFUND-STATE": "환불 건이 ‘{status}’ 상태라 할 수 없어요.",

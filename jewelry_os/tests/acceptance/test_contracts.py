@@ -664,3 +664,33 @@ def test_quote_documents_state_balance_before_factory(ctx, maker, operator):
         assert "최종 CAD 승인 후" in t and "제작 발주 전" in t and "완성·검수 후" not in t
     snap = __import__("json").loads(contracts.quote_snapshot(ctx, ctx.db.one("SELECT * FROM quotes WHERE id=?", (qid,))))
     assert "최종 CAD 승인 후" in snap["text"]
+
+
+def test_send_bundle_quote_notice_link(ctx, maker, operator):
+    """D-33 고객에게 ① 확정 견적서 ② 사전 고지(주문번호·견적번호·확인코드) ③ 링크를 보내고, 보낸 항목을 기록."""
+    o = _qa(ctx, maker, operator)
+    w = web(ctx, "operator")
+    w.post(f"/orders/{o['order_no']}/contract/issue", data={})
+    k = ctx.db.one("SELECT * FROM contract_requests")
+    code = contracts.code_of(ctx, k)
+    msg = contracts.notice_message(ctx, k)
+    for part in (o["order_no"], k["quote_ref"], code, "entry.528017888=", "Google 계정 로그인", "1,200,000원",
+                 "pf.kakao.com/_dxhAWX/chat"):
+        assert part in msg
+    page = w.get(f"/orders/{o['order_no']}/quote").text
+    assert "고객에게 보낼 것(순서대로)" in page and "견적서 파일 받기" in page and "안내문 복사(고지+링크)" in page
+    f = w.get(f"/contracts/{k['id']}/quote-file")
+    from jewelry_os.services import files
+    stored = files.read(ctx, ctx.db.one("SELECT * FROM assets WHERE id=?", (k["quote_html_asset_id"],)))
+    assert f.status_code == 200 and f.content == stored and "attachment" in f.headers["content-disposition"]  # 보관 원본과 같은 파일
+    r = w.post(f"/contracts/{k['id']}/delivered", data={"channel": "kakao", "delivery_note": "상담방", "items": ["link"]})
+    assert r.status_code == 303 and contracts.delivered_items(ctx, contracts.get(ctx, k["id"])) == ["link"]
+    assert "보낸 것: 계약 동의" in contracts.get(ctx, k["id"])["delivered_note"]
+    assert "고객에게 보냄 기록" in w.get(f"/orders/{o['order_no']}/quote").text  # 빠진 것이 있으면 다시 기록 가능
+    with pytest.raises(tr.TransitionBlocked):
+        contracts.record_delivery(ctx, k["id"], operator, "kakao", "메모", items=[])
+    assert contracts.record_delivery(ctx, k["id"], operator, "kakao", "견적서 PDF·안내문 전송",
+                                     items=["quote", "notice", "link"]) == []
+    assert "고객에게 보냄 기록</button>" not in w.get(f"/orders/{o['order_no']}/quote").text
+    ev = ctx.db.one("SELECT detail_json FROM contract_events WHERE event='delivered' ORDER BY id DESC LIMIT 1")
+    assert '"items":["quote","notice","link"]' in ev["detail_json"] and code not in ev["detail_json"]

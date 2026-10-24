@@ -66,6 +66,8 @@ IDENTITY_METHODS = {"verified_email": "확인된 계약 이메일과 일치(시�
                     "consult_channel": "확인된 상담 채널(카카오톡)에서 본인 제출 확인",
                     "in_person": "대면 확인", "other": "기타(메모에 근거)"}
 DELIVERY_CHANNELS = {"kakao": "카카오톡", "sms": "문자", "other": "기타"}
+# D-33 고객에게 보내는 묶음: ① 확정 견적서 ② 사전 고지(주문번호·견적번호·확인코드) ③ 계약 동의 링크
+SEND_ITEMS = {"quote": "확정 견적서", "notice": "사전 고지(주문번호·견적번호·확인코드)", "link": "계약 동의(Form B) 링크"}
 CODE_ALPHABET = "ABCDEFGHJKMNPQRSTVWXYZ23456789"  # 0/O·1/I/L·U 제외
 
 
@@ -449,11 +451,44 @@ def attach_quote_document(ctx, req_id, html: str, pdf: bytes | None = None) -> N
             _event(c, req, "quote_document_saved", None, detail={k: True for k in sets})
 
 
-def record_delivery(ctx, req_id, actor, channel: str, note: str, evidence: tuple | None = None) -> None:
-    """고객에게 링크를 보낸 사실(채널·메모·선택: 화면 캡처)."""
+def notice_message(ctx, req) -> str:
+    """② 사전 고지 + ③ 링크 안내문(카카오톡으로 그대로 붙여 보냄). 견적 금액은 발행 당시 스냅숏에서."""
+    snap = jload(snapshot_of(ctx, req), {}).get("public_quote") or {}
+    o = ctx.db.one("SELECT order_no FROM orders WHERE id=?", (req["order_id"],))
+    from ..domain.money import won
+    shop = settings.get(ctx, "shop_name")
+    kakao = settings.get(ctx, "kakao_channel_url")
+    pay = (f"총 {won(snap.get('total') or 0)}" + (f" · 예약금 {won(snap['deposit'])}" if snap.get("deposit") else ""))
+    lines = [f"[{shop}] 맞춤 주얼리 계약 동의 안내",
+             f"{snap.get('customer_name') or '고객'} 님, 앞서 보내 드린 확정 견적서 내용으로 계약 동의를 받고 있어요.", "",
+             f"· 주문번호: {o['order_no']}",
+             f"· 견적서 번호·버전: {req['quote_ref']} ({pay})",
+             f"· 계약 확인코드: {code_of(ctx, req)}", "",
+             "아래 링크를 열면 위 세 가지가 미리 채워져 있어요. 값이 같은지 확인하신 뒤 동의 항목을 골라 제출해 주세요.",
+             "제출하려면 Google 계정 로그인이 필요해요. 확인코드는 다른 분께 알려 주지 마세요.",
+             f"▶ 계약 동의서: {prefill_url(ctx, req)}"]
+    if kakao:
+        lines += ["", f"궁금한 점은 카카오톡 채널 {shop}으로 물어봐 주세요: {kakao}/chat"]
+    return "\n".join(lines)
+
+
+def delivered_items(ctx, req) -> list[str]:
+    """마지막 ‘보냄 기록’에서 보낸 항목."""
+    e = ctx.db.one("SELECT detail_json FROM contract_events WHERE request_id=? AND event='delivered' ORDER BY id DESC "
+                   "LIMIT 1", (req["id"],))
+    return (jload(e["detail_json"], {}) or {}).get("items") or [] if e else []
+
+
+def record_delivery(ctx, req_id, actor, channel: str, note: str, evidence: tuple | None = None,
+                    items: list[str] | None = None) -> list[str]:
+    """고객에게 보낸 사실(채널·보낸 항목·메모·선택: 화면 캡처). 반환: 빠진 항목(① 견적서 ② 사전 고지 ③ 링크 중)."""
     _admin(actor)
     if channel not in DELIVERY_CHANNELS or not (note or "").strip():
         raise TransitionBlocked([unmet("G-CONTRACT-DELIVERY")])
+    items = [i for i in SEND_ITEMS if i in (items or [])]
+    if not items:
+        raise TransitionBlocked([unmet("G-CONTRACT-DELIVERY")])
+    missing = [i for i in SEND_ITEMS if i not in items]
     with ctx.db.tx() as c:
         req = c.execute("SELECT r.*, o.order_no FROM contract_requests r JOIN orders o ON o.id=r.order_id WHERE r.id=?",
                         (req_id,)).fetchone()
@@ -463,12 +498,15 @@ def record_delivery(ctx, req_id, actor, channel: str, note: str, evidence: tuple
         if evidence and evidence[1]:
             aid = files.store(ctx, c, order_id=req["order_id"], order_no=req["order_no"], kind="evidence",
                               filename=evidence[0], data=evidence[1], actor=actor)
+        shown = "[보낸 것: " + "·".join(SEND_ITEMS[i].split("(")[0] for i in items) + "] " + note.strip()
         c.execute("UPDATE contract_requests SET delivered_at=?, delivered_channel=?, delivered_note=?, delivered_by=?, "
                   "delivered_asset_id=COALESCE(?, delivered_asset_id) WHERE id=?",
-                  (clock.now_iso(), channel, note.strip(), actor.id, aid, req_id))
-        _event(c, req, "delivered", actor, detail={"channel": channel, "note": note.strip(), "evidence_asset": aid})
+                  (clock.now_iso(), channel, shown, actor.id, aid, req_id))
+        _event(c, req, "delivered", actor, detail={"channel": channel, "note": note.strip(), "evidence_asset": aid,
+                                                   "items": items, "missing": missing})
         audit.record(c, "contract", req_id, actor, "contract_delivered", order_id=req["order_id"],
-                     detail={"channel": channel})
+                     detail={"channel": channel, "items": items})
+    return missing
 
 
 def supersede_for_quote(c, order_id, keep_quote_id, actor, reason: str) -> int:

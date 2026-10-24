@@ -105,12 +105,14 @@ def contract_vm(ctx, o, q_appr) -> dict:
     resps = contracts.responses_of(ctx, k["id"]) if k else []
     primary = next((r for r in resps if k and r["id"] == k["response_id"]), resps[-1] if resps else None)
     spec = jload(q_appr["spec_json"], {}) if q_appr else {}
-    url = None
+    url = notice = None
     if k and k["status"] in ("ISSUED", "RESPONSE_RECEIVED", "REVIEW_REQUIRED"):
         url = contracts.prefill_url(ctx, k)
+        notice = contracts.notice_message(ctx, k)  # D-33 ② 사전 고지 + ③ 링크 안내문
     return {"contract": k, "contract_all": contracts.of_order(ctx, o["id"]), "contract_resps": resps,
             "contract_rows": contracts.answer_rows(primary) if primary else [],
-            "contract_problems": contracts.problems_of(k) if k else [], "contract_url": url,
+            "contract_problems": contracts.problems_of(k) if k else [], "contract_url": url, "contract_notice": notice,
+            "contract_sent": contracts.delivered_items(ctx, k) if k else [], "SEND_ITEMS": contracts.SEND_ITEMS,
             "contract_unmatched": contracts.unmatched_for_order(ctx, o["id"]),
             "contract_ready": contracts.readiness(ctx),
             "contract_email_masked": contracts.mask_email(ctx.dec(primary["respondent_email_enc"])) if primary else "—",
