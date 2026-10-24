@@ -112,7 +112,7 @@ def test_tcs_002_e2e(ctx, maker, operator, fclock):
     assert "entry.528017888=TG-" in wo.get(f"/orders/{no}/quote").text  # 사전입력 링크가 화면에(복사용)
     form_b_response(ctx, rid)  # 고객이 링크로 제출
     assert wo.post(f"/orders/{no}/contract/sync", data={}).status_code == 303
-    assert wo.post(f"/contracts/{rid}/review", data={"method": "consult_channel", "note": "카톡 상담방에서 본인 확인",
+    assert wo.post(f"/contracts/{rid}/review", data={"method": "consult_channel", "review_note": "카톡 상담방에서 본인 확인",
                                                       "remember_email": "on"}).status_code == 303
     acc = ctx.db.one("SELECT * FROM customer_acceptances")
     assert acc["quote_version"] == 1 and acc["terms_version"] and acc["channel"] == "Form B 전자 동의" and acc["accepted_at"]  # ⑧

@@ -194,6 +194,12 @@ def policy_section(body: dict, key: str) -> dict:
     return {"title": sec.get("title", ""), "text": "", "sha256": None}
 
 
+def notice_sha(body: dict) -> str:
+    """고객이 보는 내용(제목·설명·문항·섹션 고지·선택지·이메일 수집 방식)의 해시.
+    게시 상태·revisionId·응답 주소처럼 고객이 읽지 않는 값은 빼서, 게시만 바꿔도 '고지 변경'이 되지 않게 한다."""
+    return sha256_text(jdump({"info": body.get("info"), "items": body.get("items"), "settings": body.get("settings")}))
+
+
 def quote_ref(q) -> str:
     """Q2에 넣는 견적서 번호·버전. 견적 문서에도 같은 값을 보여 준다."""
     return f"Q{q['id']:05d}-v{q['version']}"
@@ -298,7 +304,7 @@ def _form_body(ctx, sleep=time.sleep) -> dict:
 
 def _notice_id(c, fid, body) -> int:
     raw = jdump(body)
-    h = sha256_text(raw)
+    h = notice_sha(body)
     row = c.execute("SELECT id FROM contract_notices WHERE form_id=? AND sha256=?", (fid, h)).fetchone()
     if row:
         return row["id"]
@@ -634,8 +640,8 @@ def evaluate(ctx, c, req_id, actor) -> str:
     if primary["create_time"] and clock.parse(primary["create_time"]) < clock.parse(req["issued_at"]):
         probs.append({"code": "SUBMITTED_BEFORE_ISSUE"})
     latest = _latest_notice(c, req["form_id"])
-    issued = c.execute("SELECT sha256 FROM contract_notices WHERE id=?", (req["notice_id"],)).fetchone()
-    if latest is not None and latest["sha256"] != issued["sha256"]:
+    issued = c.execute("SELECT body_json FROM contract_notices WHERE id=?", (req["notice_id"],)).fetchone()
+    if latest is not None and notice_sha(jload(latest["body_json"], {})) != notice_sha(jload(issued["body_json"], {})):
         probs.append({"code": "NOTICE_CHANGED"})
     if req["terms_policy_id"]:
         p, h = _terms(c, q) if q is not None else (None, None)
@@ -838,7 +844,8 @@ def evidence(ctx, req_id) -> dict:
             "quote": jload(snapshot_of(ctx, req), {}), "responses": resps, "events": events_of(ctx, req_id),
             "problems": problems_of(req), "assets": assets,
             "checks": {"quote_sha256_ok": sha256_text(snapshot_of(ctx, req)) == req["quote_sha256"],
-                       "notice_sha256_ok": sha256_text(notice["body_json"]) == notice["sha256"],
+                       "notice_sha256_ok": notice["sha256"] in (notice_sha(jload(notice["body_json"], {})),
+                                                                sha256_text(notice["body_json"])),
                        "quote_html_ok": files.verify(ctx, assets["quote_html_asset_id"]) if assets["quote_html_asset_id"] else None,
                        "quote_pdf_ok": files.verify(ctx, assets["quote_pdf_asset_id"]) if assets["quote_pdf_asset_id"] else None}}
 

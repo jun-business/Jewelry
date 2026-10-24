@@ -7,6 +7,7 @@ import re
 import shutil
 import subprocess
 import tempfile
+import time
 from pathlib import Path
 
 from fastapi import APIRouter, HTTPException, Request
@@ -70,7 +71,15 @@ def edge_pdf(html: str) -> bytes | None:
         src.write_text(html, encoding="utf-8")
         subprocess.run([str(exe), "--headless", "--disable-gpu", "--no-pdf-header-footer", f"--user-data-dir={tmp / 'u'}",
                         f"--print-to-pdf={out}", src.as_uri()], capture_output=True, timeout=60, check=False)
-        return out.read_bytes() if out.exists() and out.stat().st_size > 0 else None
+        # Edge 실행기는 곧바로 끝나고 PDF는 뒤에서 쓰인다(2026-10-24 확인) — 파일이 생기고 크기가 멈출 때까지 기다린다
+        last, deadline = -1, time.monotonic() + 45
+        while time.monotonic() < deadline:
+            size = out.stat().st_size if out.exists() else -1
+            if size > 0 and size == last:
+                return out.read_bytes()
+            last = size
+            time.sleep(0.5)
+        return None
     except Exception:
         log.warning("quote pdf render failed")
         return None
@@ -135,11 +144,11 @@ async def contract_op(request: Request, rid: int, op: str):
         if op == "delivered":
             ev = f.get("evidence")
             data = await ev.read() if ev is not None and hasattr(ev, "read") else b""
-            contracts.record_delivery(ctx, rid, user, f.get("channel") or "", f.get("note") or "",
+            contracts.record_delivery(ctx, rid, user, f.get("channel") or "", f.get("delivery_note") or "",
                                       (ev.filename, data) if data else None)
             return flash_redirect(back, "고객에게 보낸 기록을 남겼어요.")
         if op == "review":
-            st = contracts.review(ctx, rid, user, f.get("method") or "", f.get("note") or "",
+            st = contracts.review(ctx, rid, user, f.get("method") or "", f.get("review_note") or "",
                                   remember_email=f.get("remember_email") == "on")
             msg = "검증을 기록했어요. 계약이 유효해졌어요." if st == "ACCEPTED" else \
                 "검증을 기록했어요. 남은 문제는 새로 발행해야 해요."
@@ -222,7 +231,7 @@ async def refund_op(request: Request, rid: int, op: str):
     try:
         if op == "legal":
             lw = {"yes": True, "no": False}.get(f.get("legal_withdrawal") or "")
-            refunds.legal_review(ctx, rid, user, f.get("note") or "", lw)
+            refunds.legal_review(ctx, rid, user, f.get("legal_note") or "", lw)
             msg = "법적 검토 결과를 기록했어요."
         elif op == "approve":
             refunds.approve(ctx, rid, user, f.get("amount"), f.get("reason") or "", f.get("bearer") or None,
@@ -233,7 +242,7 @@ async def refund_op(request: Request, rid: int, op: str):
                              f.get("completed_at") or None)
             msg = "환급 완료를 기록했어요."
         elif op == "withdraw":
-            refunds.withdraw(ctx, rid, user, f.get("note") or "")
+            refunds.withdraw(ctx, rid, user, f.get("withdraw_note") or "")
             msg = "고객 요청 철회를 기록했어요."
         else:
             raise HTTPException(404)

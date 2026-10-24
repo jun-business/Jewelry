@@ -576,3 +576,17 @@ def test_unpublished_form_b_blocks_link_in_live_mode(ctx, maker, operator):
     assert "계약 동의 폼(Form B)" in page and "게시되지 않았어요" in page
     body["publishSettings"] = {"publishState": {"isPublished": True, "isAcceptingResponses": True}}
     assert contracts.is_published(body) and _issue(ctx, o, operator)
+
+
+def test_publishing_form_is_not_a_notice_change(ctx, maker, operator):
+    """2026-10-24 실연동에서 발견: 링크 발행 뒤 폼을 '게시'만 했는데 고지 변경으로 막혔다 — 고객이 읽는 내용만 비교한다."""
+    o = _qa(ctx, maker, operator)
+    rid = _issue(ctx, o, operator)
+    published = copy.deepcopy(contracts.bundled_form())
+    published["publishSettings"] = {"publishState": {"isPublished": True, "isAcceptingResponses": True}}
+    ctx.forms.bodies[contracts.form_id(ctx)] = published
+    form_b_response(ctx, rid)
+    _sync(ctx)
+    assert "NOTICE_CHANGED" not in _codes(ctx, rid)
+    assert _review(ctx, rid, operator) == "ACCEPTED"
+    assert contracts.evidence(ctx, rid)["checks"]["notice_sha256_ok"]

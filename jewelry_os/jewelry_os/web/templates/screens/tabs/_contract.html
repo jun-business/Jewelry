@@ -43,7 +43,7 @@
 {% if not k.delivered_at %}
 <form method="post" action="/contracts/{{ k.id }}/delivered" enctype="multipart/form-data" class="stack">{{ csrf_input() }}
 <div class="grid-3"><div class="field"><label for="ct-ch">보낸 채널</label><select id="ct-ch" name="channel">{% for kk, lab in CONTRACT_CHANNELS.items() %}<option value="{{ kk }}">{{ lab }}</option>{% endfor %}</select></div>
-{{ text("note", "메모(예: 카카오톡 상담방에 링크 전송)", "") }}
+{{ text("delivery_note", "메모(예: 카카오톡 상담방에 링크 전송)", "") }}
 <div class="field"><label for="ct-ev">전송 화면 캡처(선택)</label><input id="ct-ev" type="file" name="evidence" accept=".jpg,.jpeg,.png,.webp,.pdf"></div></div>
 <button class="btn btn-tertiary" type="submit">고객에게 보냄 기록</button></form>
 {% endif %}
@@ -54,7 +54,7 @@
 <h3 id="ct-rv-t">운영자 검증·본인 확인</h3>
 <p class="t-sm">제출한 Google 계정: {{ contract_email_masked }}. 기존 연락처나 확인된 상담 채널로 고객 본인이 제출했는지 확인하세요. 주문번호·견적 불일치나 동의 거부·설명 요청은 여기서 풀 수 없어요.</p>
 <div class="grid-2"><div class="field"><label for="ct-m">확인 방법</label><select id="ct-m" name="method">{% for kk, lab in CONTRACT_IDENTITY.items() %}{% if kk != "verified_email" or k.identity_method == "verified_email" %}<option value="{{ kk }}">{{ lab }}</option>{% endif %}{% endfor %}</select></div>
-{{ text("note", "확인 근거(필수)", "") }}</div>
+{{ text("review_note", "확인 근거(필수)", "") }}</div>
 <label class="choice"><input type="checkbox" name="remember_email" value="on" checked> 이 Google 계정을 이 고객의 확인된 계약 이메일로 기억</label>
 <button class="btn btn-primary" type="submit">검증 완료</button></form>
 {% endif %}

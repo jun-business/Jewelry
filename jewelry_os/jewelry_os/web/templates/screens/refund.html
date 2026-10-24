@@ -30,7 +30,7 @@
 {% if r.status == "RECEIVED" and r.legal_review_status != "DONE" %}
 <form method="post" action="/refunds/{{ r.id }}/legal" class="stack">{{ csrf_input() }}
 <fieldset><legend>법정 청약철회에 해당하나요?</legend><label class="choice"><input type="radio" name="legal_withdrawal" value="yes"> 적법한 청약철회</label><label class="choice"><input type="radio" name="legal_withdrawal" value="no"> 해당 없음(제한 요건 충족 등)</label><label class="choice"><input type="radio" name="legal_withdrawal" value="" checked> 판단 보류</label></fieldset>
-{{ area("note", "검토 근거(요건별 판단·근거 자료)", "", True, None, None, 3) }}<button class="btn btn-secondary" type="submit">법적 검토 기록</button></form>
+{{ area("legal_note", "검토 근거(요건별 판단·근거 자료)", "", True, None, None, 3) }}<button class="btn btn-secondary" type="submit">법적 검토 기록</button></form>
 {% endif %}</section>
 </div>
 
@@ -54,7 +54,7 @@
 {{ area("evidence", "결제 취소·이체 증거(네이버 취소 번호, 이체 확인 등)", "", True, None, None, 2) }}<button class="btn btn-primary" type="submit">환급 완료 기록</button></form>
 {% endif %}
 {% if r.status in ("RECEIVED", "APPROVED") %}
-<form method="post" action="/refunds/{{ r.id }}/withdraw" class="stack">{{ csrf_input() }}{{ text("note", "고객 요청 철회 근거", "") }}<button class="btn btn-tertiary" type="submit">고객이 요청을 거둬들임</button></form>
+<form method="post" action="/refunds/{{ r.id }}/withdraw" class="stack">{{ csrf_input() }}{{ text("withdraw_note", "고객 요청 철회 근거", "") }}<button class="btn btn-tertiary" type="submit">고객이 요청을 거둬들임</button></form>
 {% endif %}</section>
 
 <section class="card"><h2>이력(고칠 수 없음)</h2><ul class="timeline">{% for e in v.events %}<li>{{ icon("clock", "sm") }}<span>{{ e.event }} · {{ e.display_name or ROLE_LABEL.get(e.actor_role, e.actor_role) }} <span class="meta">{{ e.created_at|kdatetime }}</span></span></li>{% endfor %}</ul></section>
