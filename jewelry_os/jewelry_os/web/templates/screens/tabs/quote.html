@@ -47,7 +47,15 @@
 <div class="grid-3">{% for k, lab in SPEC_FIELDS %}<div class="field"><label for="sp-{{ k }}">{{ lab }}</label><input id="sp-{{ k }}" name="spec_{{ k }}" value="{{ sp.get(k) or spec.get(k) or '' }}"></div>{% endfor %}</div>
 {{ area("spec_summary", "사양 요약(고객 문서에 표시)", q.spec_summary or "", False, None, None, 2) }}
 <h3>개별 주문제작 고지 <span class="req">(계약 동의 링크 전 필수)</span></h3>
-<p class="t-sm">고객 견적서에 그대로 나가요. Form B의 청약철회 별도 동의가 이 주문의 내용을 가리켜요.</p>
+<p class="t-sm">고객 견적서에 그대로 나가요. Form B의 청약철회 별도 동의가 이 주문의 내용을 가리켜요. <strong>“주문제작이라 반품이 안 돼요”처럼 일반적으로 쓰면 효력이 없을 수 있어요</strong> — 이 주문만의 사정을 적어 주세요.</p>
+<details class="hint"><summary>무엇을 적나요?</summary><ul class="t-sm">
+<li>개별 제작 특성: 고객이 정한 사이즈(호수)·각인 문구·디자인·스톤·소재처럼 이 고객만을 위한 사양</li>
+<li>손해 사유: 그 사양 때문에 다른 고객에게 팔 수 없는 이유, 이미 들어간 설계(CAD)·공장 발주·금속 가공 비용처럼 되돌릴 수 없는 손해</li>
+<li>쓰지 말 것: 모든 환불·반품을 일괄로 막는 표현</li></ul></details>
+{% if loss_problems %}<ul class="blocked">{% for p in loss_problems %}<li data-loss-problem>{{ icon("alert", "sm") }}<span>{{ p }}</span></li>{% endfor %}</ul>{% endif %}
+{% if loss_suggest %}<div class="internal"><div class="internal-head">이 주문 사양으로 만든 예시 — 그대로 쓰지 말고 고쳐 쓰세요</div>
+<p class="t-sm"><strong>개별 제작 특성</strong> <span id="sug-custom">{{ loss_suggest.custom_made }}</span> <button class="btn btn-tertiary btn-sm" type="button" data-copy="sug-custom">{{ icon("copy", "sm") }}복사</button></p>
+<p class="t-sm"><strong>손해 사유</strong> <span id="sug-loss">{{ loss_suggest.loss_reasons }}</span> <button class="btn btn-tertiary btn-sm" type="button" data-copy="sug-loss">{{ icon("copy", "sm") }}복사</button></p></div>{% endif %}
 {% for k, lab in CONTRACT_SPEC_FIELDS %}{{ area("spec_" ~ k, lab, sp.get(k) or "", False, None, None, 3) }}{% endfor %}
 <h3>수정 가능 범위·배송 일정</h3><p class="t-sm">비워 두면 기본 문구가 견적서에 들어가요(설정 › 운영 정책). 취소·환불 조건은 Form B의 단계별 안내가 자동으로 들어가요.</p>
 {{ area("spec_revision_scope", "수정 가능 범위", sp.get("revision_scope") or "", False, None, s_defaults.revision, 2) }}

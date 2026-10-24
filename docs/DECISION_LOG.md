@@ -51,6 +51,7 @@
 | D-32 | (2026-10-25, 사업 책임자) **AI는 OpenAI GPT-6 Luna(`gpt-6-luna`)** — 기본 공급자 openai·모델 gpt-6-luna. OpenAI Chat Completions REST를 httpx로 호출(추가 패키지 없음), JSON 스키마 강제 출력(의뢰 정리·대화 정리·답변 초안 공통). 키(OPENAI_API_KEY)는 설정 › AI에서 넣으면 바로 적용, secrets.env·키 파일에만(화면 재표시·로그 없음), 없으면 규칙 기반으로 동작. Claude 선택지는 남김. 모델 ID는 2차 자료로 확인 — 키 넣은 뒤 실제 호출로 재확인 | CONFIRMED(가짜 서버) | `tests/unit/test_openai_adapter.py` |
 | D-33 | (2026-10-25, 사업 책임자) **계약 동의 전 고객에게 3가지를 보낸다** — ① 확정 견적서(증거 원본과 같은 파일: PDF, 없으면 HTML) ② 사전 고지(주문번호·견적서 번호·버전·계약 확인코드·작성 방법) ③ Form B 링크. ②+③은 한 안내문으로 복사. ‘고객에게 보냄 기록’에 보낸 항목 체크(빠지면 경고, 다시 기록 가능), 계약 이력에 항목 저장 | CONFIRMED | `test_contracts.py::test_send_bundle_quote_notice_link` |
 | D-34 | (2026-10-25, 사업 책임자) **견적서를 Form B 02 섹션 설명에 맞춤** — 견적서에 디자인(최신 시안 이미지, 증거 원본에 내장), 제작·배송 일정(완성 예정 + 배송 안내), 수정 가능 범위, 취소·환불 조건(Form B ‘제작 단계별 취소·환불 안내’ 원문 + 승인된 수정·환불 정책 본문) 추가. 수정 범위·배송은 견적별로 쓰거나 비우면 설정 기본 문구(기본 문구 확정 2026-10-25: CAD 수정 2회 포함 등 지금 문구 그대로). 카톡용 텍스트에도 요약 | CONFIRMED | `test_contracts.py::test_quote_has_design_revision_delivery_refund_terms` |
+| D-35 | (2026-10-25, 사업 책임자) **손해 사유는 주문마다 구체적으로** — 견적 작성 화면에 작성 안내·이 주문 사양으로 만든 예시 문구·문제 표시. 규칙 검사(25자 이상, 사이즈·각인·디자인·소재·설계·발주 등 구체 사정, 사양에 적은 사이즈·각인·스톤 값 포함, 일괄 제한 표현 금지)를 통과하지 않으면 계약 동의 링크 발행 차단 | CONFIRMED | `test_contracts.py::test_loss_reasons_must_be_specific` |
 
 ## 4. 이전 결정
 스테이지 1~15의 PM 결정(진행 방식, 단계 조정, 모델, 스택 등)은 `PROJECT_REGISTER.md` 5부 변경 로그와 3부 ASM 레지스터가 원본이다.

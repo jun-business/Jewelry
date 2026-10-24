@@ -93,7 +93,8 @@ def advance(ctx, order_no, target: str, maker, operator, total=1_200_000):
                 items=[{"kind": "metal", "label": "18K 금", "amount": str(total - 300_000), "cost": str(total // 2)},
                        {"kind": "design", "label": "설계비", "amount": "300000", "cost": "0"}],
                 spec={"material": "골드", "purity": "18K", "size": "12호", "stones": "없음", "engraving": "없음",
-                      "custom_made": "고객 손가락 호수·각인 문구에 맞춘 1점 제작", "loss_reasons": "맞춤 사이즈·각인으로 다른 고객에게 판매 불가"},
+                      "custom_made": "12호 맞춤 사이즈 18K 골드 반지를 이 고객님만을 위해 1점 제작",
+                      "loss_reasons": "12호 맞춤 사이즈로 만들어 다른 고객에게 판매하기 어렵고, 상세 CAD 설계와 공장 발주 뒤의 금속·가공 비용은 회수하기 어려워요."},
                 tax_included=True, shipping_included=True, promised_date="2026-12-15", valid_until="2026-11-30"))
             quotes.approve(ctx, order(), maker, C)
         elif st == "CUSTOMER_ACCEPTED":

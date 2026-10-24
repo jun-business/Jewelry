@@ -369,8 +369,9 @@ def issue(ctx, o, actor, reissue: bool = False, sleep=time.sleep) -> int:
     if q["valid_until"] and q["valid_until"] < clock.today_kst().isoformat():
         raise TransitionBlocked([unmet("G-QUOTE-EXPIRED")])
     spec = jload(q["spec_json"], {})
-    if not all((spec.get(k) or "").strip() for k in ("custom_made", "loss_reasons")):
-        raise TransitionBlocked([unmet("G-QUOTE-LOSS-REASONS")])  # 견적서에 주문별 개별 제작 특성·예상 손해 사유(D-25)
+    weak = quotes.loss_reason_problems(spec)  # D-35: 주문마다 구체적으로
+    if weak:
+        raise TransitionBlocked([unmet("G-QUOTE-LOSS-REASONS", detail=" · ".join(weak))])  # 견적서에 주문별 개별 제작 특성·예상 손해 사유(D-25)
     try:
         body = _form_body(ctx, sleep)  # 네트워크는 트랜잭션 밖에서
     except SourceError as e:

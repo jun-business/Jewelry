@@ -92,6 +92,10 @@ def order_vm(ctx, o, user, tab):
     }
     vm.update(contract_vm(ctx, o, q_appr))
     vm["refunds"] = [refunds.view(ctx, r) for r in refunds.of_order(ctx, o["id"])]
+    if q_draft:  # D-35 견적 작성 화면: 손해 사유 검사·예시 문구
+        dsp = jload(q_draft["spec_json"], {})
+        vm["loss_problems"] = quotes.loss_reason_problems(dsp)
+        vm["loss_suggest"] = quotes.suggest_loss_text(dsp, o["product_type"])
     vm["s_defaults"] = {"revision": "기본: " + settings.get(ctx, "quote_revision_scope_default"),
                         "delivery": "기본: " + settings.get(ctx, "quote_delivery_default")}
     from ..services import cs_digest
@@ -119,7 +123,8 @@ def contract_vm(ctx, o, q_appr) -> dict:
             "contract_ready": contracts.readiness(ctx),
             "contract_email_masked": contracts.mask_email(ctx.dec(primary["respondent_email_enc"])) if primary else "—",
             "q_appr_ref": contracts.quote_ref(q_appr) if q_appr else None,
-            "q_appr_loss_ok": all((spec.get(x) or "").strip() for x in ("custom_made", "loss_reasons")),
+            "q_appr_loss_ok": not quotes.loss_reason_problems(spec),
+            "q_appr_loss_problems": quotes.loss_reason_problems(spec) if q_appr else [],
             "CONTRACT_LABEL": contracts.STATUS_LABEL, "CONTRACT_CHIP": contracts.STATUS_CHIP,
             "CONTRACT_CHANNELS": contracts.DELIVERY_CHANNELS, "CONTRACT_IDENTITY": contracts.IDENTITY_METHODS}
 
