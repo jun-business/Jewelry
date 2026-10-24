@@ -1,7 +1,7 @@
 {% from "components.html" import text, icon, banner with context %}<!doctype html>
 <html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <title>처음 설정 · 틴틴골드</title><link rel="icon" href="/favicon.ico" sizes="any"><link rel="icon" type="image/png" href="/static/img/favicon.png"><link rel="apple-touch-icon" href="/static/img/apple-touch-icon.png"><link rel="stylesheet" href="/static/css/tokens.css?v={{ asset_v }}"><link rel="stylesheet" href="/static/css/app.css?v={{ asset_v }}"></head>
-<body><main id="main" class="auth wide"><div class="card">
+<body>{% include "partials/dev_banner.html" %}<main id="main" class="auth wide"><div class="card">
 <h1>틴틴골드 운영 프로그램 처음 설정</h1>
 <p class="t-muted">한 번만 하면 돼요. 나중에 설정 화면에서 모두 바꿀 수 있어요.</p>
 <ol class="chips" aria-label="설정 단계"><li class="chip progress">1 계정</li><li class="chip version">2 운영 기본값</li><li class="chip version">3 연동 모드</li></ol>

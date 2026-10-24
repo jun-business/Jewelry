@@ -11,6 +11,7 @@
 </head>
 <body data-authed="{{ 1 if user else 0 }}" data-csrf="{{ csrf }}" data-lock-minutes="{{ lock_minutes }}" data-session-created="{{ session_created or '' }}" class="{% block bodyclass %}{% endblock %}">
 <a class="skip" href="#main">본문으로 건너뛰기</a>
+{% include "partials/dev_banner.html" %}
 <div id="live" class="sr-only" role="status" aria-live="polite"></div>
 {% if user %}
 <div class="shell">

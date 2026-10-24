@@ -8,6 +8,7 @@ from pathlib import Path
 
 HOST = "127.0.0.1"  # SRS-145: R1은 루프백만. 설정으로 바꿀 수 없다.
 DEFAULT_PORT = 8770
+DEV_PORT = 8771  # 개발용 앱은 다른 주소 — 운영 앱(8770)과 헷갈리지 않게
 
 
 def _default_data_dir(env: str) -> Path:
@@ -89,7 +90,7 @@ def load_config(env: str | None = None, data_dir: str | os.PathLike | None = Non
     if env not in ("test", "dev", "prod"):
         raise ValueError(f"JOS_ENV must be test|dev|prod, got {env}")
     d = Path(data_dir or os.environ.get("JOS_DATA_DIR") or _default_data_dir(env))
-    cfg = Config(env=env, data_dir=d, port=int(os.environ.get("JOS_PORT", DEFAULT_PORT)))
+    cfg = Config(env=env, data_dir=d, port=int(os.environ.get("JOS_PORT", DEV_PORT if env == "dev" else DEFAULT_PORT)))
     for sub in (cfg.data_dir, cfg.files_dir, cfg.backups_dir):
         sub.mkdir(parents=True, exist_ok=True)
     if cfg.secrets_path.exists():

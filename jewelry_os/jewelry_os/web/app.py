@@ -30,6 +30,7 @@ ACTIVITY_EXEMPT = ("/api/dashboard/summary", "/api/notifications")
 
 
 def create_app(ctx, run_scheduler: bool = False) -> FastAPI:
+    templates.env.globals["app_env"] = ctx.cfg.env  # 개발용이면 모든 화면 위에 띠 표시
     stop = asyncio.Event()
 
     @asynccontextmanager
