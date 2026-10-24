@@ -18,6 +18,6 @@
     "q12_consent": {"field": "consent", "required": true, "kind": "consent"}
   },
   "choices": {
-    "source_channel": {"스마트스토어": "smartstore", "인스타그램": "instagram", "지인 소개": "referral", "광고를 보고": "ad", "기타": "other"}
+    "source_channel": {"네이버 검색": "naver_search", "네이버 블로그": "naver_blog", "스마트스토어": "smartstore", "인스타그램": "instagram", "지인 소개": "referral", "광고를 보고": "ad", "기타": "other"}
   }
 }

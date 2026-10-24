@@ -62,7 +62,7 @@ def test_tcs_057_bind_real_question_ids(ctx, maker, operator):
     assert bad.status_code == 422 and "배송 주소" in bad.text
     bad = _post_binding(op, {**BIND, f"field_{Q['consent']}": ""})
     assert bad.status_code == 422 and "필수 항목을 모두 연결하세요" in bad.text and "개인정보 동의" in bad.text
-    assert settings.get(ctx, intake.BINDING_KEY) == {}
+    assert settings.get(ctx, intake.BINDING_KEY) == settings.DEFAULTS[intake.BINDING_KEY]  # 기본값 그대로(D-22)
     assert ctx.db.scalar("SELECT COUNT(*) FROM intake_revisions") == 1
 
     # ④ 연결 저장 → 받은 응답 다시 읽기: revision 2 · 필드 채움 · 시스템 보류 해제 · AI 1회

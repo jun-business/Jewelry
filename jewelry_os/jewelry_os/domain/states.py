@@ -85,7 +85,7 @@ FAULT_LABEL_ALL = {**FAULT_LABEL, "SELLER": "판매자 귀책(이전 기록)"}  
 SELLER_FAULTS = {"DEFECT", "MISMATCH", "SELLER"}
 
 SOURCE_LABEL = {"smartstore": "스마트스토어", "instagram": "인스타그램", "referral": "지인 소개", "ad": "광고",
-                "other": "기타", "manual": "수기 접수", None: "미분류"}
+                "naver_search": "네이버 검색", "naver_blog": "네이버 블로그", "other": "기타", "manual": "수기 접수", None: "미분류"}
 
 PAY_PHASE_LABEL = {"DEPOSIT": "예약금", "BALANCE": "잔금", "FULL": "전액", "CHANGE": "변경 추가금"}
 TAX_TYPE_LABEL = {"unset": "미설정", "general": "일반과세자", "simplified": "간이과세자", "exempt": "면세사업자"}

@@ -68,3 +68,34 @@ def test_legacy_install_migrates_to_auto_once(ctx, operator):
     assert settings.get(c3, "google_mode") == "mock"
     c2.db.close()
     c3.db.close()
+
+
+REAL_BINDING = settings.DEFAULTS["intake_question_binding"]  # 틴틴골드 의뢰 폼의 실제 질문 ID(D-22)
+
+
+def test_real_form_binding_merges_split_questions():
+    """폼은 스톤·각인을 둘로, 참고 링크를 따로 묻는다 — 앱은 스톤·각인 한 칸과 의뢰 설명 끝에 담는다(D-22)."""
+    from jewelry_os.services import intake
+    m = intake.load_mapping(binding=intake.validate_binding(REAL_BINDING))
+    a = dict([g.text_answer("702b0596", "반지"), g.text_answer("219660f9", "얇은 밴드"),
+              g.text_answer("2388b48b", "https://example.com/ref"), g.text_answer("5d016376", "0.1캐럿 다이아"),
+              g.text_answer("42b53d66", "안쪽 각인 J&K"), g.text_answer("70b5dc7c", "홍길동"),
+              g.text_answer("4c6af8a8", "010-0000-0000"), g.text_answer("18976f60", "문자메시지"),
+              g.text_answer("683c3173", "네이버 블로그"), g.text_answer("72899728", "동의합니다")])
+    p = intake.parse_answers(m, a)
+    assert p["stones_engraving"] == "스톤: 0.1캐럿 다이아 / 각인·기타: 안쪽 각인 J&K"
+    assert p["description"] == "얇은 밴드\n참고 링크: https://example.com/ref"
+    assert p["source_channel"] == "naver_blog" and p["consent"] is True
+    assert not {"stones", "engraving", "reference_link"} & set(p)
+    only_engraving = intake.parse_answers(m, {k: v for k, v in a.items() if k != "5d016376"})
+    assert only_engraving["stones_engraving"] == "각인·기타: 안쪽 각인 J&K"
+    assert intake.parse_answers(m, {**a, **dict([g.text_answer("683c3173", "네이버 검색")])})["source_channel"] == "naver_search"
+
+
+def test_real_binding_is_default(ctx):
+    """폼 매핑을 코드 기본값으로 — 새 PC·업데이트한 PC가 따로 연결하지 않아도 된다(D-22)."""
+    from jewelry_os.services import intake
+    assert set(REAL_BINDING) >= {"70b5dc7c", "4c6af8a8", "18976f60", "702b0596", "219660f9", "72899728"}
+    assert intake.validate_binding(REAL_BINDING) == REAL_BINDING
+    assert "6fd6cc59" not in REAL_BINDING  # 이메일은 받지 않음
+    assert intake.current_mapping(ctx)["questions"]["4c6af8a8"]["field"] == "contact_value"

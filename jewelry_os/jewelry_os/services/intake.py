@@ -31,8 +31,13 @@ ERROR_CODE = {"AUTH_EXPIRED": "SYNC-401", "FORBIDDEN": "SYNC-403", "RATE_LIMITED
 FORBIDDEN_FIELDS = {"address", "shipping_address"}
 FIELD_LABEL = {"display_name": "고객 표시명", "contact_kind": "회신수단 종류", "contact_value": "회신수단(연락처)",
                "product_type": "제품 유형", "description": "의뢰 설명", "material": "소재", "size": "사이즈",
-               "stones_engraving": "스톤·각인", "budget_range": "예산", "desired_date": "희망 날짜",
-               "reference_files": "참고 이미지", "source_channel": "유입 경로", "consent": "개인정보 동의"}
+               "stones_engraving": "스톤·각인", "stones": "스톤 요청(스톤·각인에 합침)",
+               "engraving": "각인·기타 요구(스톤·각인에 합침)", "budget_range": "예산", "desired_date": "희망 날짜",
+               "reference_files": "참고 이미지", "reference_link": "참고 이미지 링크(의뢰 설명 끝에 붙임)",
+               "source_channel": "유입 경로", "consent": "개인정보 동의"}
+# 폼이 따로 묻지만 앱은 한 칸에 담는 질문(D-22): (보조 필드, 합칠 필드, 붙일 머리말)
+MERGED_FIELDS = (("stones", "stones_engraving", "스톤"), ("engraving", "stones_engraving", "각인·기타"),
+                 ("reference_link", "description", "참고 링크"))
 BINDING_KEY = "intake_question_binding"     # 설정: {실제 질문 ID: 필드}(SRS-004 r2)
 UNMAPPED_META = "intake_unmapped_questions"      # meta: 동기화 중 본 미인식 질문 ID와 가린 예시값(파일 문항 제외)
 _QID = re.compile(r"^[A-Za-z0-9_-]{1,64}$")
@@ -181,6 +186,13 @@ def parse_answers(mapping: dict, answers: dict) -> dict:
         mapped = out.get("reference_files") or []
         known = {item.get("file_id") for item in mapped}
         out["reference_files"] = mapped + [item for item in uploaded if item["file_id"] not in known]
+    for extra, target, head in MERGED_FIELDS:
+        v = out.pop(extra, None)
+        if isinstance(v, list):
+            v = ", ".join(str(x) for x in v if x)
+        if v:
+            sep = "\n" if target == "description" else " / "
+            out[target] = f"{out[target]}{sep}{head}: {v}" if out.get(target) else f"{head}: {v}"
     ch = mapping.get("choices", {}).get("source_channel", {})
     # 빈 답 = 미분류(None), 목록 밖 값 = 기타(SRS-124)
     out["source_channel"] = ch.get(out["source_channel"], "other") if out.get("source_channel") else None
