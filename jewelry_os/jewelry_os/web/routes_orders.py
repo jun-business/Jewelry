@@ -92,6 +92,8 @@ def order_vm(ctx, o, user, tab):
     }
     vm.update(contract_vm(ctx, o, q_appr))
     vm["refunds"] = [refunds.view(ctx, r) for r in refunds.of_order(ctx, o["id"])]
+    from ..services import cs_digest
+    vm["digest"] = cs_digest.view(ctx, order=o) if tab == "cs" else None
     vm["balance_prepaid"] = any(r["phase"] == "BALANCE" and r["status"] == "PAID_VERIFIED" for r in pay_reqs)
     vm["REFUND_REASONS"] = refunds.REASON_LABEL
     return vm
@@ -333,7 +335,8 @@ async def action(request: Request, no: str, code: str):
         return render_order(request, o, tab, 422, errors={"_": str(e)}, form=p)
     o2 = orders.get(ctx, no)
     new_tab = p.get("_next_tab") or (tab if p.get("_tab") else DEFAULT_TAB.get(S(o2["lifecycle_state"]), "history"))
-    return flash_redirect(f"/orders/{no}/{new_tab}", msg or "저장했어요.")
+    anchor = "#tabs" if (p.get("_tab") or p.get("_next_tab")) and "#" not in new_tab else ""  # 탭에서 한 동작이면 탭으로
+    return flash_redirect(f"/orders/{no}/{new_tab}{anchor}", msg or "저장했어요.")
 
 
 @router.post("/orders/{no}/concepts")
@@ -351,7 +354,7 @@ async def concept_post(request: Request, no: str):
         return render_order(request, o, "quote", blocked_status(e.unmet), unmet_list=e.unmet)
     except files.FileRejected as e:
         return render_order(request, o, "quote", 422, errors={"file": e.message})
-    return flash_redirect(f"/orders/{no}/quote", f"시안 v{v}을 올렸어요.")
+    return flash_redirect(f"/orders/{no}/quote#tabs", f"시안 v{v}을 올렸어요.")
 
 
 @router.post("/orders/{no}/references")
@@ -370,7 +373,7 @@ async def reference_post(request: Request, no: str):
             audit.record(c, "asset", o["order_no"], request.state.user, "reference_uploaded", order_id=o["id"])
     except files.FileRejected as e:
         return render_order(request, o, "intake", 422, errors={"file": e.message})
-    return flash_redirect(f"/orders/{no}/intake", "참고 이미지를 추가했어요.")
+    return flash_redirect(f"/orders/{no}/intake#tabs", "참고 이미지를 추가했어요.")
 
 
 @router.post("/orders/{no}/quotes")
@@ -382,7 +385,7 @@ async def quote_draft(request: Request, no: str):
         quotes.draft(ctx, o, request.state.user)
     except TransitionBlocked as e:
         return render_order(request, o, "quote", blocked_status(e.unmet), unmet_list=e.unmet)
-    return flash_redirect(f"/orders/{no}/quote", "견적 초안을 만들었어요.")
+    return flash_redirect(f"/orders/{no}/quote#tabs", "견적 초안을 만들었어요.")
 
 
 @router.post("/quotes/{qid}/save")
@@ -418,7 +421,7 @@ async def quote_save(request: Request, qid: int):
         return render_order(request, od, "quote", 422, errors={"_": str(e)})
     if f.get("then") == "approve":
         return RedirectResponse(f"/orders/{o['order_no']}/quote?confirm=approve_quote", 303)
-    return flash_redirect(f"/orders/{o['order_no']}/quote", "견적을 임시 저장했어요.")
+    return flash_redirect(f"/orders/{o['order_no']}/quote#tabs", "견적을 임시 저장했어요.")
 
 
 @router.post("/orders/{no}/designs")
@@ -433,7 +436,7 @@ async def design_post(request: Request, no: str):
         return render_order(request, o, "making", blocked_status(e.unmet), unmet_list=e.unmet)
     except files.FileRejected as e:
         return render_order(request, o, "making", 422, errors={"file": e.message})
-    return flash_redirect(f"/orders/{no}/making", "디자인 파일을 올렸어요.")
+    return flash_redirect(f"/orders/{no}/making#tabs", "디자인 파일을 올렸어요.")
 
 
 @router.post("/orders/{no}/factory-spec")
@@ -452,7 +455,7 @@ async def factory_spec_post(request: Request, no: str):
             manufacturing.save_factory_spec(ctx, o, request.state.user, {k: v for k, v in f.items() if isinstance(v, str)})
     except TransitionBlocked as e:
         return render_order(request, o, "making", blocked_status(e.unmet), unmet_list=e.unmet)
-    return flash_redirect(f"/orders/{no}/making", "공장 사양서를 저장했어요.")
+    return flash_redirect(f"/orders/{no}/making#tabs", "공장 사양서를 저장했어요.")
 
 
 @router.post("/orders/{no}/memo")
@@ -463,7 +466,7 @@ async def memo_post(request: Request, no: str):
     from ..services import audit
     with ctx.db.tx() as c:
         audit.record(c, "memo", o["order_no"], request.state.user, "memo", order_id=o["id"], reason=f.get("memo"))
-    return flash_redirect(f"/orders/{no}/{f.get('_tab') or 'history'}", "메모를 저장했어요.")
+    return flash_redirect(f"/orders/{no}/{f.get('_tab') or 'history'}#tabs", "메모를 저장했어요.")
 
 
 # ---- 상담(CS) ----
@@ -478,9 +481,23 @@ async def cs_import_order(request: Request, no: str):
     try:
         st = kakao_import.import_chat(ctx, request.state.user, await _chat_text(f), order=o)
     except TransitionBlocked as e:
-        return flash_redirect(f"/orders/{no}/cs", e.unmet[0].message, "error")
+        return flash_redirect(f"/orders/{no}/cs#tabs", e.unmet[0].message, "error")
     msg = f"카카오톡 대화 {st['new']}개를 기록했어요." + (f" 이미 있던 {st['dup']}개는 건너뛰었어요." if st["dup"] else "")
-    return flash_redirect(f"/orders/{no}/cs", msg)
+    if st.get("digest") and st["digest"] != "OK":
+        from ..services import cs_digest
+        msg += " " + cs_digest.STATUS_LABEL.get(st["digest"], "")
+    return flash_redirect(f"/orders/{no}/cs#tabs", msg)
+
+
+@router.post("/orders/{no}/cs/digest")
+async def cs_digest_order(request: Request, no: str):
+    from ..services import cs_digest
+    ctx = request.state.ctx
+    o = _order(ctx, no)
+    await form_of(request)
+    st = cs_digest.run(ctx, request.state.user, order=o, force=True)
+    return flash_redirect(f"/orders/{no}/cs", {"OK": "대화를 다시 정리했어요.", "EMPTY": "정리할 대화가 없어요."}.get(
+        st, cs_digest.STATUS_LABEL.get(st, "정리하지 못했어요.")), "success" if st == "OK" else "error")
 
 
 @router.post("/orders/{no}/cs/messages")
@@ -493,7 +510,7 @@ async def cs_message(request: Request, no: str):
                           f.get("link"))
     except TransitionBlocked as e:
         return render_order(request, o, "cs", 422, errors={"summary": e.unmet[0].message})
-    return flash_redirect(f"/orders/{no}/cs", "고객 메시지를 기록했어요.")
+    return flash_redirect(f"/orders/{no}/cs#tabs", "고객 메시지를 기록했어요.")
 
 
 @router.post("/orders/{no}/cs/drafts")
@@ -504,7 +521,7 @@ async def cs_draft(request: Request, no: str):
     body = f.get("body") or None
     cs.create_draft(ctx, o, request.state.user, f.get("question") or "", body=body,
                     level=f.get("level") if body else None)
-    return flash_redirect(f"/orders/{no}/cs", "답변 초안을 만들었어요. 아버님 승인 후 복사할 수 있어요.")
+    return flash_redirect(f"/orders/{no}/cs#tabs", "답변 초안을 만들었어요. 아버님 승인 후 복사할 수 있어요.")
 
 
 @router.post("/cs/drafts/{did}/{op}")
@@ -549,4 +566,4 @@ async def cs_op(request: Request, did: int, op: str):
         return render_order(request, od, "cs", blocked_status(e.unmet), unmet_list=e.unmet)
     if request.headers.get("x-requested-with") == "fetch":
         return {"ok": True, "message": msg}
-    return flash_redirect(f"/orders/{o['order_no']}/cs", msg)
+    return flash_redirect(f"/orders/{o['order_no']}/cs#tabs", msg)

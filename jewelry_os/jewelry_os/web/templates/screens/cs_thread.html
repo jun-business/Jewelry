@@ -1,7 +1,8 @@
-{% extends "base.html" %}{% from "components.html" import icon, csrf_input, area, text with context %}
+{% extends "base.html" %}{% from "components.html" import icon, chip, csrf_input, area, text with context %}
 {% block title %}문의 대화{% endblock %}
 {% block content %}
 <div class="page-head"><div><a class="btn btn-tertiary" href="/cs#inquiries">{{ icon("back") }}상담함</a><h1>{{ t.title or "카카오톡 문의" }}</h1><p class="t-sm">주문에 아직 연결되지 않은 카카오톡 문의예요.</p></div></div>
+{% set digest_action = "/cs/threads/" ~ t.id ~ "/digest" %}{% set o = none %}{% include "screens/tabs/_digest.html" %}
 <section class="card" aria-labelledby="tm-t"><h2 id="tm-t">대화 {{ messages|length }}개</h2>
 {% if messages %}<div class="table-wrap"><table><thead><tr><th scope="col">방향</th><th scope="col">내용</th><th scope="col">시각</th></tr></thead><tbody>
 {% for m in messages %}<tr><td>{{ "고객 →" if m.direction == "in" else "→ 고객" }}</td><td class="pre-wrap">{{ m.content_redacted or m.summary }}</td><td class="meta">{{ m.event_at|kdatetime }}</td></tr>{% endfor %}

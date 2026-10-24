@@ -4,6 +4,7 @@
 <div class="banner info">{{ icon("hand") }}<div class="b-body"><strong>수동 기록 — 실시간 수신 아님</strong><span>카카오톡에서 받은 내용을 직접 옮겨 주세요.{% if last_rec %} 마지막 수동 기록 {{ last_rec|kdatetime }}{% endif %}</span></div></div>
 {% if not cs_policy %}{{ banner("warning", "승인된 상담 정책이 없어요. 근거 없이 작성된 초안이에요.", None, ("/settings/policies", "정책 보기"), "alert") }}{% endif %}
 
+{% set digest_action = "/orders/" ~ o.order_no ~ "/cs/digest" %}{% include "screens/tabs/_digest.html" %}
 <section class="card" aria-labelledby="msg-t"><h2 id="msg-t">대화 기록</h2>
 {% if messages %}<div class="table-wrap"><table><thead><tr><th scope="col">방향</th><th scope="col">요지</th><th scope="col">기록</th></tr></thead><tbody>
 {% for m in messages %}<tr><td>{{ "고객 →" if m.direction == "in" else "→ 고객" }}</td><td>{{ m.summary }}{% if m.content_redacted and m.direction == "in" %}<div class="t-sm t-muted">{{ m.content_redacted }}</div>{% endif %}{% if m.link %} <a href="{{ m.link }}" rel="noopener" target="_blank">대화</a>{% endif %}</td><td class="meta">{{ m.recorder or "" }} · {{ m.event_at|kdatetime }}</td></tr>{% endfor %}
@@ -23,7 +24,7 @@
 
 <section class="card" aria-labelledby="dr-t"><h2 id="dr-t">답변 초안</h2>
 <form class="btn-row" method="post" action="/orders/{{ o.order_no }}/cs/drafts">{{ csrf_input() }}
-<label class="sr-only" for="dq">고객 질문</label><input id="dq" name="question" placeholder="고객 질문(예: 사이즈를 12호로 바꿀 수 있나요?)" value="{{ messages|selectattr('direction', 'equalto', 'in')|map(attribute='summary')|list|last if messages else '' }}">
+<label class="sr-only" for="dq">고객 질문</label><input id="dq" name="question" placeholder="고객 질문(예: 사이즈를 12호로 바꿀 수 있나요?)" value="{{ (digest.r.open_questions[0].question if digest and digest.r and digest.r.open_questions else (messages|selectattr('direction', 'equalto', 'in')|map(attribute='summary')|list|last if messages else '')) }}">
 <button class="btn btn-secondary" type="submit">AI 답변 초안 만들기</button></form>
 {% for d in drafts %}
 {% set uj = d.unclear_json|fromjson %}

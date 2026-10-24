@@ -22,6 +22,16 @@ def asset_version() -> str:
         h.update(f.read_bytes())
     return h.hexdigest()[:10]
 
+def _cs_labels():
+    from ..services.cs_digest import KIND_LABEL, TOPIC_LABEL
+    return TOPIC_LABEL, KIND_LABEL
+
+
+def kst_input(v) -> str:
+    """UTC ISO → datetime-local 입력값(KST, YYYY-MM-DDTHH:MM)."""
+    return clock.kst(clock.parse(v)).strftime("%Y-%m-%dT%H:%M") if v else ""
+
+
 def kdate(v) -> str:
     if not v:
         return "—"
@@ -133,7 +143,7 @@ def action_label(action, row=None) -> str:
 
 def install(env) -> None:
     import json as _json
-    env.filters.update(won=won, kdate=kdate, ktime=ktime, kdatetime=kdatetime, rel=rel, state_label=state_label,
+    env.filters.update(kst_input=kst_input, won=won, kdate=kdate, ktime=ktime, kdatetime=kdatetime, rel=rel, state_label=state_label,
                        phase_label=phase_label, chip_kind=chip_kind, action_label=action_label,
                        fromjson=lambda s: _json.loads(s) if s else {},
                        maybe_won=lambda v: won(int(str(v).replace(",", ""))) if str(v).replace(",", "").isdigit() else v,
@@ -146,5 +156,5 @@ def install(env) -> None:
                        PAY_STATUS_LABEL=st.PAY_STATUS_LABEL, NAVER_STATUS=st.NAVER_STATUS,
                        CS_LEVEL_LABEL=st.CS_LEVEL_LABEL, CS_STATUS_LABEL=st.CS_STATUS_LABEL,
                        ROLE_LABEL=st.ROLE_LABEL, WORK_KIND_LABEL=st.WORK_KIND_LABEL,
-                       ASSET_KIND_LABEL=st.ASSET_KIND_LABEL, QC_ITEMS=st.QC_ITEMS, SPEC_FIELDS=st.SPEC_FIELDS, TEST_MODE_GATES=st.TEST_MODE_GATES, CONTRACT_SPEC_FIELDS=st.CONTRACT_SPEC_FIELDS,
+                       ASSET_KIND_LABEL=st.ASSET_KIND_LABEL, QC_ITEMS=st.QC_ITEMS, SPEC_FIELDS=st.SPEC_FIELDS, TOPIC_LABEL=_cs_labels()[0], KIND_LABEL=_cs_labels()[1], TEST_MODE_GATES=st.TEST_MODE_GATES, CONTRACT_SPEC_FIELDS=st.CONTRACT_SPEC_FIELDS,
                        FACTORY_SPEC_FIELDS=st.FACTORY_SPEC_FIELDS, QUEUES=st.QUEUES, GATES=st.GATES)

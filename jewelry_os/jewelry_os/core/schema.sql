@@ -846,6 +846,23 @@ CREATE TABLE IF NOT EXISTS refund_events (
 CREATE TRIGGER IF NOT EXISTS revent_no_update BEFORE UPDATE ON refund_events BEGIN SELECT RAISE(ABORT, 'refund events are append-only'); END;
 CREATE TRIGGER IF NOT EXISTS revent_no_delete BEFORE DELETE ON refund_events BEGIN SELECT RAISE(ABORT, 'refund events are append-only'); END;
 
+-- D-31 카카오톡 대화 AI 정리(정해진 JSON). 대화가 늘면 새로 정리하고 이전 결과도 남긴다.
+CREATE TABLE IF NOT EXISTS cs_digests (
+  id INTEGER PRIMARY KEY,
+  thread_id INTEGER NOT NULL REFERENCES cs_threads(id),
+  order_id INTEGER REFERENCES orders(id),
+  upto_message_id INTEGER NOT NULL,
+  message_count INTEGER NOT NULL,
+  status TEXT NOT NULL,
+  result_json TEXT,
+  error_kind TEXT,
+  model_id TEXT,
+  prompt_version TEXT NOT NULL,
+  created_by INTEGER,
+  created_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS ix_cs_digest_thread ON cs_digests(thread_id, id);
+
 -- 관리자가 본인임을 확인한 계약 이메일(Google 인증 이메일). 다음 계약부터 같은 고객 확인에 쓴다.
 CREATE TABLE IF NOT EXISTS customer_identities (
   id INTEGER PRIMARY KEY,

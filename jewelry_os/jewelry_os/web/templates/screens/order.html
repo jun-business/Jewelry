@@ -45,8 +45,8 @@
 
 <div class="detail">
 <div class="detail-main">
-<nav class="tabs" aria-label="주문 상세 탭" data-scroll-x>
-{% for key, lab in tabs %}<a href="/orders/{{ o.order_no }}/{{ key }}" {% if key == tab %}aria-current="page"{% endif %}>{{ lab }}{% if tab_alert.get(key) %}<span class="dot" aria-hidden="true"></span><span class="sr-only"> (확인 필요)</span>{% endif %}</a>{% endfor %}
+<nav class="tabs" id="tabs" aria-label="주문 상세 탭" data-scroll-x>
+{% for key, lab in tabs %}<a href="/orders/{{ o.order_no }}/{{ key }}#tabs" {% if key == tab %}aria-current="page"{% endif %}>{{ lab }}{% if tab_alert.get(key) %}<span class="dot" aria-hidden="true"></span><span class="sr-only"> (확인 필요)</span>{% endif %}</a>{% endfor %}
 </nav>
 {% include "screens/tabs/" ~ tab ~ ".html" %}
 </div>

@@ -90,7 +90,9 @@ async def cs_thread_page(request: Request, tid: int):
     if t["order_id"]:
         no = ctx.db.scalar("SELECT order_no FROM orders WHERE id=?", (t["order_id"],))
         return RedirectResponse(f"/orders/{no}/cs", 303)
-    return render(request, "screens/cs_thread.html", {"t": t, "messages": kakao_import.thread_messages(ctx, tid)})
+    from ..services import cs_digest
+    return render(request, "screens/cs_thread.html", {"t": t, "messages": kakao_import.thread_messages(ctx, tid),
+                                                       "digest": cs_digest.view(ctx, thread_id=tid)})
 
 
 @router.post("/cs/threads/{tid:int}/{op}")
@@ -103,6 +105,11 @@ async def cs_thread_op(request: Request, tid: int, op: str):
             st = kakao_import.import_chat(ctx, request.state.user, await _chat_text(f), thread_id=tid)
             msg = f"새 대화 {st['new']}개를 기록했어요." + (f" 이미 있던 {st['dup']}개는 건너뛰었어요." if st["dup"] else "")
             return flash_redirect(f"/cs/threads/{tid}", msg)
+        if op == "digest":
+            from ..services import cs_digest
+            st = cs_digest.run(ctx, request.state.user, thread_id=tid, force=True)
+            return flash_redirect(f"/cs/threads/{tid}", "대화를 다시 정리했어요." if st == "OK" else
+                                  cs_digest.STATUS_LABEL.get(st, "정리하지 못했어요."), "success" if st == "OK" else "error")
         if op == "link":
             o = orders.get(ctx, (f.get("order_no") or "").strip())
             if o is None:

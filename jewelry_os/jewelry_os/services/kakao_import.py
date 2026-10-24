@@ -109,7 +109,11 @@ def import_chat(ctx, actor, text: str, *, order=None, thread_id: int | None = No
                 dup += 1
         audit.record(c, "cs_thread", tid, actor, "kakao_chat_imported", order_id=order["id"] if order else None,
                      detail={"new": new, "dup": dup})
-    return {"thread_id": tid, "new": new, "dup": dup, "total": len(msgs)}
+    digest = None
+    if new:  # 새 메시지가 있으면 AI 정리(D-31) — 실패해도 가져오기는 끝난 상태
+        from . import cs_digest
+        digest = cs_digest.run(ctx, actor, thread_id=None if order else tid, order=order)
+    return {"thread_id": tid, "new": new, "dup": dup, "total": len(msgs), "digest": digest}
 
 
 def _guess_title(msgs, ours) -> str:
@@ -156,3 +160,5 @@ def link_order(ctx, tid, order, actor) -> None:
             c.execute("UPDATE cs_threads SET order_id=?, title=COALESCE(title, '') || ' (주문 대화에 합침)' WHERE id=?",
                       (order["id"], tid))
         audit.record(c, "cs_thread", tid, actor, "cs_thread_linked", order_id=order["id"], next=order["order_no"])
+    from . import cs_digest
+    cs_digest.run(ctx, actor, order=order)  # 주문 대화 전체로 다시 정리

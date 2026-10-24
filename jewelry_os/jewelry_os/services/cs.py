@@ -68,8 +68,12 @@ def create_draft(ctx, o, actor, question: str, body: str | None = None, level: s
     unclear: list[str] = []
     if body is None:
         try:
-            r = ctx.analyzer.draft_cs(question, {"phase_label": _phase_label(o)},
-                                      dict(pol) if pol else None)
+            from . import cs_digest
+            octx = {"phase_label": _phase_label(o)}
+            dg = cs_digest.for_draft(ctx, o)
+            if dg:
+                octx["chat_digest"] = dg  # D-31: 대화 정리를 답변 근거로
+            r = ctx.analyzer.draft_cs(question, octx, dict(pol) if pol else None)
             body, level, unclear = r["draft_reply"], r["level"], r.get("unclear") or []
         except AnalyzerError:
             body, level, source = "", level or "L2", "manual"
