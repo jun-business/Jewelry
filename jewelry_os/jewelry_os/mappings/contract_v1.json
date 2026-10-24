@@ -1,0 +1,97 @@
+{
+  "version": "contract_v1.1",
+  "form_title": "JOS_B2C_Contract_v1",
+  "note": "Form B(견적 승인·주문제작 계약 동의) v1.1 — 6개 섹션·9개 필수 문항. 질문 ID는 Forms API forms.get으로 확인한 실제 값(2026-10-24, revisionId 00000079). 사전입력 entry 번호는 questionId(16진수)를 10진수로 바꾼 값이며 실제 미리 채우기 화면에서 따로 확인한다(prefill_check).",
+  "prefill": {
+    "order_no": {
+      "question_id": "4094127c",
+      "entry": "entry.1083445884",
+      "title": "Q1. 주문번호"
+    },
+    "quote_ref": {
+      "question_id": "20abc184",
+      "entry": "entry.548127108",
+      "title": "Q2. 견적서 번호 및 버전"
+    },
+    "code": {
+      "question_id": "1f78e9e0",
+      "entry": "entry.528017888",
+      "title": "Q3. 계약 확인코드"
+    }
+  },
+  "consents": [
+    {
+      "key": "q4_quote",
+      "question_id": "05334d3a",
+      "title": "Q4. 확정 견적 및 제작 조건 동의",
+      "accept": "확인하고 동의합니다.",
+      "refuse": [
+        "동의하지 않습니다."
+      ]
+    },
+    {
+      "key": "q5_payment",
+      "question_id": "7cf8deb5",
+      "title": "Q5. 예약금 1/3·잔금 2/3 결제 조건 동의",
+      "accept": "확인하고 동의합니다.",
+      "refuse": [
+        "동의하지 않습니다."
+      ]
+    },
+    {
+      "key": "q6_withdrawal",
+      "question_id": "71579113",
+      "title": "Q6. 개별 주문제작·청약철회 제한 가능성 별도 동의",
+      "accept": "해당 거래의 고지 내용을 확인하고 동의합니다.",
+      "refuse": [
+        "동의하지 않습니다."
+      ]
+    },
+    {
+      "key": "q6_1_refund_policy",
+      "question_id": "46ab9313",
+      "title": "Q6-1. 제작 단계별 취소·환불 정책 확인",
+      "accept": "내용을 확인했습니다.",
+      "explain": [
+        "추가 설명이 필요합니다."
+      ]
+    },
+    {
+      "key": "q7_aftercare",
+      "question_id": "76709415",
+      "title": "Q7. 배송·반품·하자·A/S 처리 안내 확인",
+      "accept": "안내 내용을 확인했습니다.",
+      "explain": [
+        "추가 설명이 필요합니다."
+      ]
+    },
+    {
+      "key": "q8_final",
+      "question_id": "2968b885",
+      "title": "Q8. 최종 계약 진행 동의",
+      "accept": "확인하고 계약 진행에 동의합니다.",
+      "refuse": [
+        "계약 진행에 동의하지 않습니다."
+      ]
+    }
+  ],
+  "prefill_check": {
+    "status": "UNVERIFIED",
+    "checked_at": null,
+    "evidence": null
+  },
+  "policy_sections": {
+    "withdrawal": {
+      "item_id": "0817b305",
+      "title": "개별 주문제작 및 청약철회 관련 별도 동의 고지"
+    },
+    "refund": {
+      "item_id": "1ab70d71",
+      "title": "제작 단계별 취소 및 환불 안내"
+    },
+    "aftercare": {
+      "item_id": "2b0bbcc6",
+      "title": "배송 및 사후관리 안내"
+    }
+  }
+}

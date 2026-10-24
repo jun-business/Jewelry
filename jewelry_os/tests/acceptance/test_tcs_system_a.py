@@ -22,6 +22,7 @@ from jewelry_os.services import (alerts, analysis, audit, backup, cs, customers,
                                  quotes, settings)
 from jewelry_os.web.app import create_app
 from webutil import web
+from jewelry_os.devtools import pay_balance
 
 QC_PASS = {k: "pass" for k in ("spec", "purity_engraving", "size", "finish", "setting", "fit")}
 
@@ -422,6 +423,7 @@ def test_tcs_030_design_packet(ctx, maker, operator):
     r = act(w, no, "build_packet", reason="공장과 통화함")
     assert r.status_code == 409 and "G-SPEC-DIFF" in r.text  # 사유로 우회 불가(코드는 속성)
     w.post(f"/orders/{no}/factory-spec", data={**spec, "purity": "18K"})
+    pay_balance(ctx, no, operator)  # D-24 Gate 2: 잔금 2/3 확인 후 발주
     assert act(w, no, "build_packet").status_code == 303
     r = w.post(f"/orders/{no}/actions/send_factory", data={"expected_at": "2026-11-20"})
     assert r.status_code == 409  # G-CONFIRM

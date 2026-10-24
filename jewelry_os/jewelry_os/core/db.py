@@ -7,7 +7,7 @@ import threading
 from contextlib import contextmanager
 from pathlib import Path
 
-SCHEMA_VERSION = "2"
+SCHEMA_VERSION = "3"
 _SCHEMA = (Path(__file__).with_name("schema.sql")).read_text(encoding="utf-8")
 
 
@@ -23,6 +23,9 @@ class Database:
         try:
             c.executescript(_SCHEMA)
             _migrate(c)
+            # D-24: 이 시점 이후 고객 동의가 기록되는 주문부터 Form B 계약·발주 전 잔금 조건을 적용
+            from .clock import now_iso
+            c.execute("INSERT OR IGNORE INTO meta(key, value) VALUES ('contract_gate_since', ?)", (now_iso(),))
             c.execute("INSERT OR IGNORE INTO meta(key, value) VALUES ('schema_version', ?)", (SCHEMA_VERSION,))
             c.execute("UPDATE meta SET value=? WHERE key='schema_version'", (SCHEMA_VERSION,))
         finally:

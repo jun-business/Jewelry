@@ -6,7 +6,7 @@ import logging
 from datetime import timedelta
 
 from ..core import clock
-from . import alerts, analysis, backup, intake, settings
+from . import alerts, analysis, backup, contracts, intake, settings
 
 log = logging.getLogger("jos.system")
 
@@ -30,6 +30,7 @@ def on_startup(ctx) -> int:
 def first_sync_after_startup(ctx, startup_id) -> dict:
     stats = intake.sync_once(ctx)
     intake.fetch_pending_files(ctx)
+    stats["contracts"] = contracts.sync_once(ctx)  # 꺼져 있던 동안의 Form B 응답도 다시 읽는다(D-24)
     with ctx.db.tx() as c:
         c.execute("UPDATE startup_events SET backfilled=? WHERE id=?", (stats.get("new", 0), startup_id))
     alerts.evaluate(ctx)
@@ -125,9 +126,17 @@ async def scheduler_loop(ctx, stop: asyncio.Event):
             cur = ctx.db.one("SELECT next_attempt_at FROM sync_cursors WHERE provider='google_forms' AND scope=?",
                              (settings.get(ctx, "google_form_id"),))
             nxt = clock.parse(cur["next_attempt_at"]) if cur and cur["next_attempt_at"] else None
-            if (last_sync is None or clock.now() - last_sync >= interval) and (nxt is None or clock.now() >= nxt):
+            due = last_sync is None or clock.now() - last_sync >= interval
+            if due and (nxt is None or clock.now() >= nxt):
                 await asyncio.to_thread(intake.sync_once, ctx)
                 await asyncio.to_thread(intake.fetch_pending_files, ctx)
+            fb = contracts.form_id(ctx)
+            cur_b = ctx.db.one("SELECT next_attempt_at FROM sync_cursors WHERE provider='google_forms' AND scope=?",
+                               (fb,)) if fb else None
+            nxt_b = clock.parse(cur_b["next_attempt_at"]) if cur_b and cur_b["next_attempt_at"] else None
+            if due and fb and (nxt_b is None or clock.now() >= nxt_b):  # Form B도 같은 주기·같은 재시도 규칙(D-24)
+                await asyncio.to_thread(contracts.sync_once, ctx)
+            if due:
                 last_sync = clock.now()
             await asyncio.to_thread(alerts.evaluate, ctx)
             k = clock.kst(clock.now())

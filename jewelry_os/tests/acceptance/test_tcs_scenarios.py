@@ -21,6 +21,7 @@ from jewelry_os.services import (alerts, analysis, capacity, cs, customers, inta
                                  payments, quotes, settings)
 from jewelry_os.web.app import create_app
 from webutil import web
+from jewelry_os.devtools import form_b_response
 
 PKG = Path(__file__).resolve().parents[2] / "jewelry_os"
 
@@ -97,18 +98,24 @@ def test_tcs_002_e2e(ctx, maker, operator, fclock):
     quotes.save(ctx, qid, maker, quotes.QuoteForm(
         items=[{"kind": "metal", "label": "18K 금", "amount": "900000", "cost": "500000"},
                {"kind": "design", "label": "설계비", "amount": "300000", "cost": "0"}],
-        spec={"material": "골드", "purity": "18K", "size": "12호", "stones": "없음", "engraving": "없음"},
+        spec={"material": "골드", "purity": "18K", "size": "12호", "stones": "없음", "engraving": "없음",
+              "custom_made": "12호·18K 1점 맞춤 제작", "loss_reasons": "맞춤 호수로 재판매 불가"},
         tax_included=True, shipping_included=True, promised_date="2026-12-15", valid_until="2026-11-30", variable_cost=50000))
     assert act(wm, no, "approve_quote").status_code == 303
     page()
-    r = act(wm, no, "record_acceptance", channel="카카오톡", evidence="")
-    assert r.status_code == 409 and 'data-unmet-code="G-ACCEPT-EVIDENCE"' in r.text
-    assert re.search(r">[^<]*G-ACCEPT-EVIDENCE", r.text) is None  # 코드는 속성에만, 화면 문구에 노출 없음
+    r = act(wm, no, "record_acceptance", channel="카카오톡", evidence="견적 좋아요 답장")
+    assert r.status_code == 409 and 'data-unmet-code="G-CONTRACT-REQUIRED"' in r.text  # D-24: 수기 기록으로는 진행 불가
+    assert re.search(r">[^<]*G-CONTRACT-REQUIRED", r.text) is None  # 코드는 속성에만, 화면 문구에 노출 없음
     assert ctx.db.scalar("SELECT COUNT(*) FROM customer_acceptances") == 0  # ⑦
-    assert act(wm, no, "record_acceptance", channel="카카오톡", evidence="견적 좋아요 답장",
-               accepted_at="2026-10-20T13:00").status_code == 303
+    assert wo.post(f"/orders/{no}/contract/issue", data={}).status_code == 303  # 계약 동의 링크(Form B)
+    rid = ctx.db.scalar("SELECT id FROM contract_requests")
+    assert "entry.528017888=TG-" in wo.get(f"/orders/{no}/quote").text  # 사전입력 링크가 화면에(복사용)
+    form_b_response(ctx, rid)  # 고객이 링크로 제출
+    assert wo.post(f"/orders/{no}/contract/sync", data={}).status_code == 303
+    assert wo.post(f"/contracts/{rid}/review", data={"method": "consult_channel", "note": "카톡 상담방에서 본인 확인",
+                                                      "remember_email": "on"}).status_code == 303
     acc = ctx.db.one("SELECT * FROM customer_acceptances")
-    assert acc["quote_version"] == 1 and acc["terms_version"] and acc["channel"] == "카카오톡" and acc["accepted_at"]  # ⑧
+    assert acc["quote_version"] == 1 and acc["terms_version"] and acc["channel"] == "Form B 전자 동의" and acc["accepted_at"]  # ⑧
     assert act(wo, no, "create_payment_req").status_code == 303
     page(wo)
     assert act(wo, no, "record_payment", naver_order_id="N1", naver_product_order_id="P1", amount="400,000",
@@ -123,15 +130,17 @@ def test_tcs_002_e2e(ctx, maker, operator, fclock):
     manufacturing.save_factory_spec(ctx, get(ctx, no), maker, {"material": "골드", "purity": "18K", "size": "12호",
                                                                 "stones": "없음", "engraving": "없음", "finish_na": "on",
                                                                 "special_na": "on", "stl_asset_id": stl})
+    assert act(wm, no, "build_packet").status_code == 409  # D-24 Gate 2: 잔금 전 발주 불가
+    assert act(wo, no, "create_balance_req").status_code == 303
+    assert act(wo, no, "record_payment", phase="BALANCE", naver_order_id="N2", naver_product_order_id="P2",
+               amount="800000", naver_status="PAYED", looked_up_at="2026-11-20T10:00").status_code == 303
     assert act(wm, no, "build_packet").status_code == 303
     assert act(wm, no, "send_factory", expected_at="2026-11-20").status_code == 303
     page()
     assert act(wm, no, "receive", received_at="2026-11-19", actual_cost="600,000").status_code == 303
     qc = {k: "pass" for k in ("spec", "purity_engraving", "size", "finish", "setting", "fit")}
     assert act(wm, no, "record_qc", **qc).status_code == 303
-    assert act(wo, no, "create_balance_req").status_code == 303
-    assert act(wo, no, "record_payment", phase="BALANCE", naver_order_id="N2", naver_product_order_id="P2",
-               amount="800000", naver_status="PAYED", looked_up_at="2026-11-20T10:00").status_code == 303
+    assert act(wo, no, "verify_final_paid").status_code == 303  # 발주 전에 확인한 잔금으로 잔금 확인 단계
     assert get(ctx, no)["lifecycle_state"] == "FINAL_PAYMENT_VERIFIED"
     r = act(wm, no, "ship", method="택배", platform_status="배송중")
     assert r.status_code == 409  # ⑨ 배송 정보(수령인) 누락

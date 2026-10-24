@@ -1,0 +1,64 @@
+{# D-24·D-25 계약 동의(Form B) — 주문 상세 #}
+{% set k = contract %}
+<section class="card" id="contract" aria-labelledby="ct-t">
+<div class="card-head"><h2 id="ct-t">계약 동의(Form B)</h2>
+<span class="chips">{{ chip(CONTRACT_CHIP[k.status if k else "NOT_ISSUED"], CONTRACT_LABEL[k.status if k else "NOT_ISSUED"]) }}{% if k and k.is_test %}{{ chip("test", "시험", "flask") }}{% endif %}</span></div>
+{% if not contract_ready.ready %}
+{{ banner("warning", "Form B 설정 대기", contract_ready.reason ~ " — 설정 > Google 연동에서 확인하세요.", ic="alert") }}
+{% endif %}
+<dl class="kv">
+<dt>견적 확정 상태</dt><dd>{% if q_appr %}v{{ q_appr.version }} 승인됨 · 견적번호 <span class="mono">{{ q_appr_ref }}</span>{% else %}확정 견적 없음{% endif %}</dd>
+{% if q_appr and not q_appr_loss_ok %}<dt>견적서 고지</dt><dd class="err">개별 주문제작 특성·청약철회 시 예상 손해 사유가 비어 있어요. 새 견적 버전에 적어 승인해야 링크를 만들 수 있어요.</dd>{% endif %}
+<dt>링크 생성</dt><dd>{% if k %}발행 {{ k.issued_at|kdatetime }} · 적용 정책 {{ k.refund_policy_version or k.contract_form_schema_version }}{% else %}아직 만들지 않았어요{% endif %}</dd>
+{% if k %}<dt>고객에게 보냄</dt><dd>{% if k.delivered_at %}{{ CONTRACT_CHANNELS.get(k.delivered_channel, k.delivered_channel) }} · {{ k.delivered_at|kdatetime }} · {{ k.delivered_note }}{% else %}<span class="missing">보낸 기록 없음</span>{% endif %}</dd>
+<dt>고객 제출</dt><dd>{% if contract_resps %}{{ contract_resps|length }}건 · 마지막 {{ contract_resps[-1].last_submitted_time|kdatetime }}{% else %}아직 없음{% endif %}</dd>
+<dt>고객 식별 검증</dt><dd>{% if k.identity_status == "VERIFIED" %}{{ chip("done", "확인됨", "check") }} {{ CONTRACT_IDENTITY.get(k.identity_method, k.identity_method) }}{% if k.identity_at %} · {{ k.identity_at|kdatetime }}{% endif %}{% else %}{{ chip("hold", "미확인") }}{% endif %}</dd>
+<dt>최종 계약 유효</dt><dd>{% if k.status == "ACCEPTED" %}{{ chip("done", "유효", "check") }} {{ k.decided_at|kdatetime }}{% else %}아니요{% endif %}</dd>{% endif %}
+</dl>
+{% if contract_rows %}
+<div class="table-wrap"><table><caption>동의 항목별 결과</caption><thead><tr><th scope="col">항목</th><th scope="col">고객 답</th><th scope="col">결과</th></tr></thead><tbody>
+{% for r in contract_rows %}<tr><td>{{ r.title }}</td><td>{{ r.answer }}</td><td>{% if r.ok %}{{ chip("done", "확인", "check") }}{% else %}{{ chip("issue", "미충족", "x") }}{% endif %}</td></tr>{% endfor %}
+</tbody></table></div>
+{% endif %}
+{% if contract_problems %}<ul class="blocked" data-unmet>{% for p in contract_problems %}<li data-contract-problem="{{ p.code }}">{{ icon("alert" if p.soft else "octagon", "sm") }}<span>{{ p.text }}{% if not p.soft %} <span class="t-sm">— 새로 발행해야 해요</span>{% endif %}</span></li>{% endfor %}</ul>{% endif %}
+{% if contract_unmatched %}<p class="t-sm">{{ icon("alert", "sm") }} 확인코드가 맞지 않아 연결하지 않은 응답 {{ contract_unmatched|length }}건이 있어요(주문번호만 같음). 지우지 않고 보관해요.</p>{% endif %}
+
+{% if q_appr and contract_ready.ready and o.lifecycle_state not in ("CLOSED", "DECLINED", "CANCELLED") %}
+<div class="btn-row">
+{% if not k %}
+<form method="post" action="/orders/{{ o.order_no }}/contract/issue">{{ csrf_input() }}<button class="btn btn-primary" type="submit">{{ icon("plus", "sm") }}계약 동의 링크 생성</button></form>
+{% elif k.status in ("REVIEW_REQUIRED", "REJECTED") %}
+<form method="post" action="/orders/{{ o.order_no }}/contract/issue">{{ csrf_input() }}<input type="hidden" name="reissue" value="1"><button class="btn btn-secondary" type="submit">새 확인코드로 다시 발행</button></form>
+{% endif %}
+{% if k %}<form method="post" action="/orders/{{ o.order_no }}/contract/sync">{{ csrf_input() }}<button class="btn btn-tertiary" type="submit">{{ icon("refresh", "sm") }}계약 동의 상태 확인</button></form>
+<a class="btn btn-tertiary" href="/contracts/{{ k.id }}">{{ icon("file", "sm") }}계약 동의 내역 보기</a>{% endif %}
+</div>
+{% endif %}
+
+{% if k and contract_url and k.status in ("ISSUED", "RESPONSE_RECEIVED", "REVIEW_REQUIRED") %}
+<div class="field"><label for="ct-link">고객에게 보낼 링크(카카오톡으로 직접 전달)</label>
+<input id="ct-link" class="mono link-field" readonly value="{{ contract_url }}" aria-describedby="ct-link-help">
+<p class="help" id="ct-link-help">주문번호·견적번호·확인코드가 미리 채워져 있어요. 고객은 동의 항목만 고르면 돼요. 확인코드는 본인 인증이 아니에요 — 제출 후 본인 확인을 따로 해요.</p></div>
+<div class="btn-row"><button class="btn btn-secondary" type="button" data-copy="ct-link" data-copy-log="/contracts/{{ k.id }}/copied">{{ icon("copy", "sm") }}링크 복사</button></div>
+{% if not k.delivered_at %}
+<form method="post" action="/contracts/{{ k.id }}/delivered" enctype="multipart/form-data" class="stack">{{ csrf_input() }}
+<div class="grid-3"><div class="field"><label for="ct-ch">보낸 채널</label><select id="ct-ch" name="channel">{% for kk, lab in CONTRACT_CHANNELS.items() %}<option value="{{ kk }}">{{ lab }}</option>{% endfor %}</select></div>
+{{ text("note", "메모(예: 카카오톡 상담방에 링크 전송)", "") }}
+<div class="field"><label for="ct-ev">전송 화면 캡처(선택)</label><input id="ct-ev" type="file" name="evidence" accept=".jpg,.jpeg,.png,.webp,.pdf"></div></div>
+<button class="btn btn-tertiary" type="submit">고객에게 보냄 기록</button></form>
+{% endif %}
+{% endif %}
+
+{% if k and k.status in ("REVIEW_REQUIRED", "RESPONSE_RECEIVED") and contract_resps %}
+<form method="post" action="/contracts/{{ k.id }}/review" class="stack" aria-labelledby="ct-rv-t">{{ csrf_input() }}
+<h3 id="ct-rv-t">운영자 검증·본인 확인</h3>
+<p class="t-sm">제출한 Google 계정: {{ contract_email_masked }}. 기존 연락처나 확인된 상담 채널로 고객 본인이 제출했는지 확인하세요. 주문번호·견적 불일치나 동의 거부·설명 요청은 여기서 풀 수 없어요.</p>
+<div class="grid-2"><div class="field"><label for="ct-m">확인 방법</label><select id="ct-m" name="method">{% for kk, lab in CONTRACT_IDENTITY.items() %}{% if kk != "verified_email" or k.identity_method == "verified_email" %}<option value="{{ kk }}">{{ lab }}</option>{% endif %}{% endfor %}</select></div>
+{{ text("note", "확인 근거(필수)", "") }}</div>
+<label class="choice"><input type="checkbox" name="remember_email" value="on" checked> 이 Google 계정을 이 고객의 확인된 계약 이메일로 기억</label>
+<button class="btn btn-primary" type="submit">검증 완료</button></form>
+{% endif %}
+{% if k and k.status == "ACCEPTED" and o.lifecycle_state == "QUOTE_APPROVED" %}
+<form method="post" action="/orders/{{ o.order_no }}/contract/apply">{{ csrf_input() }}<p class="t-sm">계약은 유효하지만 주문에 아직 반영되지 않았어요(보류 등으로 막혔던 경우).</p><button class="btn btn-primary" type="submit">고객 동의 완료로 반영</button></form>
+{% endif %}
+</section>

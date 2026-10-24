@@ -108,6 +108,8 @@ QC_ITEMS = [("spec", "사양 일치"), ("purity_engraving", "금속 함량·각�
             ("finish", "외관"), ("setting", "세팅"), ("fit", "착용감")]
 
 SPEC_FIELDS = [("material", "소재"), ("purity", "함량"), ("size", "호수·규격"), ("stones", "스톤"), ("engraving", "각인")]
+# Form B v1.1(D-25): 견적서에 주문별로 적는 개별 제작 특성·청약철회 시 예상 손해 사유(고객 문서에 표시, 계약 증거)
+CONTRACT_SPEC_FIELDS = [("custom_made", "개별 주문제작 특성"), ("loss_reasons", "청약철회 시 예상되는 회복하기 어려운 손해 사유")]
 FACTORY_SPEC_FIELDS = SPEC_FIELDS + [("finish", "도금·마감"), ("special", "특수 지시")]
 
 GATES = [

@@ -28,6 +28,7 @@ DEFAULTS = {
     "google_mode": "auto",               # auto | mock | live — auto: Google 계정이 연결돼 있으면 live, 아니면 mock(D-20)
     "google_form_purpose": "test",       # test | public — H3: 실고객 운영 승인 전까지 시험 폼
     "google_form_id": "1xE5XV0lHA9URgOdTYFvcZhM5T-ZYbecH5bXDsSGxF_o",  # 틴틴골드 의뢰 폼(D-20)
+    "contract_form_id": "17H2mNNKU0s2RayLkau2Px-IP2TOHsviHRWbp1UXloZ8",  # Form B JOS_B2C_Contract_v1(D-24) — Form A와 별도
     "intake_question_binding": {         # 실제 폼 질문 ID → intake 필드(SRS-004 r2, 설정 > 폼 매핑) — 틴틴골드 의뢰 폼(D-22)
         "702b0596": "product_type", "219660f9": "description", "2388b48b": "reference_link", "7fb11e99": "material",
         "536a57ff": "size", "5d016376": "stones", "42b53d66": "engraving", "2d039a95": "budget_range",

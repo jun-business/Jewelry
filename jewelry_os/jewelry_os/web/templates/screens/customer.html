@@ -10,6 +10,10 @@
 <dt>동의 버전</dt><dd>{{ c.consent_version or "없음" }}</dd>
 <dt>마지막 확정 사양</dt><dd>{% if d.last_spec %}{% for k, lab in SPEC_FIELDS %}{% if d.last_spec.get(k) %}{{ lab }} {{ d.last_spec[k] }} · {% endif %}{% endfor %}{% else %}—{% endif %}</dd></dl></section>
 <section class="card"><h2>주문 {{ d.orders|length }}건</h2><ul class="timeline">{% for o in d.orders %}<li>{{ icon("list", "sm") }}<span><a class="mono" href="/orders/{{ o.order_no }}">{{ o.order_no }}</a> · {{ o.product_type or "—" }} · {{ state_chip(o.lifecycle_state) }} <span class="meta">{{ o.created_at|kdate }}</span></span></li>{% endfor %}</ul></section>
+<section class="card" aria-labelledby="cc-t"><h2 id="cc-t">계약 동의 기록(주문별)</h2>
+{% if contracts %}<div class="table-wrap"><table><caption class="sr-only">계약 동의 기록</caption><thead><tr><th scope="col">주문</th><th scope="col">견적</th><th scope="col">상태</th><th scope="col">발행</th><th scope="col">확정</th><th scope="col"></th></tr></thead><tbody>
+{% for k in contracts %}<tr><td class="mono"><a href="/orders/{{ k.order_no }}">{{ k.order_no }}</a></td><td class="mono">{{ k.quote_ref }}</td><td>{{ chip(CONTRACT_CHIP[k.status], CONTRACT_LABEL[k.status]) }}</td><td>{{ k.issued_at|kdatetime }}</td><td>{{ k.decided_at|kdatetime if k.decided_at else "—" }}</td><td><a href="/contracts/{{ k.id }}">증거 보기</a></td></tr>{% endfor %}
+</tbody></table></div>{% else %}<p class="t-muted">아직 계약 동의 기록이 없어요.</p>{% endif %}</section>
 {% if others %}
 <section class="card"><h2>같은 고객으로 연결</h2><p class="t-sm">이름·전화가 같아도 자동으로 합치지 않아요. 직접 확인한 뒤 연결하세요.</p>
 <form method="post" action="/customers/{{ c.id }}/link">{{ csrf_input() }}<div class="field"><label for="other">연결할 고객</label><select id="other" name="other_id">{% for x in others %}<option value="{{ x.id }}">{{ x.display_name }} (주문 {{ x.n_orders }}건)</option>{% endfor %}</select></div>

@@ -4,7 +4,8 @@ from __future__ import annotations
 from .adapters import google as g
 from .core import security
 from .domain import transitions as tr
-from .services import intake, manufacturing, orders, payments, quotes, settings
+from .core import clock
+from .services import contracts, intake, manufacturing, orders, payments, quotes, settings
 
 FIRST = ["김하늘", "김하나", "박민수", "이서연", "최지우", "정다은", "한유진", "오세훈", "윤아름", "장미래", "임하준", "서보람"]
 
@@ -29,6 +30,46 @@ def users(ctx):
             security.User(o["id"], o["username"], o["display_name"], "operator", {}))
 
 
+def form_b_response(ctx, req_id, *, response_id=None, email="customer@example.com", order_no=None, quote_ref=None,
+                    code=None, consents=None, submitted=None, drop=()) -> dict:
+    """Form B 응답 1건을 Mock 폼에 넣는다(Forms API responses 리소스 모양). 기본값 = 사전입력 그대로 + 전부 동의."""
+    req = contracts.get(ctx, req_id)
+    o = ctx.db.one("SELECT order_no FROM orders WHERE id=?", (req["order_id"],))
+    m = contracts.mapping()
+    vals = {m["prefill"]["order_no"]["question_id"]: order_no if order_no is not None else o["order_no"],
+            m["prefill"]["quote_ref"]["question_id"]: quote_ref if quote_ref is not None else req["quote_ref"],
+            m["prefill"]["code"]["question_id"]: code if code is not None else contracts.code_of(ctx, req)}
+    for cdef in m["consents"]:
+        vals[cdef["question_id"]] = (consents or {}).get(cdef["key"], cdef["accept"])
+    at = submitted or clock.now_iso().replace("+00:00", "Z")
+    r = {"formId": req["form_id"], "responseId": response_id or f"ACYfb{req_id}x{len(ctx.forms.by_form.get(req['form_id'], []))}",
+         "createTime": at, "lastSubmittedTime": at,
+         "answers": dict(g.text_answer(q, v) for q, v in vals.items() if q not in drop and v is not None)}
+    if email:
+        r["respondentEmail"] = email
+    ctx.forms.add_to(req["form_id"], r)
+    return r
+
+
+def accept_contract(ctx, o, operator, email=None) -> int:
+    """시험·시연: 계약 링크 발행 → 고객 Form B 제출 → 수집 → 운영자 본인 확인(D-24)."""
+    rid = contracts.issue(ctx, o, operator)
+    form_b_response(ctx, rid, email=email or f"customer{o['customer_id']}@example.com")
+    contracts.sync_once(ctx, sleep=lambda s: None)
+    if contracts.get(ctx, rid)["status"] == "REVIEW_REQUIRED":
+        contracts.review(ctx, rid, operator, "consult_channel", "시험: 카카오톡 상담방에서 고객 본인 제출 확인")
+    return rid
+
+
+def pay_balance(ctx, order_no, operator):
+    o = orders.get(ctx, order_no)
+    payments.create_balance(ctx, o, operator)
+    r = payments.requests_of(ctx, o["id"])[-1]
+    payments.record_payment(ctx, orders.get(ctx, order_no), operator, {
+        "confirm": "on", "phase": "BALANCE", "naver_order_id": f"N2-{order_no}", "naver_product_order_id": f"P-{order_no}-2",
+        "amount": str(r["expected_krw"]), "naver_status": "PAYED", "looked_up_at": "2026-11-20T12:00"})
+
+
 def advance(ctx, order_no, target: str, maker, operator, total=1_200_000):
     """주문을 정상 경로로 target 단계까지 진행(시험용)."""
     order = lambda: orders.get(ctx, order_no)  # noqa: E731
@@ -51,11 +92,12 @@ def advance(ctx, order_no, target: str, maker, operator, total=1_200_000):
             quotes.save(ctx, qid, maker, quotes.QuoteForm(
                 items=[{"kind": "metal", "label": "18K 금", "amount": str(total - 300_000), "cost": str(total // 2)},
                        {"kind": "design", "label": "설계비", "amount": "300000", "cost": "0"}],
-                spec={"material": "골드", "purity": "18K", "size": "12호", "stones": "없음", "engraving": "없음"},
+                spec={"material": "골드", "purity": "18K", "size": "12호", "stones": "없음", "engraving": "없음",
+                      "custom_made": "고객 손가락 호수·각인 문구에 맞춘 1점 제작", "loss_reasons": "맞춤 사이즈·각인으로 다른 고객에게 판매 불가"},
                 tax_included=True, shipping_included=True, promised_date="2026-12-15", valid_until="2026-11-30"))
             quotes.approve(ctx, order(), maker, C)
         elif st == "CUSTOMER_ACCEPTED":
-            quotes.record_acceptance(ctx, o, maker, {**C, "channel": "카카오톡", "evidence": "견적 동의 답장"})
+            accept_contract(ctx, o, operator)  # D-24: 고객 동의 = Form B 계약 동의(자동 반영)
         elif st == "PAYMENT_PENDING":
             payments.create_initial(ctx, o, operator, C)
         elif st == "INITIAL_PAYMENT_VERIFIED":
@@ -77,6 +119,8 @@ def advance(ctx, order_no, target: str, maker, operator, total=1_200_000):
             manufacturing.save_factory_spec(ctx, o, maker, {"material": "골드", "purity": "18K", "size": "12호",
                                                              "stones": "없음", "engraving": "없음", "finish_na": "on",
                                                              "special_na": "on", "stl_asset_id": stl})
+            if o["payment_policy"] != "FULL" and tr.payment_request(ctx.db.conn, o["id"], ("BALANCE",)) is None:
+                pay_balance(ctx, order_no, operator)  # D-24 Gate 2: 잔금 2/3 확인 후 발주
             manufacturing.build_packet(ctx, order(), maker)
             manufacturing.send_factory(ctx, order(), maker, {**C, "expected_at": "2026-11-20"})
         elif st == "FACTORY_RECEIVED":
@@ -87,13 +131,10 @@ def advance(ctx, order_no, target: str, maker, operator, total=1_200_000):
         elif st == "FINAL_PAYMENT_VERIFIED":
             if o["payment_policy"] == "FULL":
                 payments.verify_final_full(ctx, o, operator, C)
+            elif tr.payment_request(ctx.db.conn, o["id"], ("BALANCE",)) is not None:
+                payments.try_verify(ctx, o["id"])  # 발주 전에 확인한 잔금으로 잔금 확인 단계 통과
             else:
-                payments.create_balance(ctx, o, operator)
-                r = payments.requests_of(ctx, o["id"])[-1]
-                payments.record_payment(ctx, order(), operator, {**C, "phase": "BALANCE", "naver_order_id": f"N2-{order_no}",
-                                                                 "naver_product_order_id": f"P-{order_no}-2",
-                                                                 "amount": str(r["expected_krw"]), "naver_status": "PAYED",
-                                                                 "looked_up_at": "2026-11-20T12:00"})
+                pay_balance(ctx, order_no, operator)
         elif st == "SHIPPED":
             manufacturing.ship(ctx, o, maker, {**C, "recipient": "수령인", "method": "택배", "platform_status": "배송중"})
         elif st == "CLOSED":

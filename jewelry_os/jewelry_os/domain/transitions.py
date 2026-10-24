@@ -29,7 +29,9 @@ TRANSITIONS: dict[str, T] = {t.action: t for t in [
     T("accept", (S.OWNER_REVIEW,), S.FREE_CONCEPT, frozenset({"maker"}), "수락"),
     T("decline", (S.OWNER_REVIEW,), S.DECLINED, frozenset({"maker"}), "거절"),
     T("approve_quote", (S.FREE_CONCEPT,), S.QUOTE_APPROVED, frozenset({"maker"}), "견적 승인"),
-    T("record_acceptance", (S.QUOTE_APPROVED,), S.CUSTOMER_ACCEPTED, frozenset({"maker", "operator"}), "고객 동의 기록"),
+    # D-24: Form B 계약이 유효해지면 시스템이 기록(확인된 계약 이메일 자동 확정)할 수도 있다
+    T("record_acceptance", (S.QUOTE_APPROVED,), S.CUSTOMER_ACCEPTED, frozenset({"maker", "operator", "system"}),
+      "고객 동의 기록"),
     T("create_payment_req", (S.CUSTOMER_ACCEPTED,), S.PAYMENT_PENDING, frozenset({"operator"}), "결제 요청 만들기"),
     T("verify_initial", (S.PAYMENT_PENDING,), S.INITIAL_PAYMENT_VERIFIED, frozenset({"operator"}), "첫 결제 확인"),
     T("start_cad", (S.INITIAL_PAYMENT_VERIFIED,), S.DETAIL_CAD, frozenset({"maker"}), "상세 CAD 시작"),
@@ -186,6 +188,42 @@ def valid_packet(c, order_id):
                      (order_id,)).fetchone()
 
 
+def _meta(c, key):
+    r = c.execute("SELECT value FROM meta WHERE key=?", (key,)).fetchone()
+    return r["value"] if r else None
+
+
+def contract_exempt(c, order_id) -> bool:
+    """D-24 이전에 고객 동의가 기록된 주문은 Form B 계약·발주 전 잔금 조건을 소급 적용하지 않는다."""
+    since = _meta(c, "contract_gate_since")
+    return bool(since and c.execute("SELECT 1 FROM customer_acceptances WHERE order_id=? AND kind='quote' AND "
+                                    "recorded_at<?", (order_id, since)).fetchone())
+
+
+def contract_ok(c, order_id) -> bool:
+    """현재 확정 견적 버전에 유효한(ACCEPTED) 계약 동의가 있는가(D-24)."""
+    q = latest_quote(c, order_id, "APPROVED")
+    if q is None:
+        return False
+    if c.execute("SELECT 1 FROM contract_requests WHERE order_id=? AND quote_id=? AND status='ACCEPTED'",
+                 (order_id, q["id"])).fetchone():
+        return True
+    return contract_exempt(c, order_id)
+
+
+def deposit_verified(c, order_id) -> bool:
+    r = payment_request(c, order_id, ("DEPOSIT", "FULL"))
+    return r is not None and r["status"] == "PAID_VERIFIED" and paid_sum(c, r["id"]) == r["expected_krw"]
+
+
+def balance_paid(c, o) -> bool:
+    """공장 발주 전 잔금 2/3 실제 결제 확인(D-24 Gate 2). 전액 정책·소급 제외 주문은 해당 없음."""
+    if o["payment_policy"] == "FULL" or contract_exempt(c, o["id"]):
+        return True
+    r = payment_request(c, o["id"], ("BALANCE",))
+    return r is not None and paid_sum(c, r["id"]) == r["expected_krw"]
+
+
 def _check_specific(ctx, c, o, action, payload, submitting) -> list[Unmet]:
     from ..services import capacity, settings  # 지연 import
     p = payload or {}
@@ -221,6 +259,8 @@ def _check_specific(ctx, c, o, action, payload, submitting) -> list[Unmet]:
             if s != q["total_krw"]:
                 out.append(unmet("G-QUOTE-TOTAL", sum=won(s), total=won(q["total_krw"])))
     elif action == "record_acceptance":
+        if not contract_ok(c, oid):  # D-24: 고객 동의 = 유효한 Form B 계약 동의
+            out.append(unmet("G-CONTRACT-REQUIRED"))
         if submitting and not ((p.get("channel") or "").strip() and (p.get("evidence") or "").strip()):
             out.append(unmet("G-ACCEPT-EVIDENCE"))
     elif action == "create_payment_req":
@@ -229,7 +269,16 @@ def _check_specific(ctx, c, o, action, payload, submitting) -> list[Unmet]:
             out.append(unmet("G-QUOTE-MISSING"))
         elif q["is_test"] and not settings.test_mode(ctx):
             out.append(unmet("G-TEST-QUOTE"))
+        if q is not None and not contract_ok(c, oid):  # 계약 동의 없이 예약금 청구 금지(D-24)
+            out.append(unmet("G-CONTRACT-REQUIRED"))
+    elif action == "start_cad":  # D-24 Gate 1: 유효한 계약 동의 + 예약금(또는 전액) 실제 결제 확인
+        if not contract_ok(c, oid):
+            out.append(unmet("G-CONTRACT-REQUIRED"))
+        if not deposit_verified(c, oid):
+            out.append(unmet("G-PAYMENT-UNVERIFIED"))
     elif action in ("verify_initial", "verify_final"):
+        if action == "verify_initial" and not contract_ok(c, oid):
+            out.append(unmet("G-CONTRACT-REQUIRED"))
         phases = ("DEPOSIT", "FULL") if action == "verify_initial" else ("BALANCE",)
         if action == "verify_final" and o["payment_policy"] == "FULL":
             pass  # 전액 정책: 첫 결제로 조건 충족(SRS-114)
@@ -247,6 +296,8 @@ def _check_specific(ctx, c, o, action, payload, submitting) -> list[Unmet]:
             out.append(unmet("G-ACCEPT-EVIDENCE"))
     elif action in ("build_packet", "send_factory"):
         d = latest_design(c, oid)
+        if not balance_paid(c, o):  # D-24 Gate 2: 잔금 2/3 실제 결제 확인 후 발주
+            out.append(unmet("G-BALANCE-BEFORE-FACTORY"))
         if action == "build_packet":
             if d is None or not design_acceptance(c, oid, d["id"]):
                 out.append(unmet("G-DESIGN-UNAPPROVED"))
@@ -285,7 +336,10 @@ def _check_specific(ctx, c, o, action, payload, submitting) -> list[Unmet]:
             out.append(unmet("G-QC-INCOMPLETE"))
         elif qc["result"] == "FAIL":
             out.append(unmet("G-QC-FAIL"))
-    elif action == "ship":
+    elif action == "ship":  # D-24 Gate 3: 검수 통과 기록이 있어야 발송
+        qc = c.execute("SELECT result FROM quality_checks WHERE order_id=? ORDER BY id DESC LIMIT 1", (oid,)).fetchone()
+        if qc is None or qc["result"] != "PASS":
+            out.append(unmet("G-QC-INCOMPLETE" if qc is None or qc["result"] == "INCOMPLETE" else "G-QC-FAIL"))
         if submitting and not (p.get("recipient") and p.get("method") and p.get("platform_status")):
             out.append(unmet("G-SHIP-INFO"))
     elif action == "close":
@@ -443,9 +497,10 @@ def revert_last(ctx, order_id, actor, reason: str):
         if last["action"] == "approve_quote":
             q = latest_quote(c, order_id, "APPROVED")
             if q is not None:  # 승인 견적은 불변 — 대체 처리하고 같은 내용의 새 초안을 만든다
-                from ..services import quotes
+                from ..services import contracts, quotes
                 quotes.clone_as_draft(c, q, actor)
                 c.execute("UPDATE quotes SET status='SUPERSEDED' WHERE id=?", (q["id"],))
+                contracts.supersede_for_quote(c, order_id, None, actor, "견적 승인 되돌림")
         o = _order(c, order_id)
         from ..services import audit
         audit.record(c, "order", o["order_no"], actor, "revert", order_id=order_id, prev=last["next"],

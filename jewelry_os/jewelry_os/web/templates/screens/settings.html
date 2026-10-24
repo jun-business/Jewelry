@@ -76,6 +76,17 @@
 <div class="btn-row"><form method="post" action="/system/sync-now">{{ csrf_input() }}<input type="hidden" name="back" value="/settings/google"><button class="btn btn-secondary" type="submit">{{ icon("refresh", "sm") }}지금 가져오기</button></form>
 {% if op %}<form method="post" action="/oauth/google/start">{{ csrf_input() }}<button class="btn btn-secondary" type="submit">Google 계정 연결</button></form>{% endif %}</div></div>
 
+<section class="card" id="form-b" aria-labelledby="fb-t"><h2 id="fb-t">계약 동의 폼(Form B)</h2>
+<p class="t-sm">모든 고객이 함께 쓰는 폼 하나예요. 견적 확정 뒤 주문 화면에서 고객별 사전입력 링크를 만들어요. 문의 폼(Form A)과 따로 설정·수집해요.</p>
+<dl class="kv"><dt>폼 ID</dt><dd class="mono">{{ form_b_ready.form_id or "설정 대기" }}</dd>
+<dt>상태</dt><dd>{% if form_b.ok %}{{ chip("done", "사용 가능", "check") }}{% else %}{{ chip("hold", "설정 대기") }} {{ form_b.message or "" }}{% endif %}
+{% if form_b.title %} · {{ form_b.title }} · rev {{ form_b.revision }}{% endif %}{% if form_b.mock %} · 시험용 Mock(코드에 포함된 v1.1 원본){% endif %}</dd>
+{% if form_b.title and not form_b.mock %}<dt>게시</dt><dd>{% if form_b.published %}게시됨{% else %}<strong class="err">게시되지 않았어요 — Google Forms 편집 화면 오른쪽 위 ‘게시’를 눌러야 고객이 링크를 열 수 있어요.</strong>{% endif %}</dd>{% endif %}
+{% if form_b.problems %}<dt>문항 확인</dt><dd class="err">{{ form_b.problems|join(" · ") }}</dd>{% elif form_b.title %}<dt>문항 확인</dt><dd>9개 문항·선택지가 코드 매핑(contract_v1.1)과 일치해요.</dd>{% endif %}
+<dt>사전입력 확인</dt><dd>{{ {"VERIFIED": "실제 링크에서 확인됨", "UNVERIFIED": "아직 실제 링크로 확인하지 않았어요(질문 ID로 계산한 값)"}.get(form_b_ready.prefill_check.status, "—") }}</dd>
+<dt>마지막 수집</dt><dd>{% if form_b_cursor %}{{ form_b_cursor.last_success_at|kdatetime if form_b_cursor.last_success_at else "—" }}{% if form_b_cursor.status == "ERROR" %} · {{ error_text.get(form_b_cursor.last_error_kind, form_b_cursor.last_error_kind) }}{% endif %}{% else %}아직 없음{% endif %}</dd></dl>
+</section>
+
 {% elif section == "ai" %}
 <form class="card" method="post" action="/settings/ai">{{ csrf_input() }}<h2>AI</h2>
 <fieldset><legend>공급자</legend><label class="choice"><input type="radio" name="ai_provider" value="mock" {% if s.ai_provider == "mock" %}checked{% endif %}> 시험용 규칙 기반(Mock)</label><label class="choice"><input type="radio" name="ai_provider" value="claude" {% if s.ai_provider == "claude" %}checked{% endif %}> Claude</label></fieldset>

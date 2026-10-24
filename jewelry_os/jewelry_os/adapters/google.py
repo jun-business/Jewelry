@@ -165,6 +165,10 @@ class GoogleForms:
         data = self._get(f"{FORMS_BASE}/{urllib.parse.quote(form_id)}/responses", params).json()
         return Page(data.get("responses", []), data.get("nextPageToken"))
 
+    def get_form(self, form_id: str) -> dict:
+        """forms.get — 질문 ID·제목·선택지·섹션 설명(고지 문구) 원본. drive.readonly 범위로 읽힌다."""
+        return self._get(f"{FORMS_BASE}/{urllib.parse.quote(form_id)}").json()
+
 
 class GoogleDrive:
     def __init__(self, oauth: GoogleOAuth, transport: httpx.BaseTransport | None = None):
@@ -182,6 +186,8 @@ class MockForms:
     page_size: int = 50
     errors: list[str] = field(default_factory=list)   # 다음 호출들에서 낼 오류 kind
     calls: list[dict] = field(default_factory=list)
+    by_form: dict = field(default_factory=dict)       # 다른 폼(Form B 등)의 응답 목록 {form_id: [response]}
+    bodies: dict = field(default_factory=dict)        # forms.get 결과 {form_id: body}
 
     def add(self, response_id: str, answers: dict, submitted: str, last: str | None = None):
         self.responses.append({"responseId": response_id, "createTime": submitted,
@@ -192,13 +198,27 @@ class MockForms:
         if self.errors:
             kind = self.errors.pop(0)
             raise SourceError(kind, "mock", 30 if kind == "RATE_LIMITED" else None)
-        rows = self.responses
+        rows = self.by_form[form_id] if form_id in self.by_form else self.responses
         if since_rfc3339:
             rows = [r for r in rows if r["lastSubmittedTime"] >= since_rfc3339]
         start = int(page_token or 0)
         chunk = rows[start:start + self.page_size]
         nxt = str(start + self.page_size) if start + self.page_size < len(rows) else None
         return Page(json.loads(json.dumps(chunk)), nxt)
+
+
+    def add_to(self, form_id: str, response: dict):
+        """다른 폼에 응답 추가 — Forms API responses 리소스 모양 그대로(respondentEmail 포함 가능)."""
+        self.by_form.setdefault(form_id, []).append(response)
+
+    def get_form(self, form_id: str) -> dict:
+        self.calls.append({"form_id": form_id, "get_form": True})
+        if self.errors:
+            kind = self.errors.pop(0)
+            raise SourceError(kind, "mock", 30 if kind == "RATE_LIMITED" else None)
+        if form_id not in self.bodies:
+            raise SourceError("NOT_FOUND", "mock")
+        return json.loads(json.dumps(self.bodies[form_id]))
 
 
 @dataclass
@@ -210,6 +230,11 @@ class MockDrive:
         if file_id in self.fail or file_id not in self.files:
             raise SourceError("FORBIDDEN", "mock")
         return self.files[file_id]
+
+
+def choice_answer(qid: str, value: str) -> tuple[str, dict]:
+    """객관식 답도 Forms API에서는 textAnswers로 온다(선택지 원문)."""
+    return text_answer(qid, value)
 
 
 def text_answer(qid: str, value: str) -> tuple[str, dict]:

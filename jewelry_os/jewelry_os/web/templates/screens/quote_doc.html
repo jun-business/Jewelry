@@ -7,11 +7,14 @@
 <main class="doc" id="main">
 {% if pq.is_test %}<p class="test-strip" role="note">시험 견적 — 실제 결제용 아님</p>{% endif %}
 <header class="doc-head"><div class="doc-brand"><img class="doc-logo" src="/static/img/logo.webp" alt="{{ pq.shop_name }}" width="120" height="120"></div><h1>견적서</h1>
-<p class="doc-meta">견적 v{{ pq.version }} · 발행 {{ pq.issued_at|kdate }} · 유효기간 {{ pq.valid_until|kdate }}까지</p></header>
+<p class="doc-meta">견적번호 {{ pq_ref }} · 견적 v{{ pq.version }} · 발행 {{ pq.issued_at|kdate }} · 유효기간 {{ pq.valid_until|kdate }}까지</p></header>
 <p class="doc-to"><strong>{{ pq.customer_name }}</strong> 님께</p>
 <section><h2>제작 사양</h2><dl class="kv">{% if pq.product_type %}<dt>제품</dt><dd>{{ pq.product_type }}</dd>{% endif %}
 {% for k, lab in SPEC_FIELDS %}{% if pq.spec.get(k) %}<dt>{{ lab }}</dt><dd>{{ pq.spec[k] }}</dd>{% endif %}{% endfor %}</dl>
 {% if pq.spec_summary %}<p>{{ pq.spec_summary }}</p>{% endif %}</section>
+{% if pq.spec.get("custom_made") or pq.spec.get("loss_reasons") %}<section><h2>개별 주문제작 및 청약철회 관련 고지</h2><dl class="kv">
+{% for k, lab in CONTRACT_SPEC_FIELDS %}{% if pq.spec.get(k) %}<dt>{{ lab }}</dt><dd>{{ pq.spec[k] }}</dd>{% endif %}{% endfor %}</dl>
+<p class="t-sm">주문제작품이라는 이유만으로 모든 취소·환불이 제한되지 않고, 예약금을 자동으로 가져가지 않아요. 상품 하자·계약과 다른 제작 등 법정 권리는 제한되지 않아요.</p></section>{% endif %}
 <section><h2>금액</h2><table class="doc-table"><thead><tr><th scope="col">항목</th><th scope="col" class="num">금액</th></tr></thead><tbody>
 {% for it in pq["items"] %}<tr><td>{{ it.label }}</td><td class="num">{{ it.amount|won }}</td></tr>{% endfor %}</tbody>
 <tfoot><tr><th scope="row">총액</th><td class="num doc-total">{{ pq.total|won }}</td></tr></tfoot></table>

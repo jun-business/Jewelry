@@ -8,6 +8,7 @@ from jewelry_os.domain.guards import Forbidden, TransitionBlocked
 from jewelry_os.domain.states import S
 from jewelry_os.services import orders, payments, quotes, settings
 from conftest import approve_policies
+from jewelry_os.devtools import pay_balance
 
 
 def test_tcu_001_018_wrong_state_and_role(ctx, maker, operator):
@@ -181,6 +182,7 @@ def test_tcu_038_optimistic_lock(ctx, maker, operator):
 
 def test_tcu_039_send_factory_spec_recheck(ctx, maker, operator):
     o = order_at(ctx, maker, operator, "CUSTOMER_DESIGN_APPROVED")
+    pay_balance(ctx, o["order_no"], operator)  # D-24 Gate 2: 발주 전 잔금
     from jewelry_os.services import manufacturing
     stl = ctx.db.scalar("SELECT id FROM assets WHERE order_id=? AND kind='stl'", (o["id"],))
     manufacturing.save_factory_spec(ctx, o, maker, {"material": "골드", "purity": "18K", "size": "12호", "stones": "없음",

@@ -15,6 +15,7 @@ from jewelry_os.domain import money
 from jewelry_os.core.db import jdump, jload
 from jewelry_os.services import alerts, analysis, backup, capacity, intake, manufacturing, orders, settings
 from webutil import web
+from jewelry_os.devtools import pay_balance
 
 
 def _cursor(ctx):
@@ -246,6 +247,7 @@ def test_tcu_070_072_hash_properties():
 
 def _ready_packet(ctx, maker, operator):
     o = order_at(ctx, maker, operator, "CUSTOMER_DESIGN_APPROVED")
+    pay_balance(ctx, o["order_no"], operator)  # D-24 Gate 2: 발주 전 잔금
     stl = ctx.db.scalar("SELECT id FROM assets WHERE order_id=? AND kind='stl'", (o["id"],))
     manufacturing.save_factory_spec(ctx, o, maker, {"material": "골드", "purity": "18K", "size": "12호", "stones": "없음",
                                                      "engraving": "없음", "finish_na": "on", "special_na": "on",

@@ -336,3 +336,7 @@ th { white-space: nowrap; }
 details > summary { min-height: 44px; padding: 10px 0; cursor: pointer; } /* WCAG 2.5.8 목표 크기 */
 
 .dev-banner { position: fixed; left: 12px; bottom: 12px; z-index: 1000; max-width: calc(100vw - 24px); background: #b3261e; color: #fff; font-weight: 600; padding: 6px 12px; border-radius: 6px; font-size: 0.85rem; box-shadow: 0 2px 8px rgb(0 0 0 / 0.25); pointer-events: none; }
+
+/* D-24 계약 증거: 고지 원문 줄바꿈 보존 */
+.pre-wrap { white-space: pre-wrap; overflow-wrap: anywhere; word-break: keep-all; }
+.link-field { width: 100%; max-width: none; font-size: var(--jos-font-size-caption); }

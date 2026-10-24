@@ -74,11 +74,11 @@ def balance_amount(c, o) -> int | None:
 
 
 def create_balance(ctx, o, actor):
-    """QC_PASSED에서 잔금 요청(비전이). FULL·잔금 0원이면 NOT_APPLICABLE."""
+    """잔금 요청(비전이). D-24: 최종 CAD 승인 뒤(발주 전) 또는 QC_PASSED. FULL·잔금 0원이면 만들지 않는다."""
     _operator(actor)
     with ctx.db.tx() as c:
         cur = c.execute("SELECT * FROM orders WHERE id=?", (o["id"],)).fetchone()
-        if cur["lifecycle_state"] != S.QC_PASSED.value:
+        if cur["lifecycle_state"] not in (S.CUSTOMER_DESIGN_APPROVED.value, S.QC_PASSED.value):
             raise TransitionBlocked([unmet("G-WRONG-STATE")])
         if tr.payment_request(c, o["id"], ("BALANCE",)) is not None:
             raise TransitionBlocked([unmet("G-WRONG-STATE")])
@@ -174,6 +174,16 @@ def record_payment(ctx, o, actor, form: dict) -> dict:
 def _verify_in_tx(ctx, c, order_id, actor) -> str | None:
     o = c.execute("SELECT * FROM orders WHERE id=?", (order_id,)).fetchone()
     st = S(o["lifecycle_state"])
+    if st == S.CUSTOMER_DESIGN_APPROVED:  # D-24: 발주 전 잔금 — 단계 전이 없이 요청만 확인(검수 뒤 잔금 확인 단계에서 다시 씀)
+        req = tr.payment_request(c, order_id, ("BALANCE",))
+        if req is None or tr.paid_sum(c, req["id"]) != req["expected_krw"] or req["status"] == "PAID_VERIFIED":
+            return None
+        if tr.block_unmet(c, order_id, "verify_final"):
+            return None
+        c.execute("UPDATE payment_requests SET status='PAID_VERIFIED' WHERE id=?", (req["id"],))
+        audit.record(c, "payment_request", req["id"], actor, "balance_verified_before_factory", order_id=order_id,
+                     detail={"amount": req["expected_krw"]})
+        return "verified"
     action = {S.PAYMENT_PENDING: "verify_initial", S.QC_PASSED: "verify_final"}.get(st)
     if action is None or (action == "verify_final" and o["payment_policy"] == "FULL"):
         return None
@@ -196,7 +206,8 @@ def try_verify(ctx, order_id, actor=None) -> str | None:
     from ..core.security import User
     with ctx.db.tx() as c:
         o = c.execute("SELECT * FROM orders WHERE id=?", (order_id,)).fetchone()
-        phases = ("BALANCE",) if o["lifecycle_state"] == S.QC_PASSED.value else ("DEPOSIT", "FULL")
+        bal_states = (S.QC_PASSED.value, S.CUSTOMER_DESIGN_APPROVED.value)
+        phases = ("BALANCE",) if o["lifecycle_state"] in bal_states else ("DEPOSIT", "FULL")
         req = tr.payment_request(c, order_id, phases)
         if req is None:
             return None

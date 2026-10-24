@@ -629,6 +629,237 @@ CREATE TABLE IF NOT EXISTS change_orders (
   created_at TEXT NOT NULL
 );
 
+-- D-24 Form B 계약 동의·증거(schema v3, 추가만 — 기존 표는 바꾸지 않는다)
+-- 고객이 본 Form B 고지 문구 원본(forms.get 응답 전체). 내용이 같으면 한 행만.
+CREATE TABLE IF NOT EXISTS contract_notices (
+  id INTEGER PRIMARY KEY,
+  form_id TEXT NOT NULL,
+  revision_id TEXT,
+  body_json TEXT NOT NULL,
+  sha256 TEXT NOT NULL,
+  fetched_at TEXT NOT NULL,
+  UNIQUE (form_id, sha256)
+);
+CREATE TRIGGER IF NOT EXISTS cnotice_no_update BEFORE UPDATE ON contract_notices BEGIN SELECT RAISE(ABORT, 'contract notices are immutable'); END;
+CREATE TRIGGER IF NOT EXISTS cnotice_no_delete BEFORE DELETE ON contract_notices BEGIN SELECT RAISE(ABORT, 'contract notices are immutable'); END;
+
+-- 계약 요청 = 주문 1건 × 확정 견적 버전 1개. 확인코드는 해시(대조용)와 암호문(링크 재생성용)만 저장.
+CREATE TABLE IF NOT EXISTS contract_requests (
+  id INTEGER PRIMARY KEY,
+  order_id INTEGER NOT NULL REFERENCES orders(id),
+  customer_id INTEGER NOT NULL REFERENCES customers(id),
+  quote_id INTEGER NOT NULL REFERENCES quotes(id),
+  quote_version INTEGER NOT NULL,
+  quote_ref TEXT NOT NULL,
+  status TEXT NOT NULL CHECK (status IN ('ISSUED','RESPONSE_RECEIVED','REVIEW_REQUIRED','ACCEPTED','REJECTED','SUPERSEDED')),
+  code_hash TEXT NOT NULL UNIQUE,
+  code_enc TEXT NOT NULL,
+  form_id TEXT NOT NULL,
+  contract_form_schema_version TEXT NOT NULL,
+  notice_id INTEGER NOT NULL REFERENCES contract_notices(id),
+  refund_policy_version TEXT,
+  refund_policy_text_snapshot TEXT,
+  refund_policy_sha256 TEXT,
+  refund_policy_acknowledged INTEGER NOT NULL DEFAULT 0,
+  refund_policy_acknowledged_at TEXT,
+  refund_policy_review_required INTEGER NOT NULL DEFAULT 0,
+  terms_policy_id INTEGER REFERENCES policies(id),
+  terms_version INTEGER,
+  terms_sha256 TEXT,
+  quote_snapshot_json TEXT NOT NULL,
+  quote_sha256 TEXT NOT NULL,
+  quote_html_asset_id INTEGER REFERENCES assets(id),
+  quote_pdf_asset_id INTEGER REFERENCES assets(id),
+  is_test INTEGER NOT NULL DEFAULT 0,
+  issued_by INTEGER NOT NULL,
+  issued_at TEXT NOT NULL,
+  delivered_at TEXT,
+  delivered_channel TEXT,
+  delivered_note TEXT,
+  delivered_by INTEGER,
+  delivered_asset_id INTEGER REFERENCES assets(id),
+  response_id INTEGER,
+  problems_json TEXT NOT NULL DEFAULT '[]',
+  identity_status TEXT NOT NULL DEFAULT 'PENDING' CHECK (identity_status IN ('PENDING','VERIFIED')),
+  identity_method TEXT,
+  identity_note TEXT,
+  identity_by INTEGER,
+  identity_at TEXT,
+  decided_at TEXT,
+  decided_by INTEGER,
+  superseded_at TEXT,
+  superseded_reason TEXT,
+  created_at TEXT NOT NULL
+);
+CREATE UNIQUE INDEX IF NOT EXISTS contract_open_per_quote ON contract_requests(order_id, quote_id)
+  WHERE status IN ('ISSUED','RESPONSE_RECEIVED','REVIEW_REQUIRED','ACCEPTED');
+CREATE INDEX IF NOT EXISTS ix_contract_order ON contract_requests(order_id, id);
+-- 발행 당시의 견적·고지·정책 근거는 바꿀 수 없다(상태·전달·확인 기록만 갱신)
+CREATE TRIGGER IF NOT EXISTS creq_evidence_immutable BEFORE UPDATE ON contract_requests
+WHEN NEW.order_id IS NOT OLD.order_id OR NEW.customer_id IS NOT OLD.customer_id OR NEW.quote_id IS NOT OLD.quote_id
+  OR NEW.quote_version IS NOT OLD.quote_version OR NEW.quote_ref IS NOT OLD.quote_ref OR NEW.code_hash IS NOT OLD.code_hash
+  OR NEW.code_enc IS NOT OLD.code_enc OR NEW.form_id IS NOT OLD.form_id OR NEW.notice_id IS NOT OLD.notice_id
+  OR NEW.contract_form_schema_version IS NOT OLD.contract_form_schema_version
+  OR NEW.refund_policy_version IS NOT OLD.refund_policy_version
+  OR NEW.refund_policy_text_snapshot IS NOT OLD.refund_policy_text_snapshot
+  OR NEW.refund_policy_sha256 IS NOT OLD.refund_policy_sha256
+  OR NEW.terms_policy_id IS NOT OLD.terms_policy_id OR NEW.terms_sha256 IS NOT OLD.terms_sha256
+  OR NEW.quote_snapshot_json IS NOT OLD.quote_snapshot_json OR NEW.quote_sha256 IS NOT OLD.quote_sha256
+  OR NEW.issued_at IS NOT OLD.issued_at OR NEW.issued_by IS NOT OLD.issued_by
+  OR (OLD.quote_html_asset_id IS NOT NULL AND NEW.quote_html_asset_id IS NOT OLD.quote_html_asset_id)
+  OR (OLD.quote_pdf_asset_id IS NOT NULL AND NEW.quote_pdf_asset_id IS NOT OLD.quote_pdf_asset_id)
+BEGIN SELECT RAISE(ABORT, 'contract evidence is immutable'); END;
+CREATE TRIGGER IF NOT EXISTS creq_no_delete BEFORE DELETE ON contract_requests BEGIN SELECT RAISE(ABORT, 'contract requests are kept'); END;
+
+-- Form B 응답 원본. 중복 기준 (form_id, response_id). 확인코드가 맞지 않는 응답도 지우지 않고 남긴다.
+CREATE TABLE IF NOT EXISTS contract_responses (
+  id INTEGER PRIMARY KEY,
+  form_id TEXT NOT NULL,
+  response_id TEXT NOT NULL,
+  request_id INTEGER REFERENCES contract_requests(id),
+  candidate_order_id INTEGER REFERENCES orders(id),
+  match_status TEXT NOT NULL CHECK (match_status IN ('MATCHED','CODE_UNKNOWN')),
+  create_time TEXT,
+  last_submitted_time TEXT,
+  respondent_email_enc TEXT,
+  respondent_email_hash TEXT,
+  answers_json TEXT NOT NULL,
+  revision INTEGER NOT NULL DEFAULT 1,
+  first_fetched_at TEXT NOT NULL,
+  last_fetched_at TEXT NOT NULL,
+  UNIQUE (form_id, response_id)
+);
+-- 응답 원문(JSON, 암호화)과 해시 — 고객이 응답을 고치면 revision이 늘고 이전 원문도 남는다
+CREATE TABLE IF NOT EXISTS contract_response_revisions (
+  id INTEGER PRIMARY KEY,
+  response_row_id INTEGER NOT NULL REFERENCES contract_responses(id),
+  revision INTEGER NOT NULL,
+  last_submitted_time TEXT,
+  raw_enc TEXT NOT NULL,
+  raw_sha256 TEXT NOT NULL,
+  fetched_at TEXT NOT NULL,
+  UNIQUE (response_row_id, revision)
+);
+CREATE TRIGGER IF NOT EXISTS crrev_no_update BEFORE UPDATE ON contract_response_revisions BEGIN SELECT RAISE(ABORT, 'response revisions are append-only'); END;
+CREATE TRIGGER IF NOT EXISTS crrev_no_delete BEFORE DELETE ON contract_response_revisions BEGIN SELECT RAISE(ABORT, 'response revisions are append-only'); END;
+CREATE TRIGGER IF NOT EXISTS cresp_no_delete BEFORE DELETE ON contract_responses BEGIN SELECT RAISE(ABORT, 'contract responses are kept'); END;
+
+-- 계약 이력(불변): 발행·전달·응답 수집·검증 결과·본인 확인·확정·대체
+CREATE TABLE IF NOT EXISTS contract_events (
+  id INTEGER PRIMARY KEY,
+  request_id INTEGER NOT NULL REFERENCES contract_requests(id),
+  order_id INTEGER NOT NULL REFERENCES orders(id),
+  event TEXT NOT NULL,
+  prev_status TEXT,
+  next_status TEXT,
+  actor_id INTEGER,
+  actor_role TEXT NOT NULL,
+  detail_json TEXT NOT NULL DEFAULT '{}',
+  created_at TEXT NOT NULL
+);
+CREATE TRIGGER IF NOT EXISTS cevent_no_update BEFORE UPDATE ON contract_events BEGIN SELECT RAISE(ABORT, 'contract events are append-only'); END;
+CREATE TRIGGER IF NOT EXISTS cevent_no_delete BEFORE DELETE ON contract_events BEGIN SELECT RAISE(ABORT, 'contract events are append-only'); END;
+
+-- 동의 문항별 독립 전자 동의 기록(Q4·Q5·Q6 청약철회 별도 동의·Q6-1 환불 정책 확인·Q7·Q8). 응답 수정마다 새 행.
+CREATE TABLE IF NOT EXISTS contract_consents (
+  id INTEGER PRIMARY KEY,
+  request_id INTEGER NOT NULL REFERENCES contract_requests(id),
+  response_row_id INTEGER NOT NULL REFERENCES contract_responses(id),
+  response_revision INTEGER NOT NULL,
+  consent_key TEXT NOT NULL,
+  question_id TEXT NOT NULL,
+  question_title TEXT NOT NULL,
+  answer TEXT,
+  result TEXT NOT NULL CHECK (result IN ('AGREED','REFUSED','NEEDS_EXPLANATION','MISSING','UNKNOWN')),
+  notice_section_sha256 TEXT,
+  submitted_at TEXT,
+  recorded_at TEXT NOT NULL,
+  UNIQUE (response_row_id, response_revision, consent_key)
+);
+CREATE TRIGGER IF NOT EXISTS cconsent_no_update BEFORE UPDATE ON contract_consents BEGIN SELECT RAISE(ABORT, 'consent records are append-only'); END;
+CREATE TRIGGER IF NOT EXISTS cconsent_no_delete BEFORE DELETE ON contract_consents BEGIN SELECT RAISE(ABORT, 'consent records are append-only'); END;
+
+-- 취소·환불 사건(Form B v1.1 단계별 정책 R1~R7). 사실(결제·CAD 착수·발주·배송 시각)은 시스템 기록에서 가져오고,
+-- 법적 검토·환불액 결정은 사람이 한다. AI·자동 규칙은 환불 불가나 공제액을 정하지 않는다.
+CREATE TABLE IF NOT EXISTS refund_requests (
+  id INTEGER PRIMARY KEY,
+  order_id INTEGER NOT NULL REFERENCES orders(id),
+  customer_id INTEGER NOT NULL REFERENCES customers(id),
+  contract_request_id INTEGER REFERENCES contract_requests(id),
+  reason_kind TEXT NOT NULL CHECK (reason_kind IN ('CHANGE_OF_MIND','DEFECT','MISMATCH','OTHER')),
+  refund_reason TEXT NOT NULL,
+  requested_via TEXT NOT NULL,
+  requested_at TEXT NOT NULL,
+  requested_at_src TEXT,
+  lifecycle_state_at_request TEXT NOT NULL,
+  production_stage_at_request TEXT NOT NULL CHECK (production_stage_at_request IN ('R1','R2','R3','R4','R5','R6')),
+  paid_amount INTEGER NOT NULL DEFAULT 0,
+  deposit_paid_at TEXT,
+  cad_started_at TEXT,
+  factory_ordered_at TEXT,
+  delivered_at TEXT,
+  legal_review_status TEXT NOT NULL CHECK (legal_review_status IN ('NOT_REQUIRED','REQUIRED','DONE')),
+  legal_review_note TEXT,
+  legal_review_by INTEGER,
+  legal_review_at TEXT,
+  legal_withdrawal INTEGER,
+  refund_eligible_amount INTEGER,
+  refund_approved_amount INTEGER,
+  shipping_fee_bearer TEXT CHECK (shipping_fee_bearer IN ('CUSTOMER','SELLER','NONE')),
+  shipping_fee_krw INTEGER,
+  refund_basis_date TEXT,
+  refund_due_at TEXT,
+  approved_by INTEGER,
+  approved_at TEXT,
+  decision_reason TEXT,
+  refund_completed_at TEXT,
+  refund_completed_amount INTEGER,
+  refund_method TEXT,
+  refund_evidence TEXT,
+  evidence_refs TEXT NOT NULL DEFAULT '[]',
+  status TEXT NOT NULL DEFAULT 'RECEIVED' CHECK (status IN ('RECEIVED','APPROVED','COMPLETED','WITHDRAWN')),
+  issue_id INTEGER REFERENCES issues(id),
+  recorded_by INTEGER NOT NULL,
+  recorded_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS ix_refund_order ON refund_requests(order_id, id);
+-- 접수 당시 사실(단계·시각·금액)은 고칠 수 없다
+CREATE TRIGGER IF NOT EXISTS refund_facts_immutable BEFORE UPDATE ON refund_requests
+WHEN NEW.order_id IS NOT OLD.order_id OR NEW.customer_id IS NOT OLD.customer_id OR NEW.requested_at IS NOT OLD.requested_at
+  OR NEW.reason_kind IS NOT OLD.reason_kind OR NEW.production_stage_at_request IS NOT OLD.production_stage_at_request
+  OR NEW.paid_amount IS NOT OLD.paid_amount OR NEW.deposit_paid_at IS NOT OLD.deposit_paid_at
+  OR NEW.cad_started_at IS NOT OLD.cad_started_at OR NEW.factory_ordered_at IS NOT OLD.factory_ordered_at
+  OR NEW.delivered_at IS NOT OLD.delivered_at OR NEW.lifecycle_state_at_request IS NOT OLD.lifecycle_state_at_request
+  OR NEW.refund_eligible_amount IS NOT OLD.refund_eligible_amount OR NEW.recorded_at IS NOT OLD.recorded_at
+BEGIN SELECT RAISE(ABORT, 'refund request facts are immutable'); END;
+CREATE TRIGGER IF NOT EXISTS refund_no_delete BEFORE DELETE ON refund_requests BEGIN SELECT RAISE(ABORT, 'refund requests are kept'); END;
+CREATE TABLE IF NOT EXISTS refund_events (
+  id INTEGER PRIMARY KEY,
+  refund_id INTEGER NOT NULL REFERENCES refund_requests(id),
+  order_id INTEGER NOT NULL REFERENCES orders(id),
+  event TEXT NOT NULL,
+  actor_id INTEGER,
+  actor_role TEXT NOT NULL,
+  detail_json TEXT NOT NULL DEFAULT '{}',
+  created_at TEXT NOT NULL
+);
+CREATE TRIGGER IF NOT EXISTS revent_no_update BEFORE UPDATE ON refund_events BEGIN SELECT RAISE(ABORT, 'refund events are append-only'); END;
+CREATE TRIGGER IF NOT EXISTS revent_no_delete BEFORE DELETE ON refund_events BEGIN SELECT RAISE(ABORT, 'refund events are append-only'); END;
+
+-- 관리자가 본인임을 확인한 계약 이메일(Google 인증 이메일). 다음 계약부터 같은 고객 확인에 쓴다.
+CREATE TABLE IF NOT EXISTS customer_identities (
+  id INTEGER PRIMARY KEY,
+  customer_id INTEGER NOT NULL REFERENCES customers(id),
+  kind TEXT NOT NULL CHECK (kind IN ('email')),
+  value_hash TEXT NOT NULL,
+  value_enc TEXT NOT NULL,
+  method TEXT NOT NULL,
+  note TEXT,
+  verified_by INTEGER NOT NULL,
+  verified_at TEXT NOT NULL,
+  UNIQUE (customer_id, kind, value_hash)
+);
+
 CREATE INDEX IF NOT EXISTS ix_orders_state ON orders(lifecycle_state);
 CREATE INDEX IF NOT EXISTS ix_issues_order ON issues(order_id, state);
 CREATE INDEX IF NOT EXISTS ix_audit_order ON audit_events(order_id, id);

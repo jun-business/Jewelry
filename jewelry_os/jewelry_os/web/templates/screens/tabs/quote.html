@@ -46,6 +46,9 @@
 <h3>제작 사양</h3>
 <div class="grid-3">{% for k, lab in SPEC_FIELDS %}<div class="field"><label for="sp-{{ k }}">{{ lab }}</label><input id="sp-{{ k }}" name="spec_{{ k }}" value="{{ sp.get(k) or spec.get(k) or '' }}"></div>{% endfor %}</div>
 {{ area("spec_summary", "사양 요약(고객 문서에 표시)", q.spec_summary or "", False, None, None, 2) }}
+<h3>개별 주문제작 고지 <span class="req">(계약 동의 링크 전 필수)</span></h3>
+<p class="t-sm">고객 견적서에 그대로 나가요. Form B의 청약철회 별도 동의가 이 주문의 내용을 가리켜요.</p>
+{% for k, lab in CONTRACT_SPEC_FIELDS %}{{ area("spec_" ~ k, lab, sp.get(k) or "", False, None, None, 3) }}{% endfor %}
 <div class="grid-2">
 <div class="field"><label for="pd">약속 납기(고객 약속일) <span class="req">(필수)</span></label><input id="pd" type="date" name="promised_date" value="{{ q.promised_date or '' }}" aria-describedby="pd-help"><p class="help" id="pd-help">내부 예상: {{ internal_eta|kdate }}(다음 CAD 날짜 + 제조 기간) — 자동으로 넣지 않아요.</p></div>
 <div class="field"><label for="vu">견적 유효기간 <span class="req">(필수)</span></label><input id="vu" type="date" name="valid_until" value="{{ q.valid_until or '' }}"></div>
@@ -81,16 +84,5 @@
 {% endif %}
 </section>
 
-{% if q_appr and (o.lifecycle_state == "QUOTE_APPROVED" or change_open) %}
-<section class="card" id="accept" aria-labelledby="acc-t"><h2 id="acc-t">고객 동의 기록</h2>
-{% set code2 = "record_reacceptance" if change_open else "record_acceptance" %}
-<form method="post" action="/orders/{{ o.order_no }}/actions/{{ code2 }}" data-confirm-required>{{ csrf_input() }}<input type="hidden" name="version" value="{{ o.version }}"><input type="hidden" name="_tab" value="quote">
-<dl class="kv"><dt>대상 견적</dt><dd>v{{ q_appr.version }} · {{ q_appr.total_krw|won }}</dd><dt>약관·정책</dt><dd>v{{ q_appr.terms_version or "—" }}</dd></dl>
-{{ evidence("", errors, "고객 동의 증빙") }}
-<div class="field"><label for="acc-at">동의 일시</label><input id="acc-at" type="datetime-local" name="accepted_at"></div>
-<label class="choice"><input type="checkbox" name="confirm" value="on"> 고객이 위 버전에 동의한 것을 증빙으로 확인했습니다</label>
-<p class="err need-confirm" hidden>확인란을 체크해야 진행돼요.</p>
-<button class="btn btn-primary btn-lg" type="submit" data-primary>{{ "고객 재동의 기록" if change_open else "고객 동의 기록" }}</button>
-</form></section>
-{% endif %}
+{% if q_appr or contract_all %}{% include "screens/tabs/_contract.html" %}{% endif %}
 {% if acceptances %}<section class="card"><h2>동의 기록</h2><ul class="timeline">{% for a in acceptances %}<li>{{ icon("check", "sm") }}<span>{{ {"quote": "견적", "design": "최종 시안", "consent": "개인정보"}[a.kind] }} 동의{% if a.quote_version %} · 견적 v{{ a.quote_version }}{% endif %} · {{ a.channel }} · {{ a.accepted_at|kdatetime }}<br><span class="t-sm">{{ a.evidence_text }}</span></span></li>{% endfor %}</ul></section>{% endif %}

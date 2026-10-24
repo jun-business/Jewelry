@@ -117,8 +117,8 @@ def create_app(ctx, run_scheduler: bool = False) -> FastAPI:
                                                        "message": "주소가 바뀌었거나 없는 주문이에요.",
                                                        "link": ("/orders", "주문 목록")}, 404)
 
-    from . import routes_auth, routes_main, routes_orders, routes_ops
-    for m in (routes_auth, routes_main, routes_orders, routes_ops):
+    from . import routes_auth, routes_contracts, routes_main, routes_orders, routes_ops
+    for m in (routes_auth, routes_main, routes_orders, routes_ops, routes_contracts):
         app.include_router(m.router)
     return app
 

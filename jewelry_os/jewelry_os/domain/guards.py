@@ -20,6 +20,17 @@ MESSAGES = {
     "G-QUOTE-FIELDS": "견적에 {fields} 항목이 비어 있어요.",
     "G-QUOTE-TOTAL": "품목 합계({sum})와 총액({total})이 달라요.",
     "G-ACCEPT-EVIDENCE": "고객 동의 증빙(채널·근거)을 입력해야 해요.",
+    "G-CONTRACT-REQUIRED": "지금 견적 버전에 유효한 계약 동의(Form B)가 없어요. 계약 동의 링크를 보내고 고객 동의·본인 확인을 마치세요.",
+    "G-CONTRACT-FORM": "계약 동의 폼(Form B)을 쓸 수 없어요: {reason}",
+    "G-CONTRACT-STATE": "계약 요청이 ‘{status}’ 상태라 할 수 없어요.",
+    "G-CONTRACT-REVIEW": "본인 확인 방법을 고르고 확인 근거를 메모로 남겨야 해요.",
+    "G-CONTRACT-DELIVERY": "보낸 채널을 고르고 메모(예: 카카오톡 상담방에 보냄)를 남겨야 해요.",
+    "G-QUOTE-LOSS-REASONS": "견적서에 개별 주문제작 특성과 청약철회 시 예상되는 손해 사유를 적어야 계약 동의 링크를 만들 수 있어요. 새 견적 버전에 적어 승인하세요.",
+    "G-REFUND-INPUT": "{fields}을(를) 입력해야 해요.",
+    "G-REFUND-STATE": "환불 건이 ‘{status}’ 상태라 할 수 없어요.",
+    "G-REFUND-LEGAL": "법적 검토(청약철회 가능 여부·법정 권리) 결과를 먼저 기록해야 승인할 수 있어요.",
+    "G-QUOTE-EXPIRED": "견적 유효기간이 지났어요. 새 견적 버전을 승인한 뒤 계약 동의 링크를 만드세요.",
+    "G-BALANCE-BEFORE-FACTORY": "잔금(2/3) 결제가 확인되지 않아 공장 발주를 할 수 없어요.",
     "G-PAYMENT-REQUEST": "결제 요청이 아직 없어요.",
     "G-PAYMENT-UNVERIFIED": "첫 결제가 확인되지 않았어요.",
     "G-PAYMENT-EVIDENCE": "네이버 주문번호·상품주문번호·금액·상태·조회 시각을 모두 입력해야 해요.",
@@ -71,7 +82,9 @@ FIX_LINK = {
     "G-PACKET-MISSING": "making", "G-PACKET-STALE": "making", "G-PACKET-HASH": "making", "G-SPEC-DIFF": "making",
     "G-RECEIVE-INFO": "making", "G-QC-INCOMPLETE": "qc", "G-QC-FAIL": "qc", "G-BALANCE": "payment",
     "G-SHIP-INFO": "qc", "G-NO-CONSENT": "intake", "G-ISSUE-OPEN": "history", "G-TEST-QUOTE": "quote",
-    "G-L3-JUDGMENT": "cs", "G-GATE-LIVE": "/settings/gates", "G-CAPACITY": "intake#cap-exc",
+    "G-L3-JUDGMENT": "cs", "G-CONTRACT-REQUIRED": "quote#contract", "G-CONTRACT-FORM": "/settings/google",
+    "G-QUOTE-EXPIRED": "quote", "G-QUOTE-LOSS-REASONS": "quote", "G-BALANCE-BEFORE-FACTORY": "payment", "G-CONTRACT-STATE": "quote#contract",
+    "G-CONTRACT-REVIEW": "quote#contract", "G-CONTRACT-DELIVERY": "quote#contract", "G-GATE-LIVE": "/settings/gates", "G-CAPACITY": "intake#cap-exc",
 }
 
 

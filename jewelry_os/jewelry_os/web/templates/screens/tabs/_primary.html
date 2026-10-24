@@ -46,10 +46,14 @@
 {% else %}
 {{ approval("dlg-create_payment_req", "/orders/" ~ o.order_no ~ "/actions/create_payment_req", "결제 요청을 만들까요?", [("견적", "v" ~ q_appr.version if q_appr else "—"), ("구분", "전액" if o.payment_policy == "FULL" else "예약금"), ("금액", (q_appr.total_krw if o.payment_policy == "FULL" else q_appr.deposit_krw)|won if q_appr else "—")], "만들면 결제 대기로 넘어가요. 판매자 관리코드는 개인정보 없이 자동으로 만들어져요.", approver, "", warn + (["시험 견적이에요. 실거래 결제에 쓸 수 없어요."] if q_appr and q_appr.is_test else []), o.version, "payment", false, "", confirm == "create_payment_req", "결제 요청 만들기") }}
 {% endif %}
+{% elif a == "verify_final" and balance_prepaid %}
+<form method="post" action="/orders/{{ o.order_no }}/actions/verify_final_paid">{{ csrf_input() }}<input type="hidden" name="version" value="{{ o.version }}"><input type="hidden" name="_tab" value="payment">
+<button class="btn btn-primary btn-lg btn-block" type="submit" data-testid="order.next-action.primary" {{ dis_attr|safe }}>{{ na.label }}</button>
+<p class="t-sm">잔금은 발주 전에 이미 확인됐어요. 누르면 발송 단계로 넘어가요.</p></form>
 {% elif a == "verify_final" and o.payment_policy == "FULL" %}
 <button class="btn btn-primary btn-lg btn-block" type="button" data-open="dlg-vff" {{ dis_attr|safe }}>{{ na.label }}</button>
 {{ approval("dlg-vff", "/orders/" ~ o.order_no ~ "/actions/verify_final_full", "결제 조건을 확인할까요?", [("결제 정책", "전액 결제"), ("확인된 결제", (pay_events|selectattr("event_type", "equalto", "PAID")|sum(attribute="amount_krw"))|won)], "전액 결제 정책이라 잔금이 없어요. 확인하면 발송 단계로 넘어가요.", approver, "", warn, o.version, "qc", false, "", confirm == "verify_final_full", "결제 조건 확인") }}
 {% else %}
-{% set anchors = {"approve_quote": "quote#approve", "record_acceptance": "quote#accept", "record_payment": "payment#pay-form", "verify_final": "payment#pay-form", "record_design_ok": "making#design-ok", "send_factory": "making#send", "receive": "making#receive", "pass_qc": "qc#qc-form", "ship": "qc#ship", "close": "qc#close"} %}
+{% set anchors = {"approve_quote": "quote#approve", "record_acceptance": "quote#contract", "record_payment": "payment#pay-form", "verify_final": "payment#pay-form", "record_design_ok": "making#design-ok", "send_factory": "making#send", "receive": "making#receive", "pass_qc": "qc#qc-form", "ship": "qc#ship", "close": "qc#close"} %}
 <a class="btn btn-primary btn-lg btn-block" href="/orders/{{ o.order_no }}/{{ anchors.get(a, na.tab or 'history') }}" data-testid="order.next-action.primary" {{ dis_attr|safe }}>{{ na.label }}</a>
 {% endif %}

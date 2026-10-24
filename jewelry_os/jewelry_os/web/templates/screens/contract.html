@@ -1,0 +1,54 @@
+{% extends "base.html" %}{% from "components.html" import icon, chip with context %}
+{% block title %}계약 증거{% endblock %}
+{% block content %}
+{% set k = ev.req %}
+<div class="page-head"><div><a class="btn btn-tertiary" href="/orders/{{ ev.order.order_no }}/quote#contract">{{ icon("back") }}주문 {{ ev.order.order_no }}</a>
+<h1>계약 동의 증거 #{{ k.id }}</h1>
+<p class="chips">{{ chip(CHIP[k.status], LABEL[k.status]) }} {{ chip("version", k.quote_ref) }} {{ chip("version", k.contract_form_schema_version) }}{% if k.is_test %} {{ chip("test", "시험", "flask") }}{% endif %}</p></div>
+<div class="btn-row">{% if user.role == "operator" %}{% if not reveal %}<a class="btn btn-tertiary" href="/contracts/{{ k.id }}?reveal=1">이메일 보기(기록 남음)</a>{% endif %}
+<a class="btn btn-secondary" href="/contracts/{{ k.id }}/export">{{ icon("file", "sm") }}증거 내보내기(ZIP)</a>{% endif %}</div></div>
+
+<section class="card" aria-labelledby="cv-1"><h2 id="cv-1">요약</h2><dl class="kv">
+<dt>고객·주문</dt><dd>{{ ev.customer.display_name if ev.customer and not ev.customer.deleted_at else "(개인정보 삭제됨)" }} · 고객 #{{ k.customer_id }} · 주문 {{ ev.order.order_no }}</dd>
+<dt>견적</dt><dd>{{ k.quote_ref }} (v{{ k.quote_version }}) · 스냅숏 SHA-256 <span class="mono">{{ k.quote_sha256[:16] }}…</span> {{ "✓ 일치" if ev.checks.quote_sha256_ok else "✗ 불일치" }}</dd>
+<dt>견적서 원본</dt><dd>{% if ev.assets.quote_html_asset_id %}<a href="/assets/{{ ev.assets.quote_html_asset_id.id }}" target="_blank" rel="noopener">HTML</a> <span class="mono">{{ ev.assets.quote_html_asset_id.file_hash[:16] }}…</span> {{ "✓" if ev.checks.quote_html_ok else "✗" }}{% else %}—{% endif %}
+{% if ev.assets.quote_pdf_asset_id %} · <a href="/assets/{{ ev.assets.quote_pdf_asset_id.id }}" target="_blank" rel="noopener">PDF</a> <span class="mono">{{ ev.assets.quote_pdf_asset_id.file_hash[:16] }}…</span> {{ "✓" if ev.checks.quote_pdf_ok else "✗" }}{% else %} · PDF 없음{% endif %}</dd>
+<dt>개별 제작 특성</dt><dd>{{ ev.quote.public_quote.spec.custom_made or "—" }}</dd>
+<dt>예상 손해 사유</dt><dd>{{ ev.quote.public_quote.spec.loss_reasons or "—" }}</dd>
+<dt>Form B</dt><dd class="mono">{{ k.form_id }} · rev {{ ev.notice.revision_id or "—" }} · 고지 SHA-256 {{ ev.notice.sha256[:16] }}… {{ "✓" if ev.checks.notice_sha256_ok else "✗" }}</dd>
+<dt>환불 정책</dt><dd>{{ k.refund_policy_version or "—" }} · SHA-256 <span class="mono">{{ (k.refund_policy_sha256 or "—")[:16] }}</span> · 확인 {{ "예 · " ~ (k.refund_policy_acknowledged_at|kdatetime) if k.refund_policy_acknowledged else "아니요" }}{% if k.refund_policy_review_required %} · {{ chip("hold", "설명 요청·검토 필요") }}{% endif %}</dd>
+<dt>약관·정책</dt><dd>{% if ev.terms %}{{ ev.terms.title }} v{{ ev.terms.version }} · SHA-256 <span class="mono">{{ k.terms_sha256[:16] }}…</span>{% else %}—{% endif %}</dd>
+<dt>발행</dt><dd>{{ k.issued_at|kdatetime }}</dd>
+<dt>고객 전달</dt><dd>{% if k.delivered_at %}{{ CH.get(k.delivered_channel, k.delivered_channel) }} · {{ k.delivered_at|kdatetime }} · {{ k.delivered_note }}{% if ev.assets.delivered_asset_id %} · <a href="/assets/{{ ev.assets.delivered_asset_id.id }}">캡처</a>{% endif %}{% else %}기록 없음{% endif %}</dd>
+<dt>고객 식별 검증</dt><dd>{{ "확인됨" if k.identity_status == "VERIFIED" else "미확인" }}{% if k.identity_method %} · {{ IDM.get(k.identity_method, k.identity_method) }}{% endif %}{% if k.identity_note %} · {{ k.identity_note }}{% endif %}{% if k.identity_at %} · {{ k.identity_at|kdatetime }}{% endif %}</dd>
+<dt>검토·확정</dt><dd>{{ k.decided_at|kdatetime if k.decided_at else "—" }}</dd>
+</dl>
+{% if ev.problems %}<ul class="blocked">{% for p in ev.problems %}<li>{{ icon("alert" if p.soft else "octagon", "sm") }}<span>{{ p.text }}</span></li>{% endfor %}</ul>{% endif %}
+</section>
+
+<section class="card" aria-labelledby="cv-2"><h2 id="cv-2">고객 응답(원본)</h2>
+{% for r in ev.responses %}
+<h3 class="mono">{{ r.row.response_id }}</h3>
+<p class="t-sm">제출 {{ r.row.last_submitted_time|kdatetime }} · 처음 수집 {{ r.row.first_fetched_at|kdatetime }} · Google 계정 {{ r.email_shown }} · 수정 {{ r.row.revision }}회차</p>
+<div class="table-wrap"><table><caption class="sr-only">문항별 답</caption><thead><tr><th scope="col">문항</th><th scope="col">답</th><th scope="col">결과</th></tr></thead><tbody>
+{% for a in r.answers %}<tr><td>{{ a.title }}</td><td>{{ a.answer }}</td><td>{{ "확인" if a.ok else "미충족" }}</td></tr>{% endfor %}</tbody></table></div>
+<details><summary>원본 JSON·해시({{ r.revisions|length }}개 버전)</summary>{% for v in r.revisions %}<p class="mono t-sm">rev {{ v.revision }} · {{ v.raw_sha256 }} · 수집 {{ v.fetched_at|kdatetime }}</p>{% if reveal %}<pre class="mono t-sm">{{ v.raw|tojson(indent=1) }}</pre>{% endif %}{% endfor %}</details>
+{% else %}<p class="t-muted">아직 응답이 없어요.</p>{% endfor %}
+</section>
+
+<section class="card" aria-labelledby="cv-3"><h2 id="cv-3">고객이 본 Form B 고지 문구(발행 당시 원문)</h2>
+{% for x in ev.notice_text %}
+{% if x.kind == "title" %}<h3>{{ x.text }}</h3>{% elif x.kind == "desc" %}<p class="pre-wrap">{{ x.text }}</p>
+{% elif x.kind == "section" %}<h3>{{ x.text }}</h3>{% if x.desc %}<p class="pre-wrap">{{ x.desc }}</p>{% endif %}
+{% else %}<p><strong>{{ x.text }}</strong>{% if x.options %}<br><span class="t-sm">선택지: {{ x.options|join(" / ") }}</span>{% endif %}</p>{% endif %}
+{% endfor %}
+</section>
+
+{% if ev.terms %}<section class="card"><h2>적용 정책 원문 — {{ ev.terms.title }} v{{ ev.terms.version }}</h2><p class="pre-wrap">{{ ev.terms.body }}</p></section>{% endif %}
+
+<section class="card" aria-labelledby="cv-4"><h2 id="cv-4">견적 원문(발행 당시)</h2><pre class="pre-wrap">{{ ev.quote.text }}</pre></section>
+
+<section class="card" aria-labelledby="cv-5"><h2 id="cv-5">이력(고칠 수 없음)</h2><ul class="timeline">
+{% for e in ev.events %}<li>{{ icon("clock", "sm") }}<span>{{ e.event }}{% if e.prev_status or e.next_status %} · {{ e.prev_status or "" }} → {{ e.next_status or "" }}{% endif %} · {{ e.display_name or ROLE_LABEL.get(e.actor_role, e.actor_role) }} <span class="meta">{{ e.created_at|kdatetime }}</span></span></li>{% endfor %}
+</ul></section>
+{% endblock %}

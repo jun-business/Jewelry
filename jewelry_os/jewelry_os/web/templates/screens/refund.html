@@ -1,0 +1,61 @@
+{% extends "base.html" %}{% from "components.html" import icon, chip, banner, csrf_input, text, area with context %}
+{% block title %}취소·환불{% endblock %}
+{% block content %}
+{% set r = v.r %}
+<div class="page-head"><div><a class="btn btn-tertiary" href="/orders/{{ o.order_no }}/payment#refunds">{{ icon("back") }}주문 {{ o.order_no }}</a>
+<h1>취소·환불 요청 #{{ r.id }}</h1>
+<p class="chips">{{ chip("hold" if r.status == "RECEIVED" else ("done" if r.status == "COMPLETED" else "progress"), v.status_label) }} {{ chip("version", r.production_stage_at_request ~ " · " ~ v.stage_label) }}{% if v.late %} {{ chip("issue", "환급 기한 지남", "clock") }}{% endif %}</p></div></div>
+{{ banner("info", "AI·자동 규칙은 환불 거절이나 공제액을 정하지 않아요", "자동 계산은 결제 전(0원)·CAD 착수 전(예약금 전액)뿐이에요. 그 밖은 법적 검토와 사람의 결정으로 정해요.") }}
+
+<div class="grid-2">
+<section class="card" aria-labelledby="rf-1"><h2 id="rf-1">작업 진행 상황(시스템 기록)</h2><dl class="kv">
+<dt>요청 사유</dt><dd>{{ v.reason_label }} · {{ r.refund_reason }}</dd>
+<dt>요청 접수</dt><dd>{{ r.requested_at|kdatetime }} · {{ r.requested_via }} (기록 {{ r.recorded_at|kdatetime }})</dd>
+<dt>요청 당시 단계</dt><dd>{{ r.production_stage_at_request }} · {{ v.stage_label }} (주문 상태 {{ r.lifecycle_state_at_request|state_label }})</dd>
+<dt>결제액</dt><dd>{{ r.paid_amount|won }}</dd>
+<dt>예약금 결제</dt><dd>{{ r.deposit_paid_at|kdatetime if r.deposit_paid_at else "없음" }}</dd>
+<dt>상세 CAD 착수</dt><dd>{{ r.cad_started_at|kdatetime if r.cad_started_at else "착수 전" }} <span class="t-sm">(전이 감사로그 시각 — 고칠 수 없음)</span></dd>
+<dt>제조 발주</dt><dd>{{ r.factory_ordered_at|kdatetime if r.factory_ordered_at else "발주 전" }}</dd>
+<dt>배송</dt><dd>{{ r.delivered_at|kdatetime if r.delivered_at else "배송 전" }}</dd>
+<dt>자동 계산 환불 대상액</dt><dd>{% if r.refund_eligible_amount is not none %}{{ r.refund_eligible_amount|won }}{% else %}자동 계산 안 함(사람이 결정){% endif %}</dd>
+</dl><p class="t-sm">{{ v.guide }}</p></section>
+
+<section class="card" aria-labelledby="rf-2"><h2 id="rf-2">법적 검토</h2><dl class="kv">
+<dt>상태</dt><dd>{{ v.legal_label }}</dd>
+{% if r.legal_review_note %}<dt>검토 근거</dt><dd>{{ r.legal_review_note }}</dd><dt>법정 청약철회</dt><dd>{{ {1: "적법한 청약철회", 0: "해당 없음"}.get(r.legal_withdrawal, "판단 보류") }}</dd><dt>검토</dt><dd>{{ r.legal_review_at|kdatetime }}</dd>{% endif %}
+{% if creq %}<dt>계약 동의</dt><dd><a href="/contracts/{{ creq.id }}">#{{ creq.id }} {{ CLABEL[creq.status] }}</a> · 환불 정책 {{ creq.refund_policy_version or "—" }}</dd>{% endif %}
+{% for c in consents if c.consent_key in ("q6_withdrawal", "q6_1_refund_policy") %}<dt>{{ c.question_title }}</dt><dd>{{ c.answer or "(답 없음)" }} · {{ c.submitted_at|kdatetime }}</dd>{% endfor %}
+</dl>
+{% if r.production_stage_at_request == "R6" %}<p class="t-sm">{{ icon("info", "sm") }} 하자·계약 불일치는 청약철회 제한 동의(Q6)와 별개예요. 그 동의로 법정 권리가 없어지지 않아요.</p>{% endif %}
+{% if r.status == "RECEIVED" and r.legal_review_status != "DONE" %}
+<form method="post" action="/refunds/{{ r.id }}/legal" class="stack">{{ csrf_input() }}
+<fieldset><legend>법정 청약철회에 해당하나요?</legend><label class="choice"><input type="radio" name="legal_withdrawal" value="yes"> 적법한 청약철회</label><label class="choice"><input type="radio" name="legal_withdrawal" value="no"> 해당 없음(제한 요건 충족 등)</label><label class="choice"><input type="radio" name="legal_withdrawal" value="" checked> 판단 보류</label></fieldset>
+{{ area("note", "검토 근거(요건별 판단·근거 자료)", "", True, None, None, 3) }}<button class="btn btn-secondary" type="submit">법적 검토 기록</button></form>
+{% endif %}</section>
+</div>
+
+<section class="card" aria-labelledby="rf-3"><h2 id="rf-3">결정·환급</h2><dl class="kv">
+<dt>결정액</dt><dd>{{ r.refund_approved_amount|won if r.refund_approved_amount is not none else "—" }}{% if r.decision_reason %} · {{ r.decision_reason }}{% endif %}</dd>
+<dt>배송비</dt><dd>{{ v.bearer_label }}{% if r.shipping_fee_krw %} · {{ r.shipping_fee_krw|won }}{% endif %}</dd>
+<dt>환급 기산일·기한</dt><dd>{{ r.refund_basis_date or "—" }} → {{ r.refund_due_at or "—" }}{% if r.refund_due_at %} (3영업일){% endif %}</dd>
+<dt>환급 완료</dt><dd>{% if r.refund_completed_at %}{{ r.refund_completed_at|kdatetime }} · {{ r.refund_completed_amount|won }} · {{ r.refund_method }} · {{ r.refund_evidence }}{% else %}—{% endif %}</dd></dl>
+{% if r.status == "RECEIVED" %}
+<form method="post" action="/refunds/{{ r.id }}/approve" class="stack">{{ csrf_input() }}
+<div class="grid-3">{{ text("amount", "환불 결정액(원)", r.refund_eligible_amount if r.refund_eligible_amount is not none else "") }}
+<div class="field"><label for="rf-b">배송비 부담</label><select id="rf-b" name="bearer"><option value="">기본값 유지</option>{% for k2, lab in BEARER.items() %}<option value="{{ k2 }}" {% if r.shipping_fee_bearer == k2 %}selected{% endif %}>{{ lab }}</option>{% endfor %}</select></div>
+{{ text("shipping_fee", "배송비(원, 선택)", "") }}</div>
+<div class="grid-2">{{ text("basis_date", "환급 기산일(공급된 상품은 반환받은 날)", "", False, None, None, "date") }}{{ area("reason", "결정 근거", "", True, None, None, 2) }}</div>
+<button class="btn btn-primary" type="submit" {% if r.legal_review_status == "REQUIRED" %}aria-disabled="true" aria-describedby="rf-need"{% endif %}>환불액 결정</button>
+{% if r.legal_review_status == "REQUIRED" %}<p class="err" id="rf-need">법적 검토를 먼저 기록해야 해요.</p>{% endif %}</form>
+{% elif r.status == "APPROVED" %}
+<form method="post" action="/refunds/{{ r.id }}/complete" class="stack">{{ csrf_input() }}
+<div class="grid-3">{{ text("amount", "실제 환급액(원)", r.refund_approved_amount) }}{{ text("method", "처리 방식(결제 취소·계좌 이체)", "") }}
+<div class="field"><label for="rf-ca">환급 시각(비우면 지금)</label><input id="rf-ca" type="datetime-local" name="completed_at"></div></div>
+{{ area("evidence", "결제 취소·이체 증거(네이버 취소 번호, 이체 확인 등)", "", True, None, None, 2) }}<button class="btn btn-primary" type="submit">환급 완료 기록</button></form>
+{% endif %}
+{% if r.status in ("RECEIVED", "APPROVED") %}
+<form method="post" action="/refunds/{{ r.id }}/withdraw" class="stack">{{ csrf_input() }}{{ text("note", "고객 요청 철회 근거", "") }}<button class="btn btn-tertiary" type="submit">고객이 요청을 거둬들임</button></form>
+{% endif %}</section>
+
+<section class="card"><h2>이력(고칠 수 없음)</h2><ul class="timeline">{% for e in v.events %}<li>{{ icon("clock", "sm") }}<span>{{ e.event }} · {{ e.display_name or ROLE_LABEL.get(e.actor_role, e.actor_role) }} <span class="meta">{{ e.created_at|kdatetime }}</span></span></li>{% endfor %}</ul></section>
+{% endblock %}

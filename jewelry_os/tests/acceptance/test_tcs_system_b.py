@@ -32,7 +32,8 @@ from webutil import web
 ROOT = Path(__file__).resolve().parents[2]
 PKG = ROOT / "jewelry_os"
 QC_PASS = {k: "pass" for k in ("spec", "purity_engraving", "size", "finish", "setting", "fit")}
-SPEC = {"material": "골드", "purity": "18K", "size": "12호", "stones": "없음", "engraving": "없음"}
+SPEC = {"material": "골드", "purity": "18K", "size": "12호", "stones": "없음", "engraving": "없음",
+        "custom_made": "1점 맞춤 제작", "loss_reasons": "맞춤 호수로 재판매 불가"}  # D-25 견적서 고지
 
 
 def act(w, no, code, **data):

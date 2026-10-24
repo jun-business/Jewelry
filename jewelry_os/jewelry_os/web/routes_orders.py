@@ -9,8 +9,8 @@ from ..core.db import ConflictError, jload
 from ..domain import transitions as tr
 from ..domain.guards import TransitionBlocked, unmet
 from ..domain.states import ENDED, S
-from ..services import (analysis, capacity, change_orders, cs, customers, files, intake, manufacturing, orders, payments, quotes,
-                        settings)
+from ..services import (analysis, capacity, change_orders, contracts, cs, customers, files, intake, manufacturing, orders,
+                        payments, quotes, refunds, settings)
 from .app import blocked_status, flash_redirect, form_of, render
 
 router = APIRouter()
@@ -90,7 +90,32 @@ def order_vm(ctx, o, user, tab):
         "checks": {a: tr.check(ctx, o["id"], a, user) for a in tr.TRANSITIONS if S(o["lifecycle_state"]) in
                    tr.TRANSITIONS[a].frm},
     }
+    vm.update(contract_vm(ctx, o, q_appr))
+    vm["refunds"] = [refunds.view(ctx, r) for r in refunds.of_order(ctx, o["id"])]
+    vm["balance_prepaid"] = any(r["phase"] == "BALANCE" and r["status"] == "PAID_VERIFIED" for r in pay_reqs)
+    vm["REFUND_REASONS"] = refunds.REASON_LABEL
     return vm
+
+
+def contract_vm(ctx, o, q_appr) -> dict:
+    """계약 동의(Form B) 카드 — D-24·D-25."""
+    k = contracts.current(ctx, o["id"])
+    resps = contracts.responses_of(ctx, k["id"]) if k else []
+    primary = next((r for r in resps if k and r["id"] == k["response_id"]), resps[-1] if resps else None)
+    spec = jload(q_appr["spec_json"], {}) if q_appr else {}
+    url = None
+    if k and k["status"] in ("ISSUED", "RESPONSE_RECEIVED", "REVIEW_REQUIRED"):
+        url = contracts.prefill_url(ctx, k)
+    return {"contract": k, "contract_all": contracts.of_order(ctx, o["id"]), "contract_resps": resps,
+            "contract_rows": contracts.answer_rows(primary) if primary else [],
+            "contract_problems": contracts.problems_of(k) if k else [], "contract_url": url,
+            "contract_unmatched": contracts.unmatched_for_order(ctx, o["id"]),
+            "contract_ready": contracts.readiness(ctx),
+            "contract_email_masked": contracts.mask_email(ctx.dec(primary["respondent_email_enc"])) if primary else "—",
+            "q_appr_ref": contracts.quote_ref(q_appr) if q_appr else None,
+            "q_appr_loss_ok": all((spec.get(x) or "").strip() for x in ("custom_made", "loss_reasons")),
+            "CONTRACT_LABEL": contracts.STATUS_LABEL, "CONTRACT_CHIP": contracts.STATUS_CHIP,
+            "CONTRACT_CHANNELS": contracts.DELIVERY_CHANNELS, "CONTRACT_IDENTITY": contracts.IDENTITY_METHODS}
 
 
 def render_order(request, o, tab, status=200, unmet_list=None, errors=None, form=None, confirm=None):
@@ -233,6 +258,9 @@ async def action(request: Request, no: str, code: str):
         elif code == "verify_final_full":
             payments.verify_final_full(ctx, o, user, p)
             msg = "결제 조건을 확인했어요."
+        elif code == "verify_final_paid":  # D-24: 발주 전에 확인한 잔금으로 잔금 확인 단계 통과
+            tr.perform(ctx, o["id"], "verify_final", user, p, expected_version=p.get("version"))
+            msg = "잔금 확인을 마쳤어요."
         elif code == "start_cad":
             tr.perform(ctx, o["id"], "start_cad", user, p, expected_version=p.get("version"))
             msg = "상세 CAD를 시작했어요."
@@ -373,8 +401,8 @@ async def quote_save(request: Request, qid: int):
         items.append({"kind": f.get(f"item_{i}_kind"), "label": f.get(f"item_{i}_label"),
                       "amount": f.get(f"item_{i}_amount"), "cost": f.get(f"item_{i}_cost"),
                       "note": f.get(f"item_{i}_note")})
-    from ..domain.states import SPEC_FIELDS
-    form = quotes.QuoteForm(items=items, spec={k: f.get(f"spec_{k}", "") for k, _ in SPEC_FIELDS},
+    from ..domain.states import CONTRACT_SPEC_FIELDS, SPEC_FIELDS
+    form = quotes.QuoteForm(items=items, spec={k: f.get(f"spec_{k}", "") for k, _ in SPEC_FIELDS + CONTRACT_SPEC_FIELDS},
                             spec_summary=f.get("spec_summary") or "", tax_included=_bool(f, "tax_included"),
                             shipping_included=_bool(f, "shipping_included"), promised_date=f.get("promised_date"),
                             valid_until=f.get("valid_until"), variable_cost=int((f.get("variable_cost") or "0")

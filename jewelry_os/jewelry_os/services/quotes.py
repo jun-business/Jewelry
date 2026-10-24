@@ -9,7 +9,7 @@ from ..core.db import jdump, jload
 from ..domain import transitions as tr
 from ..domain.guards import TransitionBlocked, unmet
 from ..domain.money import parse_won, split
-from ..domain.states import PHASE_LABEL, PHASE_OF, S, SPEC_FIELDS
+from ..domain.states import CONTRACT_SPEC_FIELDS, PHASE_LABEL, PHASE_OF, S, SPEC_FIELDS
 from . import audit, files, orders, settings
 
 ITEM_KINDS = {"metal": "금속", "stone": "스톤", "engraving": "각인", "design": "설계비", "factory": "외주 제작비",
@@ -116,7 +116,8 @@ def save(ctx, quote_id, actor, f: QuoteForm) -> None:
         c.execute("UPDATE quotes SET spec_json=?, spec_summary=?, tax_included=?, shipping_included=?, total_krw=?, "
                   "deposit_krw=?, balance_krw=?, promised_date=?, valid_until=?, cost_estimate_krw=?, variable_cost_krw=?, "
                   "design_minutes_est=?, internal_note=? WHERE id=?",
-                  (jdump({k: (f.spec.get(k) or "").strip() for k, _ in SPEC_FIELDS}), f.spec_summary or None,
+                  (jdump({k: (f.spec.get(k) or "").strip() for k, _ in SPEC_FIELDS + CONTRACT_SPEC_FIELDS}),
+                   f.spec_summary or None,
                    None if f.tax_included is None else int(f.tax_included),
                    None if f.shipping_included is None else int(f.shipping_included), total, dep, bal,
                    f.promised_date or None, f.valid_until or None, cost, int(f.variable_cost or 0),
@@ -139,6 +140,8 @@ def _approve_effect(ctx, actor, requote=False):
         prev = tr.latest_quote(c, o["id"], "APPROVED")
         if prev is not None:
             c.execute("UPDATE quotes SET status='SUPERSEDED' WHERE id=?", (prev["id"],))
+        from . import contracts  # 새 견적 버전 = 새 계약 동의(이전 동의 재사용 금지, D-24)
+        contracts.supersede_for_quote(c, o["id"], q["id"], actor, f"견적 v{q['version']} 승인")
         c.execute("UPDATE quotes SET status='APPROVED', approved_by=?, approved_at=?, is_test=?, terms_policy_id=?, "
                   "terms_version=? WHERE id=?", (actor.id, clock.now_iso(), is_test, terms["id"] if terms else None,
                                                   terms["version"] if terms else None, q["id"]))
@@ -259,6 +262,29 @@ class PublicQuote:
     ALLOWED = ("shop_name", "order_no", "customer_name", "version", "issued_at", "valid_until", "product_type", "spec",
                "spec_summary", "items", "total", "tax_included", "shipping_included", "deposit", "balance",
                "payment_policy", "promised_date", "terms_label", "phase_label", "is_test")
+
+
+def public_text(pq: PublicQuote) -> str:
+    """고객 견적 원문(날짜는 절대 표기) — 계약 증거 스냅숏에 남긴다."""
+    from ..domain.money import won
+    lines = [f"[{pq.shop_name}] 견적서 v{pq.version}", f"주문번호 {pq.order_no} · {pq.customer_name} 님",
+             f"발행 {pq.issued_at} · 유효기간 {pq.valid_until or '-'}까지"]
+    if pq.is_test:
+        lines.insert(0, "※ 시험 견적 — 실제 결제용 아님")
+    lines.append(f"제품: {pq.product_type or '-'}")
+    labels = dict(SPEC_FIELDS + CONTRACT_SPEC_FIELDS)
+    lines += [f"{labels.get(k, k)}: {v}" for k, v in pq.spec.items()]
+    if pq.spec_summary:
+        lines.append(pq.spec_summary)
+    lines += [f"· {it.label}: {won(it.amount)}" for it in pq.items]
+    lines.append(f"총액: {won(pq.total)} ({'부가세 포함' if pq.tax_included else '부가세 별도'}, "
+                 f"{'배송비 포함' if pq.shipping_included else '배송비 별도'})")
+    lines.append(f"결제: 전액 {won(pq.total)}" if pq.payment_policy == "FULL" else
+                 f"결제: 예약금 {won(pq.deposit)} · 잔금 {won(pq.balance)}")
+    lines.append(f"완성 예정: {pq.promised_date or '-'}")
+    if pq.terms_label:
+        lines.append(f"수정·환불 기준: {pq.terms_label}")
+    return "\n".join(lines)
 
 
 def public_quote(ctx, quote_id) -> PublicQuote | None:

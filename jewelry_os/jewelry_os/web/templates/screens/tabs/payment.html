@@ -17,7 +17,7 @@
 <form method="post" action="/orders/{{ o.order_no }}/actions/recreate_payment_req">{{ csrf_input() }}<input type="hidden" name="_tab" value="payment">
 <p class="t-sm">재견적으로 이전 결제 요청이 취소됐어요. 새 견적 기준으로 다시 만드세요.</p><button class="btn btn-primary" type="submit">새 결제 요청 만들기</button></form>
 {% endif %}
-{% if o.lifecycle_state == "QC_PASSED" and o.payment_policy != "FULL" and not pay_reqs|selectattr("phase", "equalto", "BALANCE")|list and balance_amount %}
+{% if o.lifecycle_state in ("CUSTOMER_DESIGN_APPROVED", "QC_PASSED") and o.payment_policy != "FULL" and not pay_reqs|selectattr("phase", "equalto", "BALANCE")|list and balance_amount %}
 <form method="post" action="/orders/{{ o.order_no }}/actions/create_balance_req">{{ csrf_input() }}<input type="hidden" name="_tab" value="payment">
 <p class="t-sm">잔금 = 승인 견적 총액 − 확인된 예약금 = <strong>{{ balance_amount|won }}</strong></p>
 <button class="btn btn-primary" type="submit" {% if me != "operator" %}aria-disabled="true" aria-describedby="bal-role"{% endif %}>잔금 결제 요청 만들기</button>{% if me != "operator" %}<p class="err" id="bal-role">운영자 계정만 할 수 있어요.</p>{% endif %}</form>
@@ -51,3 +51,17 @@
 {% for e in pay_events %}<tr><td>{{ PAY_PHASE_LABEL[e.phase] }}{% if e.is_test %} {{ chip("test", "시험") }}{% endif %}</td><td>{{ NAVER_STATUS.get(e.naver_status, "환불") }}</td><td class="num">{{ ("−" if e.event_type == "REFUND" else "") ~ (e.amount_krw|won) }}</td><td class="mono">{{ e.naver_product_order_id }}</td><td class="t-sm">{{ e.looked_up_at|kdatetime }}</td><td class="meta">{{ e.recorder }} · {{ e.recorded_at|kdatetime }}</td></tr>{% endfor %}
 </tbody></table></div></section>
 {% endif %}
+
+<section class="card" id="refunds" aria-labelledby="rf-t"><h2 id="rf-t">취소·환불 요청</h2>
+<p class="t-sm">고객 요청을 접수하면 진행 단계(결제·상세 CAD 착수·발주·배송 시각)를 시스템 기록으로 판정해요. 자동 계산은 예약금 결제 전(0원)·CAD 착수 전(예약금 전액)뿐이고, 그 밖의 환불액과 청약철회 가능 여부는 사람이 검토해 정해요.</p>
+{% if refunds %}<ul class="timeline">{% for v in refunds %}<li>{{ icon("octagon" if v.r.status == "RECEIVED" else "check", "sm") }}<span><a href="/refunds/{{ v.r.id }}">#{{ v.r.id }} {{ v.reason_label }} · {{ v.stage_label }}</a> · {{ v.status_label }} · {{ v.legal_label }}{% if v.late %} · {{ chip("issue", "환급 기한 지남") }}{% endif %} <span class="meta">{{ v.r.requested_at|kdatetime }}</span></span></li>{% endfor %}</ul>{% endif %}
+{% if o.lifecycle_state not in ("DECLINED",) %}
+<form method="post" action="/orders/{{ o.order_no }}/refunds" class="stack">{{ csrf_input() }}
+<div class="grid-3"><div class="field"><label for="rf-kind">요청 사유 구분</label><select id="rf-kind" name="reason_kind">{% for k, lab in REFUND_REASONS.items() %}<option value="{{ k }}">{{ lab }}</option>{% endfor %}</select></div>
+{{ text("via", "접수 채널(예: 카카오톡 상담)", "") }}
+<div class="field"><label for="rf-at">고객 요청 시각(비우면 지금)</label><input id="rf-at" type="datetime-local" name="requested_at"></div></div>
+{{ area("reason", "고객 요청 내용", "", True, None, None, 2) }}
+<button class="btn btn-secondary" type="submit">취소·환불 요청 접수</button></form>
+{% endif %}
+</section>
+

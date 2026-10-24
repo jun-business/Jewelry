@@ -13,7 +13,7 @@ from ..core import clock, security
 from ..core.db import jdump, jload
 from ..domain.guards import TransitionBlocked, unmet
 from ..domain.states import GATES, LIVE_INTAKE_GATES
-from ..services import (alerts, analysis, backup, capacity, cs, customers, files, intake, metrics, payments, quotes,
+from ..services import (alerts, analysis, backup, capacity, contracts, cs, customers, files, intake, metrics, payments, quotes,
                         settings, system)
 from .app import blocked_status, flash_redirect, form_of, render, templates
 
@@ -100,7 +100,10 @@ async def customer_page(request: Request, cid: int, reveal: int = 0):
     if d is None:
         raise HTTPException(404)
     others = [r for r in customers.list_customers(ctx) if r["id"] != cid]
-    return render(request, "screens/customer.html", {"d": d, "others": others, "revealed": None})
+    return render(request, "screens/customer.html", {"d": d, "others": others, "revealed": None,
+                                                       "contracts": contracts.of_customer(ctx, cid),
+                                                       "CONTRACT_LABEL": contracts.STATUS_LABEL,
+                                                       "CONTRACT_CHIP": contracts.STATUS_CHIP})
 
 
 @router.post("/customers/{cid}/{op}")
@@ -188,6 +191,10 @@ def settings_vm(ctx, section):
         vm["connected"] = bool(ctx.cfg.secret("JOS_GOOGLE_REFRESH_TOKEN"))
         vm["effective_mode"] = settings.effective_google_mode(ctx)
         vm["unmapped_count"] = len(intake.unmapped_questions(ctx))
+        vm["form_b"] = contracts.live_status(ctx)  # D-24 Form B(계약 동의) 상태
+        vm["form_b_ready"] = contracts.readiness(ctx)
+        vm["form_b_cursor"] = ctx.db.one("SELECT * FROM sync_cursors WHERE provider='google_forms' AND scope=?",
+                                         (contracts.form_id(ctx),)) if contracts.form_id(ctx) else None
     if section == "mapping":
         vm["mapping"] = intake.current_mapping(ctx)
         vm["binding_rows"] = intake.binding_rows(ctx)
@@ -404,6 +411,7 @@ async def system_op(request: Request, op: str):
     if op == "sync-now":
         st = intake.sync_once(ctx)
         intake.fetch_pending_files(ctx)
+        contracts.sync_once(ctx)
         alerts.evaluate(ctx)
         if st["ok"]:
             return flash_redirect(f.get("back") or "/system", f"가져왔어요. 새 의뢰 {st['new']}건.")
@@ -437,7 +445,9 @@ async def quote_doc(request: Request, qid: int):
         return render(request, "screens/error.html", {"title": "승인 전 견적은 고객에게 보여줄 수 없어요",
                                                        "message": "견적을 먼저 승인하세요.",
                                                        "link": ("/orders", "주문 목록")}, 403)
-    return templates.TemplateResponse(request, "screens/quote_doc.html", {"pq": pq.__dict__, "qid": qid})
+    q = ctx.db.one("SELECT * FROM quotes WHERE id=?", (qid,))
+    return templates.TemplateResponse(request, "screens/quote_doc.html", {"pq": pq.__dict__, "qid": qid,
+                                                                          "pq_ref": contracts.quote_ref(q)})
 
 
 @router.get("/docs/quote/{qid:int}.txt")

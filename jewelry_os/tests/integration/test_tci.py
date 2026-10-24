@@ -12,6 +12,7 @@ from jewelry_os.core import clock
 from jewelry_os.domain import transitions as tr
 from jewelry_os.services import alerts, backup, capacity, cs, intake, manufacturing, orders, payments, quotes, settings
 from webutil import web
+from jewelry_os.devtools import pay_balance
 
 
 def act(w, no, code, **data):
@@ -68,6 +69,7 @@ def test_tci_004_issue_check_and_reverify(ctx, maker, operator):
 
 def test_tci_005_new_design_revalidates(ctx, maker, operator):
     o = order_at(ctx, maker, operator, "CUSTOMER_DESIGN_APPROVED")
+    pay_balance(ctx, o["order_no"], operator)  # D-24 Gate 2: 발주 전 잔금
     stl = ctx.db.scalar("SELECT id FROM assets WHERE kind='stl'")
     manufacturing.save_factory_spec(ctx, o, maker, {"material": "골드", "purity": "18K", "size": "12호", "stones": "없음",
                                                      "engraving": "없음", "finish_na": "on", "special_na": "on",

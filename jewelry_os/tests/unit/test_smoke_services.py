@@ -23,13 +23,16 @@ def test_full_flow_services(ctx, maker, operator, fclock):
     quotes.save(ctx, qid, maker, quotes.QuoteForm(
         items=[{"kind": "metal", "label": "18K 금", "amount": "900,000", "cost": "500000"},
                {"kind": "design", "label": "설계비", "amount": "300000", "cost": "0"}],
-        spec={"material": "골드", "purity": "18K", "size": "12호", "stones": "없음", "engraving": "없음"},
+        spec={"material": "골드", "purity": "18K", "size": "12호", "stones": "없음", "engraving": "없음",
+              "custom_made": "1점 맞춤 제작", "loss_reasons": "맞춤 사이즈로 재판매 불가"},
         tax_included=True, shipping_included=True, promised_date="2026-11-30", valid_until="2026-11-03"))
     o = orders.get(ctx, o["order_no"])
     quotes.approve(ctx, o, maker, {"confirm": "on"})
     o = orders.get(ctx, o["order_no"])
-    quotes.record_acceptance(ctx, o, maker, {"channel": "카카오톡", "evidence": "견적 v1 동의한다고 답장", "confirm": "on"})
+    from jewelry_os.devtools import accept_contract
+    accept_contract(ctx, o, operator)  # D-24: Form B 계약 동의가 유효해지면 고객 동의 완료로 자동 반영
     o = orders.get(ctx, o["order_no"])
+    assert o["lifecycle_state"] == S.CUSTOMER_ACCEPTED.value
     payments.create_initial(ctx, o, operator, {"confirm": "on"})
     o = orders.get(ctx, o["order_no"])
     r = payments.record_payment(ctx, o, operator, {"naver_order_id": "N1", "naver_product_order_id": "P1",
@@ -50,6 +53,13 @@ def test_full_flow_services(ctx, maker, operator, fclock):
                                                      "engraving": "없음", "finish_na": "on", "special_na": "on",
                                                      "stl_asset_id": stl})
     o = orders.get(ctx, o["order_no"])
+    payments.create_balance(ctx, o, operator)  # D-24 Gate 2: 최종 CAD 승인 뒤 잔금 2/3 확인 → 발주
+    o = orders.get(ctx, o["order_no"])
+    r = payments.record_payment(ctx, o, operator, {"phase": "BALANCE", "naver_order_id": "N2",
+                                                   "naver_product_order_id": "P2", "amount": "800000",
+                                                   "naver_status": "PAYED", "looked_up_at": "2026-11-10T12:00", "confirm": "on"})
+    assert r["result"] == "verified"
+    o = orders.get(ctx, o["order_no"])
     manufacturing.build_packet(ctx, o, maker)
     o = orders.get(ctx, o["order_no"])
     manufacturing.send_factory(ctx, o, maker, {"confirm": "on", "expected_at": "2026-11-10"})
@@ -59,14 +69,9 @@ def test_full_flow_services(ctx, maker, operator, fclock):
     res = manufacturing.record_qc(ctx, o, maker, {**{k: "pass" for k in ("spec", "purity_engraving", "size", "finish",
                                                                             "setting", "fit")}, "confirm": "on"})
     assert res == "PASS"
+    assert payments.try_verify(ctx, o["id"]) == "verified"  # 발주 전에 확인한 잔금으로 잔금 확인 단계
     o = orders.get(ctx, o["order_no"])
-    payments.create_balance(ctx, o, operator)
-    o = orders.get(ctx, o["order_no"])
-    r = payments.record_payment(ctx, o, operator, {"phase": "BALANCE", "naver_order_id": "N2",
-                                                   "naver_product_order_id": "P2", "amount": "800000",
-                                                   "naver_status": "PAYED", "looked_up_at": "2026-11-10T12:00", "confirm": "on"})
-    assert r["result"] == "verified"
-    o = orders.get(ctx, o["order_no"])
+    assert o["lifecycle_state"] == S.FINAL_PAYMENT_VERIFIED.value
     manufacturing.ship(ctx, o, maker, {"recipient": "김하늘", "method": "택배", "platform_status": "배송중", "confirm": "on"})
     o = orders.get(ctx, o["order_no"])
     manufacturing.close(ctx, o, operator, {"evidence": "배달 완료 조회", "confirm": "on"})
