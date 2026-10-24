@@ -27,7 +27,7 @@ from ..core.db import jdump, jload
 from ..domain import transitions as tr
 from ..domain.guards import TransitionBlocked, unmet
 from ..domain.states import ENDED, S
-from . import audit, files, quotes, settings
+from . import audit, customers, files, quotes, settings
 
 log = logging.getLogger("jos.contracts")
 MAPPINGS_DIR = Path(__file__).resolve().parents[1] / "mappings"
@@ -222,8 +222,22 @@ def of_order(ctx, order_id):
 
 
 def of_customer(ctx, customer_id):
-    return ctx.db.all("SELECT r.*, o.order_no FROM contract_requests r JOIN orders o ON o.id=r.order_id "
-                      "WHERE r.customer_id=? ORDER BY r.id DESC", (customer_id,))
+    """고객 묶음(‘같은 고객으로 연결’ 포함)의 계약 동의 기록 — 주문별로 따로."""
+    ids = customers.group_ids(ctx.db.conn, customer_id)
+    return ctx.db.all(f"SELECT r.*, o.order_no FROM contract_requests r JOIN orders o ON o.id=r.order_id "
+                      f"WHERE r.customer_id IN ({','.join('?' * len(ids))}) ORDER BY r.id DESC", ids)
+
+
+def _identity_match(c, group, email_hash_):
+    """확인된 계약 이메일 대조: (이 고객 묶음 것인가, 다른 고객 것인가)."""
+    if not email_hash_:
+        return False, False
+    marks = ",".join("?" * len(group))
+    own = c.execute(f"SELECT 1 FROM customer_identities WHERE customer_id IN ({marks}) AND kind='email' AND value_hash=?",
+                    (*group, email_hash_)).fetchone()
+    other = c.execute(f"SELECT 1 FROM customer_identities WHERE customer_id NOT IN ({marks}) AND kind='email' AND "
+                      f"value_hash=?", (*group, email_hash_)).fetchone()
+    return bool(own), bool(other)
 
 
 def current(ctx, order_id):
@@ -623,12 +637,13 @@ def evaluate(ctx, c, req_id, actor) -> str:
     primary = resps[-1]
     a = jload(primary["answers_json"], {})
     o = c.execute("SELECT * FROM orders WHERE id=?", (req["order_id"],)).fetchone()
-    cust = c.execute("SELECT * FROM customers WHERE id=?", (req["customer_id"],)).fetchone()
+    group = customers.group_ids(c, req["customer_id"])
+    cust = c.execute("SELECT * FROM customers WHERE id=?", (o["customer_id"],)).fetchone()
     q = c.execute("SELECT * FROM quotes WHERE id=?", (req["quote_id"],)).fetchone()
     probs: list[dict] = []
     if _norm_text(a.get("order_no")) != _norm_text(o["order_no"]):
         probs.append({"code": "ORDER_MISMATCH"})
-    if cust is None or cust["deleted_at"] or o["customer_id"] != req["customer_id"]:
+    if cust is None or cust["deleted_at"] or o["customer_id"] not in group:  # 연결된 고객 묶음 안이면 같은 고객
         probs.append({"code": "CUSTOMER_MISSING"})
     if q is None or q["status"] != "APPROVED":
         probs.append({"code": "QUOTE_SUPERSEDED"})
@@ -659,10 +674,7 @@ def evaluate(ctx, c, req_id, actor) -> str:
         elif not _reviewed(c, req_id, resps):
             probs.append({"code": "MULTIPLE_RESPONSES", "n": len(resps)})
     eh = primary["respondent_email_hash"]
-    own = eh and c.execute("SELECT 1 FROM customer_identities WHERE customer_id=? AND kind='email' AND value_hash=?",
-                           (req["customer_id"], eh)).fetchone()
-    other = eh and c.execute("SELECT 1 FROM customer_identities WHERE customer_id<>? AND kind='email' AND value_hash=?",
-                             (req["customer_id"], eh)).fetchone()
+    own, other = _identity_match(c, group, eh)
     if req["identity_status"] != "VERIFIED":
         if own and not other:
             c.execute("UPDATE contract_requests SET identity_status='VERIFIED', identity_method='verified_email', "
@@ -789,11 +801,11 @@ def review(ctx, req_id, actor, method: str, note: str, remember_email: bool = Tr
                   "identity_by=?, identity_at=? WHERE id=?", (method, note.strip(), actor.id, clock.now_iso(), req_id))
         saved = False
         if remember_email and primary["respondent_email_hash"]:
+            owner = c.execute("SELECT customer_id FROM orders WHERE id=?", (req["order_id"],)).fetchone()[0]  # 지금 주문의 고객
             saved = c.execute("INSERT OR IGNORE INTO customer_identities(customer_id, kind, value_hash, value_enc, method, "
                               "note, verified_by, verified_at) VALUES (?,?,?,?,?,?,?,?)",
-                              (req["customer_id"], "email", primary["respondent_email_hash"],
-                               primary["respondent_email_enc"], method, note.strip(), actor.id,
-                               clock.now_iso())).rowcount > 0
+                              (owner, "email", primary["respondent_email_hash"], primary["respondent_email_enc"], method,
+                               note.strip(), actor.id, clock.now_iso())).rowcount > 0
         _event(c, req, "reviewed", actor, detail={"method": method, "note": note.strip(), "responses": len(resps),
                                                    "rev_key": _rev_key(resps), "response_row_id": primary["id"],
                                                    "email_saved": saved})
@@ -827,7 +839,7 @@ def evidence(ctx, req_id) -> dict:
     """주문별 계약 증거 묶음(화면·내보내기 공용). 원문 응답·이메일은 복호화해 담는다 — 호출부가 권한을 확인한다."""
     req = get(ctx, req_id)
     o = ctx.db.one("SELECT * FROM orders WHERE id=?", (req["order_id"],))
-    cust = ctx.db.one("SELECT id, display_name, deleted_at FROM customers WHERE id=?", (req["customer_id"],))
+    cust = ctx.db.one("SELECT id, display_name, deleted_at FROM customers WHERE id=?", (o["customer_id"],))
     notice = ctx.db.one("SELECT * FROM contract_notices WHERE id=?", (req["notice_id"],))
     terms = ctx.db.one("SELECT * FROM policies WHERE id=?", (req["terms_policy_id"],)) if req["terms_policy_id"] else None
     resps = []

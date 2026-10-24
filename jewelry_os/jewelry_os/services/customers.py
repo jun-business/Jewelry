@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from ..core import clock
-from ..core.db import jload
+from ..core.db import jdump, jload
 from ..domain.guards import TransitionBlocked, unmet
 from . import audit
 
@@ -14,6 +14,26 @@ def masked(value: str | None) -> str:
     if len(v) <= 4:
         return "****"
     return v[:3] + "-****-" + v[-4:] if v[:3].isdigit() else v[:2] + "****" + v[-2:]
+
+
+def root_id(c, cid) -> int:
+    """연결(merged_into)을 따라간 대표 고객 ID."""
+    seen = set()
+    while cid not in seen:
+        seen.add(cid)
+        r = c.execute("SELECT merged_into FROM customers WHERE id=?", (cid,)).fetchone()
+        if r is None or r["merged_into"] is None:
+            return cid
+        cid = r["merged_into"]
+    return cid
+
+
+def group_ids(c, cid) -> list[int]:
+    """‘같은 고객으로 연결’된 고객 묶음(대표 + 연결된 모든 고객). 계약 증거의 고객 ID는 그대로 두고 묶음으로 본다."""
+    root = root_id(c, cid)
+    return [r["id"] for r in c.execute(
+        "WITH RECURSIVE g(id) AS (SELECT ? UNION SELECT cu.id FROM customers cu JOIN g ON cu.merged_into=g.id) "
+        "SELECT id FROM g ORDER BY id", (root,)).fetchall()]
 
 
 def list_customers(ctx, q=None):
@@ -29,7 +49,7 @@ def detail(ctx, cid):
     c = ctx.db.one("SELECT * FROM customers WHERE id=?", (cid,))
     if c is None:
         return None
-    ids = [cid] + [r["id"] for r in ctx.db.all("SELECT id FROM customers WHERE merged_into=?", (cid,))]
+    ids = group_ids(ctx.db.conn, cid)
     marks = ",".join("?" * len(ids))
     orders = ctx.db.all(f"SELECT * FROM orders WHERE customer_id IN ({marks}) ORDER BY created_at DESC", ids)
     last_spec = {}
@@ -64,6 +84,12 @@ def link(ctx, cid, other_id, actor, reason):
     with ctx.db.tx() as c:
         c.execute("UPDATE customers SET merged_into=? WHERE id=?", (cid, other_id))
         c.execute("UPDATE orders SET customer_id=? WHERE customer_id=?", (cid, other_id))
+        # 계약 증거의 고객 ID는 바꾸지 않고, 연결 사실을 각 계약 이력에 남긴다(고객 묶음으로 조회·검증)
+        for r in c.execute("SELECT id, order_id FROM contract_requests WHERE customer_id=?", (other_id,)).fetchall():
+            c.execute("INSERT INTO contract_events(request_id, order_id, event, actor_id, actor_role, detail_json, created_at) "
+                      "VALUES (?,?,?,?,?,?,?)", (r["id"], r["order_id"], "customer_linked", getattr(actor, "id", None),
+                                                 getattr(actor, "role", "system"),
+                                                 jdump({"from": other_id, "to": cid, "reason": reason}), clock.now_iso()))
         audit.record(c, "customer", cid, actor, "customer_linked", prev=str(other_id), next=str(cid), reason=reason)
 
 

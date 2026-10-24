@@ -590,3 +590,38 @@ def test_publishing_form_is_not_a_notice_change(ctx, maker, operator):
     assert "NOTICE_CHANGED" not in _codes(ctx, rid)
     assert _review(ctx, rid, operator) == "ACCEPTED"
     assert contracts.evidence(ctx, rid)["checks"]["notice_sha256_ok"]
+
+
+# ---------------- 고객 묶음(‘같은 고객으로 연결’) ----------------
+def test_linked_customers_share_contract_history_and_identity(ctx, maker, operator):
+    """Form A 응답마다 고객이 새로 생긴다 — 운영자가 연결하면 계약 기록·확인된 이메일·검증을 묶음으로 본다.
+    계약 증거의 고객 ID는 그대로(불변), 연결 사실은 계약 이력에 남는다."""
+    o1 = order_at(ctx, maker, operator, "CUSTOMER_ACCEPTED", rid="r1", name="김하늘", contact="010-1111-2222")
+    r1 = ctx.db.scalar("SELECT id FROM contract_requests")  # 고객1 · 확인된 이메일 customer{id}@example.com
+    o2 = _qa(ctx, maker, operator, "r2", name="김하늘", contact="010-1111-2222")  # 같은 사람, 새 고객 기록
+    r2 = _issue(ctx, o2, operator)
+    c1, c2 = o1["customer_id"], o2["customer_id"]
+    assert c1 != c2 and [k["id"] for k in contracts.of_customer(ctx, c2)] == [r2]
+    customers.link(ctx, c2, c1, operator, "같은 전화번호·카톡 확인")  # 고객1 → 고객2로 연결
+    assert contracts.get(ctx, r1)["customer_id"] == c1  # 증거는 그대로
+    assert {k["id"] for k in contracts.of_customer(ctx, c2)} == {r1, r2} == {k["id"] for k in contracts.of_customer(ctx, c1)}
+    ev = ctx.db.one("SELECT * FROM contract_events WHERE request_id=? AND event='customer_linked'", (r1,))
+    assert ev and '"to":' in ev["detail_json"]
+    page = web(ctx, "operator").get(f"/customers/{c2}").text
+    assert o1["order_no"] in page and o2["order_no"] in page
+    # 연결 전 고객1의 확인된 이메일로 고객2의 새 주문에 제출 → 같은 고객으로 대조
+    form_b_response(ctx, r2, email=f"customer{c1}@example.com")
+    _sync(ctx)
+    k2 = contracts.get(ctx, r2)
+    assert k2["identity_method"] == "verified_email" and _codes(ctx, r2) == {"OPERATOR_REVIEW_PENDING"}
+    assert _review(ctx, r2, operator, "verified_email") == "ACCEPTED"
+    # 이미 유효한 고객1 계약에 새 응답이 와도 '고객 없음'으로 빠지지 않는다(주문 고객이 묶음 안)
+    form_b_response(ctx, r1, response_id="again", email=f"customer{c1}@example.com")
+    _sync(ctx)
+    assert "CUSTOMER_MISSING" not in _codes(ctx, r1) and "IDENTITY_OTHER_CUSTOMER" not in _codes(ctx, r1)
+    # 묶음 밖 고객의 이메일은 여전히 다른 고객으로 표시
+    o3 = _qa(ctx, maker, operator, "r3", name="박민수", contact="010-3333-4444")
+    r3 = _issue(ctx, o3, operator)
+    form_b_response(ctx, r3, email=f"customer{c1}@example.com")
+    _sync(ctx)
+    assert "IDENTITY_OTHER_CUSTOMER" in _codes(ctx, r3)
