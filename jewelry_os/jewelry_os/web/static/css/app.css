@@ -171,6 +171,8 @@ legend { font-weight: 600; padding: 0 4px; }
 .placeholder-img { aspect-ratio: 1; display: grid; place-items: center; text-align: center; padding: 8px; color: var(--jos-color-text-muted); font-size: var(--jos-font-size-sm); }
 .timeline { list-style: none; margin: 0; padding: 0; }
 .timeline li { display: grid; grid-template-columns: 28px minmax(0, 1fr); gap: 8px; padding: 10px 0; border-bottom: 1px solid var(--jos-color-border); }
+.timeline li > :only-child { grid-column: 1 / -1; }  /* 아이콘 없는 한 칸짜리 줄(“아직 기록이 없어요” 등)이 28px 아이콘 칸에 갇히지 않게 */
+.timeline li.t-muted { display: block; }  /* 글자만 있는 줄 */
 .file-card { display: flex; gap: 12px; align-items: center; padding: 10px; border: 1px solid var(--jos-color-border); border-radius: var(--jos-radius-md); background: var(--jos-color-surface); margin-bottom: 8px; }
 .file-card .fc-body { flex: 1; min-width: 0; }
 .copy-block { position: relative; }

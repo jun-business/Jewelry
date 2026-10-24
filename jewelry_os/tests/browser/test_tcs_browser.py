@@ -40,7 +40,8 @@ def screens(a, b, c, qid):
             ("order-payment", f"/orders/{b}/payment"), ("order-making", f"/orders/{c}/making"), ("payments", "/payments"),
             ("cs", "/cs"), ("schedule", "/schedule"), ("customers", "/customers"), ("analytics", "/analytics"),
             ("settings", "/settings/policy"), ("system", "/system"), ("quote-doc", f"/docs/quote/{qid}"),
-            ("order-change", f"/orders/{CHANGE_NO}/qc")]
+            ("order-change", f"/orders/{CHANGE_NO}/qc"), ("settings-gates", "/settings/gates"),
+            ("settings-backup", "/settings/backup")]
 
 
 OVERFLOW_JS = """() => {
@@ -71,6 +72,11 @@ def test_tcs_041_responsive(ctx, maker, operator, live, new_page):
             res = page.evaluate(OVERFLOW_JS)
             assert res["sw"] <= res["cw"], (w, name, res)
             assert not res["bad"], (w, name, res["bad"])
+            squeezed = page.evaluate("""() => [...document.querySelectorAll('ul.timeline li, ul.notif-list li')]
+                .filter(li => li.offsetParent).flatMap(li => [...li.children].length ? [...li.children] : [li])
+                .filter(el => el.textContent.trim().length > 3 && el.getBoundingClientRect().width < 60)
+                .map(el => el.textContent.trim().slice(0, 20))""")
+            assert squeezed == [], (w, name, squeezed)  # 글자가 한 자씩 세로로 늘어서는 칸(28px 아이콘 칸 갇힘) 없음
             if name == "settings":  # 설정 메뉴 탭: 글자가 줄바꿈되지 않고, 600px 이상에서는 넘치지 않는다
                 tabs = page.evaluate("""() => { const ul = document.querySelector('.settings-grid .queue-tabs');
                     const links = [...ul.querySelectorAll('a')];
