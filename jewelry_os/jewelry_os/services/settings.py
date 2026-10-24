@@ -35,8 +35,8 @@ DEFAULTS = {
         "3cbf2d37": "desired_date", "70b5dc7c": "display_name", "4c6af8a8": "contact_value",
         "18976f60": "contact_kind", "683c3173": "source_channel", "72899728": "consent",
     },  # 이메일(6fd6cc59)은 받지 않음 — 회신은 휴대전화 번호로. 사진 문항(5b503c28)은 자동 인식
-    "ai_provider": "mock",               # mock | claude
-    "ai_model": "claude-opus-5-5",
+    "ai_provider": "openai",             # mock | claude | openai — D-32: OpenAI. 키가 없으면 규칙 기반(Mock)으로 동작
+    "ai_model": "gpt-6-luna",           # D-32: OpenAI GPT-6 Luna
     "ai_monthly_call_limit": 300,
     "ai_monthly_cost_limit_krw": 30000,
     "ai_send_images": False,

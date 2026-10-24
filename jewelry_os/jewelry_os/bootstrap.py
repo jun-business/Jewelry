@@ -12,7 +12,7 @@ from .services import capacity, settings
 
 def build_ctx(cfg: Config | None = None, *, forms=None, files=None, analyzer=None) -> Ctx:
     cfg = cfg or load_config()
-    for k in ("ANTHROPIC_API_KEY", "JOS_GOOGLE_CLIENT_SECRET", "JOS_GOOGLE_REFRESH_TOKEN", "JOS_BACKUP_KEY",
+    for k in ("ANTHROPIC_API_KEY", "OPENAI_API_KEY", "JOS_GOOGLE_CLIENT_SECRET", "JOS_GOOGLE_REFRESH_TOKEN", "JOS_BACKUP_KEY",
               "JOS_DATA_KEY", "JOS_SECRET", "JOS_CHANNELTALK_ACCESS_KEY", "JOS_CHANNELTALK_ACCESS_SECRET"):
         logging_setup.register_secret(cfg.secret(k))
     db = Database(cfg.db_path)
@@ -46,8 +46,12 @@ def configure_adapters(ctx: Ctx, keep_injected=False) -> None:
             ctx.forms = ctx.extra.setdefault("mock_forms", g.MockForms())
             ctx.files = ctx.extra.setdefault("mock_drive", g.MockDrive())
     if not (keep_injected and ctx.analyzer is not None):
+        provider = settings.get(ctx, "ai_provider")
+        okey = ctx.cfg.secret("OPENAI_API_KEY")
         key = ctx.cfg.secret("ANTHROPIC_API_KEY")
-        if settings.get(ctx, "ai_provider") == "claude" and key:
+        if provider == "openai" and okey:  # D-32: 키를 넣으면 바로 실제 모델, 없으면 규칙 기반
+            ctx.analyzer = ai_ad.OpenAIAI(okey, settings.get(ctx, "ai_model") or "gpt-6-luna")
+        elif provider == "claude" and key:
             try:
                 ctx.analyzer = ai_ad.ClaudeAI(key, settings.get(ctx, "ai_model"))
             except ai_ad.AnalyzerError:

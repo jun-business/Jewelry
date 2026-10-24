@@ -283,3 +283,60 @@ class ClaudeAI:
         user = (f"<policy>{policy['body'] if policy else '(승인된 정책 없음)'}</policy>\n"
                 f"<order>{json.dumps(order_ctx, ensure_ascii=False)}</order>\n" + wrap_customer({"question": question}))
         return self._call(SYSTEM_CS, user, CS_SCHEMA)
+
+
+# ---------------- OpenAI(실제, D-32) ----------------
+class OpenAIAI:
+    """OpenAI Chat Completions REST(httpx — 추가 패키지 없음) + JSON 스키마 강제 출력.
+    키는 PC의 secrets.env 또는 환경변수 OPENAI_API_KEY. 기본 모델 gpt-6-luna."""
+
+    URL = "https://api.openai.com/v1/chat/completions"
+
+    def __init__(self, api_key: str, model: str = "gpt-6-luna", timeout: float = 60.0, transport=None):
+        import httpx
+        self._httpx = httpx
+        self._http = httpx.Client(timeout=timeout, transport=transport)
+        self._key = api_key
+        self.model_id = model
+
+    def _call(self, system: str, user: str, schema: dict, name: str) -> dict:
+        body = {"model": self.model_id,
+                "messages": [{"role": "system", "content": system}, {"role": "user", "content": user}],
+                "response_format": {"type": "json_schema", "json_schema": {"name": name, "strict": True, "schema": schema}}}
+        try:
+            r = self._http.post(self.URL, json=body, headers={"Authorization": f"Bearer {self._key}"})
+        except self._httpx.TimeoutException:
+            raise AnalyzerError("TIMEOUT", "timeout")
+        except self._httpx.HTTPError:
+            raise AnalyzerError("TIMEOUT", "connection")
+        if r.status_code in (401, 403):
+            raise AnalyzerError("AUTH", str(r.status_code))
+        if r.status_code == 429:
+            raise AnalyzerError("RATE", "429")
+        if r.status_code != 200:
+            raise AnalyzerError("ERROR", str(r.status_code))
+        try:
+            choice = r.json()["choices"][0]
+            msg = choice["message"]
+        except (ValueError, KeyError, IndexError):
+            raise AnalyzerError("SCHEMA", "bad response")
+        if msg.get("refusal"):
+            raise AnalyzerError("REFUSAL", "")
+        if choice.get("finish_reason") == "length":
+            raise AnalyzerError("SCHEMA", "truncated")
+        try:
+            return json.loads(msg.get("content") or "")
+        except json.JSONDecodeError:
+            raise AnalyzerError("SCHEMA", "invalid json")
+
+    def analyze(self, payload: dict, policy_text: str | None) -> dict:
+        return self._call(SYSTEM_BRIEF, wrap_customer(payload), BRIEF_SCHEMA, "inquiry_brief")
+
+    def digest_chat(self, messages: list[dict]) -> dict:
+        return self._call(SYSTEM_DIGEST, wrap_customer({"messages": messages}), DIGEST_SCHEMA, "chat_digest")
+
+    def draft_cs(self, question: str, order_ctx: dict, policy: dict | None) -> dict:
+        user = (f"<policy>{policy['body'] if policy else '(승인된 정책 없음)'}</policy>\n"
+                f"<order>{json.dumps(order_ctx, ensure_ascii=False)}</order>\n" + wrap_customer({"question": question}))
+        return self._call(SYSTEM_CS, user, CS_SCHEMA, "cs_draft")
+

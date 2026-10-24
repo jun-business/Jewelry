@@ -391,6 +391,7 @@
 | 2026-10-24 | Gate 기준 갱신·BIZ-01(D-29) | GATES 문구 갱신, GATE-BIZ-01 추가·실거래 Gate 포함, Gate 보드 문구가 목록에서 생성 | Gate 보드 점검 | 시험 추가 1건, TC-S-014 갱신 | — |
 | 2026-10-24 | 카카오톡 대화 가져오기(D-30) | services/kakao_import.py, 주문 상담 탭·상담함 ‘주문 전 문의’·문의 대화 화면, 주문 연결 | 사용자 요청(무료·무등록) | 시험 추가 4건 | — |
 | 2026-10-24 | 카카오톡 대화 AI 정리(D-31) | ai.DIGEST_SCHEMA·MockAI/ClaudeAI.digest_chat, services/cs_digest.py, cs_digests 표(추가), 정리 카드·처리 버튼, 답변 초안 연결 | 사용자 요청 | 시험 추가 7건 | 실제 Claude 미확인(AI 설정 mock) |
+| 2026-10-25 | OpenAI 전환(D-32) | adapters/ai.OpenAIAI, 기본값 openai·gpt-6-luna, 설정 › AI 키 입력, set-secret·키 파일 | 사용자 요청 | 시험 추가 8건 | 실제 API 미확인(키 대기) |
 | 2026-10-18 | SRS-004 r2 · 코드 | 실제 Google 폼 질문 ID 연결: 설정 > 폼 매핑(미인식 질문 ID + 가린 예시 답변) → `intake_question_binding`(operator, 감사), `load_mapping` 덧붙임(자리표시 ID 유지), 저장 후 전체 재해석(해석 변경분만 revision · 시스템 보류 해제 · 빈 값 채움 · AI 1회). d29e3d1(파일 답 모양 인식) 유지 + 첫 단위 시험 | 아버님 PC 실폼 시험에서 글 답 전부 None → NEEDS_INFO·NO_CONSENT, AI 미실행(인수 조건 C-1 선행 결함). OAuth 범위 유지 | D-18, TC-S-057 신설, TC-U-056~058, INSTALL §5, 14_TR §9, 회귀 184 PASS | SRS-004 1회 |
 
 ## 6. 산출물 품질 게이트

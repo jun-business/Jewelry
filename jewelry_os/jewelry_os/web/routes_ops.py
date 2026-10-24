@@ -252,7 +252,9 @@ def settings_vm(ctx, section):
         vm["data_dir"] = str(ctx.cfg.data_dir)
     if section == "ai":
         vm["usage"] = analysis.usage(ctx)
-        vm["has_key"] = bool(ctx.cfg.secret("ANTHROPIC_API_KEY"))
+        prov = settings.get(ctx, "ai_provider")
+        vm["has_key"] = bool(ctx.cfg.secret("OPENAI_API_KEY" if prov == "openai" else "ANTHROPIC_API_KEY"))
+        vm["ai_active"] = type(ctx.analyzer).__name__
         vm["sent_fields"] = analysis.SENT_FIELDS
     if section == "google":
         cur = ctx.db.one("SELECT * FROM sync_cursors WHERE provider='google_forms' AND scope=?",
@@ -391,7 +393,15 @@ async def settings_post(request: Request, section: str):
             for k in ("ai_monthly_call_limit", "ai_monthly_cost_limit_krw"):
                 if f.get(k):
                     settings.put(ctx, k, int(f[k]), user)
-            if f.get("ai_provider") in ("mock", "claude"):
+            if f.get("ai_key"):  # D-32 키 입력(화면에 다시 보이지 않음)
+                prov = f.get("ai_provider") or settings.get(ctx, "ai_provider")
+                name = "OPENAI_API_KEY" if prov == "openai" else "ANTHROPIC_API_KEY"
+                ctx.cfg.set_secret(name, f["ai_key"].strip())
+                from ..core import logging_setup
+                logging_setup.register_secret(f["ai_key"].strip())
+                with ctx.db.tx() as c:
+                    audit.record(c, "integration", name, user, "ai_key_saved", prev=audit.PII)
+            if f.get("ai_provider") in ("mock", "claude", "openai"):
                 settings.put(ctx, "ai_provider", f["ai_provider"], user)
             if f.get("ai_model"):
                 settings.put(ctx, "ai_model", f["ai_model"].strip(), user)
