@@ -151,7 +151,11 @@ powershell -ExecutionPolicy Bypass -File scripts\install.ps1
 
 ## 7. 업데이트 (새 버전 받기)
 
-GitHub에 새 버전을 올린 뒤 아버님 PC에서:
+**자동 업데이트(D-23)**: 아버님 PC에서 앱을 켤 때마다(바탕화면 'Jewelry OS 시작' 또는 로그온 자동 시작) GitHub에 새 버전이 있는지 확인합니다. 있으면 백업 → 새 버전 받기 → 새 버전으로 다시 켜기를 저절로 합니다. 기존 DB(계정·주문·설정·Google 연결)는 그대로이고, DB 구조가 바뀐 버전이면 켜질 때 자동으로 옮깁니다. 인터넷이 안 되거나 받기에 실패하면 지금 버전으로 그냥 켜지고, 이유는 데이터 폴더 `logs/update.log`에 남습니다. 운영 모드(prod)에서만 동작합니다.
+
+이미 켜져 있는 앱은 껐다 켤 때 업데이트됩니다. 바로 받으려면 아래 수동 업데이트를 하세요. **자동 업데이트가 들어 있지 않은 옛 버전이 설치된 PC는 이 수동 업데이트를 한 번 해야 합니다.**
+
+GitHub에 새 버전을 올린 뒤 아버님 PC에서 수동으로:
 ```powershell
 cd "$env:USERPROFILE\JewelryOS\jewelry_os"
 ```

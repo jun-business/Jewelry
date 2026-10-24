@@ -119,6 +119,11 @@ def main(argv=None) -> int:
         except AlreadyRunning:
             print("Jewelry OS가 이미 실행 중이에요.", file=sys.stderr)
             return 3
+        from .core import selfupdate
+        if selfupdate.run(cfg):  # 새 버전을 받았으면 새 코드로 다시 켠다(D-23)
+            lock.release()
+            selfupdate.restart(sys.argv[1:] if argv is None else argv)
+            return 0
         import uvicorn
 
         from .bootstrap import build_ctx
