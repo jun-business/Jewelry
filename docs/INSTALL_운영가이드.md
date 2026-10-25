@@ -23,11 +23,11 @@ cd "C:\Users\TEST OS\Desktop\창업\Jewelry\jewelry_os"
 ```
 시험 데이터가 든 개발용 폴더를 만들고(계정: `tools/dev_seed.py`에 적힌 시험용 아이디·비밀번호):
 ```powershell
-.venv\Scripts\python tools\dev_seed.py $env:TEMP\jos-dev
+.venv\Scripts\python tools\dev_seed.py $env:LOCALAPPDATA\JewelryOS\dev
 ```
 실행(브라우저가 자동으로 열림):
 ```powershell
-.venv\Scripts\python -m jewelry_os --env dev --data-dir $env:TEMP\jos-dev serve
+.venv\Scripts\python -m jewelry_os --env dev --data-dir $env:LOCALAPPDATA\JewelryOS\dev serve
 ```
 - 종료: 실행한 창에서 `Ctrl+C`. 이미 켜져 있으면 “이미 실행 중이에요”와 함께 종료코드 3으로 끝납니다.
 - 전체 시험(약 3분, 개발 PC만):

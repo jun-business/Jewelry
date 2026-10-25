@@ -15,7 +15,7 @@ FORM_B = "17H2mNNKU0s2RayLkau2Px-IP2TOHsviHRWbp1UXloZ8"
 
 @pytest.fixture
 def forms():
-    cfg = load_config("dev", os.environ.get("JOS_LIVE_DATA_DIR") or os.path.join(os.environ["TEMP"], "jos-dev"))
+    cfg = load_config("dev", os.environ.get("JOS_LIVE_DATA_DIR") or os.path.join(os.environ["LOCALAPPDATA"], "JewelryOS", "dev"))
     return g.GoogleForms(g.GoogleOAuth(cfg))
 
 

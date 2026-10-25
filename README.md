@@ -19,5 +19,5 @@
 ## 빠른 실행(개발 PC)
 ```powershell
 cd jewelry_os
-.venv\Scripts\python -m jewelry_os --env dev --data-dir $env:TEMP\jos-dev serve
+.venv\Scripts\python -m jewelry_os --env dev --data-dir $env:LOCALAPPDATA\JewelryOS\dev serve
 ```
