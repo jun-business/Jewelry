@@ -66,3 +66,23 @@ def test_default_openai_falls_back_to_mock_until_key(ctx, operator):
     assert ctx.cfg.secret("OPENAI_API_KEY") == "sk-test-openai-key"
     ev = ctx.db.one("SELECT * FROM audit_events WHERE action='ai_key_saved'")
     assert ev and "sk-test" not in str(dict(ev))
+
+
+def test_legal_review_uses_sol_model(ctx, maker, operator):
+    """D-39 손해 사유 법률 검토만 gpt-6-sol, 나머지는 gpt-6-luna."""
+    from jewelry_os.services import loss_review
+    models = []
+
+    def handler(req):
+        body = json.loads(req.content)
+        models.append(body["model"])
+        res = {"verdict": "sufficient", "risk_level": "low", "criteria": [], "dispute_points": [], "evidence_to_keep": [],
+               "suggestions": [], "improved_custom_made": None, "improved_loss_reasons": None, "limitations": "자문 아님"}
+        return httpx.Response(200, json={"choices": [{"finish_reason": "stop", "message": {"content": json.dumps(res)}}]})
+    ctx.analyzer = ai.OpenAIAI("sk-test", settings.get(ctx, "ai_model"), transport=httpx.MockTransport(handler))
+    from helpers import order_at
+    o = order_at(ctx, maker, operator, "QUOTE_APPROVED")
+    qid = ctx.db.scalar("SELECT id FROM quotes WHERE order_id=? AND status='APPROVED'", (o["id"],))
+    models.clear()
+    assert loss_review.run(ctx, qid, maker) == "OK" and models == ["gpt-6-sol"]
+    assert loss_review.latest(ctx, qid)["model_id"] == "gpt-6-sol" and ctx.analyzer.model_id == "gpt-6-luna"

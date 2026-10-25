@@ -46,6 +46,16 @@ def text_sha(q) -> str:
                                                           "material", "purity")}).encode()).hexdigest()
 
 
+def _legal_analyzer(ctx):
+    """법률 검토는 상위 모델(설정 ai_model_legal, 기본 gpt-6-sol). OpenAI가 아니면 기본 엔진 그대로."""
+    from ..adapters.ai import OpenAIAI
+    a = ctx.analyzer
+    model = settings.get(ctx, "ai_model_legal")
+    if isinstance(a, OpenAIAI) and model and model != a.model_id:
+        return OpenAIAI(a._key, model, transport=getattr(a._http, "_transport", None))
+    return a
+
+
 def latest(ctx, quote_id):
     return ctx.db.one("SELECT * FROM quote_loss_reviews WHERE quote_id=? ORDER BY id DESC LIMIT 1", (quote_id,))
 
@@ -61,7 +71,7 @@ def run(ctx, quote_id, actor) -> str:
         status = "BUDGET"
     else:
         try:
-            raw = ctx.analyzer.review_loss(payload(q, o["product_type"]))
+            raw = _legal_analyzer(ctx).review_loss(payload(q, o["product_type"]))
             result = _validate(raw)
             status = "OK" if result else "SCHEMA"
         except AnalyzerError as e:
@@ -74,7 +84,7 @@ def run(ctx, quote_id, actor) -> str:
         rid = c.execute("INSERT INTO quote_loss_reviews(quote_id, text_sha256, status, result_json, model_id, prompt_version, "
                         "created_by, created_at) VALUES (?,?,?,?,?,?,?,?)",
                         (quote_id, text_sha(q), status, jdump(result) if result else None,
-                         getattr(ctx.analyzer, "model_id", provider), LOSS_PROMPT_VERSION, actor.id,
+                         getattr(_legal_analyzer(ctx), "model_id", provider), LOSS_PROMPT_VERSION, actor.id,
                          clock.now_iso())).lastrowid
         audit.record(c, "quote_loss_review", rid, actor, "loss_review_run", order_id=q["order_id"], next=status,
                      detail={"verdict": (result or {}).get("verdict")})

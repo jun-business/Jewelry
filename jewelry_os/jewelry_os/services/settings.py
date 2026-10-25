@@ -36,6 +36,7 @@ DEFAULTS = {
         "18976f60": "contact_kind", "683c3173": "source_channel", "72899728": "consent",
     },  # 이메일(6fd6cc59)은 받지 않음 — 회신은 휴대전화 번호로. 사진 문항(5b503c28)은 자동 인식
     "ai_provider": "openai",             # mock | claude | openai — D-32: OpenAI. 키가 없으면 규칙 기반(Mock)으로 동작
+    "ai_model_legal": "gpt-6-sol",       # D-39 손해 사유 법률 검토만 추론이 강한 상위 모델(견적당 1회)
     "ai_model": "gpt-6-luna",           # D-32: OpenAI GPT-6 Luna
     "ai_monthly_call_limit": 300,
     "ai_monthly_cost_limit_krw": 30000,

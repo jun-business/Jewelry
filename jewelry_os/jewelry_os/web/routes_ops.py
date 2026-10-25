@@ -406,6 +406,8 @@ async def settings_post(request: Request, section: str):
                     audit.record(c, "integration", name, user, "ai_key_saved", prev=audit.PII)
             if f.get("ai_provider") in ("mock", "claude", "openai"):
                 settings.put(ctx, "ai_provider", f["ai_provider"], user)
+            if f.get("ai_model_legal"):
+                settings.put(ctx, "ai_model_legal", f["ai_model_legal"].strip(), user)
             if f.get("ai_model"):
                 settings.put(ctx, "ai_model", f["ai_model"].strip(), user)
             from ..bootstrap import configure_adapters

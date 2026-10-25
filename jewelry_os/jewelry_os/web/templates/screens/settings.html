@@ -105,7 +105,8 @@
 {% elif section == "ai" %}
 <form class="card" method="post" action="/settings/ai">{{ csrf_input() }}<h2>AI</h2>
 <fieldset><legend>공급자</legend><label class="choice"><input type="radio" name="ai_provider" value="openai" {% if s.ai_provider == "openai" %}checked{% endif %}> OpenAI(GPT)</label><label class="choice"><input type="radio" name="ai_provider" value="claude" {% if s.ai_provider == "claude" %}checked{% endif %}> Claude</label><label class="choice"><input type="radio" name="ai_provider" value="mock" {% if s.ai_provider == "mock" %}checked{% endif %}> 시험용 규칙 기반(Mock)</label></fieldset>
-{{ text("ai_model", "모델 ID", s.ai_model) }}
+{{ text("ai_model", "모델 ID(의뢰·대화 정리·답변 초안)", s.ai_model) }}
+{{ text("ai_model_legal", "법률 검토 모델 ID(견적서 손해 사유 검토)", s.ai_model_legal, False, None, "추론이 필요한 검토라 상위 모델을 써요. 견적당 한 번이라 비용 차이가 작아요.") }}
 <p>API 키: {% if has_key %}{{ chip("done", "저장됨", "check") }}{% else %}{{ chip("ended", "없음 — 규칙 기반으로 동작 중") }}{% endif %} · 지금 쓰는 엔진: {{ {"OpenAIAI": "OpenAI", "ClaudeAI": "Claude", "MockAI": "규칙 기반(Mock)"}.get(ai_active, ai_active) }}</p>
 <div class="field"><label for="ai-key">API 키 {{ "바꾸기" if has_key else "넣기" }}(고른 공급자용)</label><input id="ai-key" name="ai_key" type="password" autocomplete="off" spellcheck="false" aria-describedby="ai-key-help"><p class="help" id="ai-key-help">OpenAI는 platform.openai.com › API keys에서 만든 키(sk-…). 이 PC의 secrets.env에만 저장되고 화면에 다시 보이지 않아요. 저장하면 바로 적용돼요.</p></div>
 <div class="grid-2">{{ text("ai_monthly_call_limit", "월 호출 상한", s.ai_monthly_call_limit, False, None, None, "number") }}{{ text("ai_monthly_cost_limit_krw", "월 비용 상한(원)", s.ai_monthly_cost_limit_krw, False, None, None, "number") }}</div>
