@@ -56,9 +56,8 @@ def test_tcs_057_bind_real_question_ids(ctx, maker, operator):
     assert Q_FILE not in page
     assert "김하늘" in page and "[가림]" in page and "010-1234-5678" not in page
 
-    # ③ maker 403 · 주소 연결 422 · 필수 빠짐 422 — 저장 0
-    assert _post_binding(web(ctx, "maker"), BIND).status_code == 403
-    bad = _post_binding(op, {**BIND, f"field_{Q['source_channel']}": "address"})
+    # ③ 주소 연결 422(아버님 계정도 같은 검사, D-43) · 필수 빠짐 422 — 저장 0
+    bad = _post_binding(web(ctx, "maker"), {**BIND, f"field_{Q['source_channel']}": "address"})
     assert bad.status_code == 422 and "배송 주소" in bad.text
     bad = _post_binding(op, {**BIND, f"field_{Q['consent']}": ""})
     assert bad.status_code == 422 and "필수 항목을 모두 연결하세요" in bad.text and "개인정보 동의" in bad.text

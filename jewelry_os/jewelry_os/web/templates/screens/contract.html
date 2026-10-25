@@ -5,8 +5,8 @@
 <div class="page-head"><div><a class="btn btn-tertiary" href="/orders/{{ ev.order.order_no }}/quote#contract">{{ icon("back") }}주문 {{ ev.order.order_no }}</a>
 <h1>계약 동의 증거 #{{ k.id }}</h1>
 <p class="chips">{{ chip(CHIP[k.status], LABEL[k.status]) }} {{ chip("version", k.quote_ref) }} {{ chip("version", k.contract_form_schema_version) }}{% if k.is_test %} {{ chip("test", "시험", "flask") }}{% endif %}</p></div>
-<div class="btn-row">{% if user.role == "operator" %}{% if not reveal %}<a class="btn btn-tertiary" href="/contracts/{{ k.id }}?reveal=1">이메일 보기(기록 남음)</a>{% endif %}
-<a class="btn btn-secondary" href="/contracts/{{ k.id }}/export">{{ icon("file", "sm") }}증거 내보내기(ZIP)</a>{% endif %}</div></div>
+<div class="btn-row">{% if not reveal %}<a class="btn btn-tertiary" href="/contracts/{{ k.id }}?reveal=1">이메일 보기(기록 남음)</a>{% endif %}
+<a class="btn btn-secondary" href="/contracts/{{ k.id }}/export">{{ icon("file", "sm") }}증거 내보내기(ZIP)</a></div></div>
 
 <section class="card" aria-labelledby="cv-1"><h2 id="cv-1">요약</h2><dl class="kv">
 <dt>고객·주문</dt><dd>{{ ev.customer.display_name if ev.customer and not ev.customer.deleted_at else "(개인정보 삭제됨)" }} · 고객 #{{ k.customer_id }} · 주문 {{ ev.order.order_no }}</dd>

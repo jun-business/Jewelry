@@ -46,7 +46,8 @@ def test_tcs_054_cac_and_settings(ctx, maker, operator):
     assert w.post("/settings/policy", data={"tax_type": "simplified", "simplified_vat_rate_pct": "15"}).status_code == 303
     assert settings.get(ctx, "tax_type") == "simplified" and settings.get(ctx, "simplified_vat_rate_pct") == 15
     assert metrics.revenue_ex_tax(ctx, 1_000_000, True) == 985_000 and metrics.revenue_ex_tax(ctx, 1_000_000, False) == 1_000_000
-    assert web(ctx, "maker").post("/settings/policy", data={"tax_type": "general"}).status_code == 403
+    assert web(ctx, "maker").post("/settings/policy", data={"tax_type": "general"}).status_code == 303  # D-43
+    assert settings.get(ctx, "tax_type") == "general"
 
 
 # ---------------- TC-S-055 발주 후 고객 변경 ----------------

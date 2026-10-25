@@ -24,13 +24,11 @@
 <p data-sources>광고 {{ summary["광고"] }} · 직접 {{ summary["직접"] }} · 미분류 {{ summary["미분류"] }}</p>
 <div class="table-wrap"><table><thead><tr><th scope="col">경로</th><th scope="col">구분</th><th scope="col" class="num">문의</th></tr></thead><tbody>
 {% for s in sources %}<tr><td>{{ s.label }}</td><td>{{ s.kind }}</td><td class="num">{{ s.count }}</td></tr>{% endfor %}</tbody></table></div>
-{% if user.role == "operator" %}
 <form class="btn-row" method="post" action="/analytics/ad-spend">{{ csrf_input() }}
 <div class="field"><label for="am">월</label><input id="am" name="month" value="{{ month }}" pattern="\d{4}-\d{2}"></div>
 <div class="field"><label for="ac">경로</label><select id="ac" name="channel">{% for kk, lab in SOURCE_LABEL.items() if kk %}<option value="{{ kk }}">{{ lab }}</option>{% endfor %}</select></div>
 <div class="field"><label for="aa">광고비(원)</label><input id="aa" name="amount" class="money" inputmode="numeric"></div>
 <button class="btn btn-secondary" type="submit">광고비 저장</button></form>
-{% endif %}
 {% if spend %}<p class="t-sm">입력된 광고비: {% for s in spend %}{{ s.month }} {{ SOURCE_LABEL.get(s.channel, s.channel) }} {{ s.amount_krw|won }}{% if not loop.last %} · {% endif %}{% endfor %}</p>{% endif %}
 </section>
 <section class="card" aria-labelledby="po-t"><h2 id="po-t">완료 주문별</h2>

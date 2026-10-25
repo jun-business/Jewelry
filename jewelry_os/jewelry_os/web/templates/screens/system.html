@@ -20,7 +20,7 @@
 <form method="post" action="/system/jobs-{{ j.id }}">{{ csrf_input() }}<button class="btn btn-secondary btn-sm" type="submit">다시 처리</button></form></span></li>{% endfor %}</ul>{% else %}<p class="t-muted">다시 처리할 작업이 없어요.</p>{% endif %}</section>
 <section class="card" aria-labelledby="boot-t"><h2 id="boot-t">기동 기록</h2><ul class="timeline">{% for s in st.startups %}<li>{{ icon("server", "sm") }}<span>{{ s.started_at|kdatetime }}{% if s.est_down_from %} · 중단 추정 {{ s.est_down_from|kdatetime }}부터{% endif %}{% if s.backfilled is not none %} · 가져온 의뢰 {{ s.backfilled }}건{% endif %}{% if s.acknowledged_at %} · 확인됨{% endif %}</span></li>{% else %}<li class="t-muted">기록 없음</li>{% endfor %}</ul></section>
 <form class="card" method="post" action="/system/security-checklist">{{ csrf_input() }}<h2>PC 보안 점검표</h2>
-<p class="help">앱이 자동으로 판정하지 않아요. 운영자가 직접 확인한 결과를 기록해요.</p>
+<p class="help">앱이 자동으로 판정하지 않아요. 직접 확인한 결과를 기록해요.</p>
 {% for item, lab in items %}{% set r = st.security.get(item) %}<label class="choice"><input type="checkbox" name="{{ item }}" value="on" {% if r and r.checked %}checked{% endif %}> {{ lab }}{% if r %} <span class="meta">({{ r.checked_at|kdatetime }})</span>{% endif %}</label>{% endfor %}
-<button class="btn btn-secondary" type="submit" {% if user.role != "operator" %}aria-disabled="true"{% endif %}>기록</button></form>
+<button class="btn btn-secondary" type="submit">기록</button></form>
 {% endblock %}

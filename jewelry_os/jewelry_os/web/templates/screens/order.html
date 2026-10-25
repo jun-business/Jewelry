@@ -43,7 +43,7 @@
 {% if i.type == "PAYMENT_MISMATCH" %}<fieldset><legend>해결 방법</legend>{% for v in ["추가 결제 예정", "금액 정정", "취소로 전환"] %}<label class="choice"><input type="radio" name="resolution" value="{{ v }}" {% if loop.first %}checked{% endif %}> {{ v }}</label>{% endfor %}</fieldset>
 {% elif i.type in ("REFUND_REVIEW", "CANCEL_REQUEST") %}<fieldset><legend>결과 <span class="req">(필수)</span></legend><label class="choice"><input type="radio" name="outcome" value="continue"> {{ "고객 철회 — 계속 진행" if i.type == "CANCEL_REQUEST" else "계속 진행" }}</label><label class="choice"><input type="radio" name="outcome" value="cancel"> 취소로 전환(취소 대화상자로)</label></fieldset>{{ area("resolution", "해결 내용", "", True) }}
 {% elif i.type == "DELIVERY_DELAY" %}{{ text("new_eta", "새 예상일", "", True, None, None, "date") }}{{ area("notice", "고객 지연 안내 기록", "", True, None, "발송 기록된 상담 답변 또는 안내한 내용") }}{{ area("resolution", "해결 내용", "", True) }}
-{% elif i.type == "CHANGE_REQUEST" %}<p class="t-sm">보통은 새 견적 승인 + 고객 재동의로 자동 해결돼요. 고객이 변경을 철회한 경우에만 운영자가 닫아요.</p>{{ area("resolution", "해결 내용(변경 철회 사유)", "", True) }}
+{% elif i.type == "CHANGE_REQUEST" %}<p class="t-sm">보통은 새 견적 승인 + 고객 재동의로 자동 해결돼요. 고객이 변경을 철회한 경우에만 직접 닫아요.</p>{{ area("resolution", "해결 내용(변경 철회 사유)", "", True) }}
 {% else %}{{ area("resolution", "해결 내용", "", True) }}{% endif %}
 <div class="dlg-actions"><button type="button" class="btn btn-secondary" data-close>취소</button><button class="btn btn-primary" type="submit">해결로 기록</button></div></form></dialog>
 {% endfor %}
@@ -72,7 +72,7 @@
 <ul class="nav">
 <li><button class="btn btn-tertiary" type="button" data-open="dlg-issue">{{ icon("alert", "sm") }}문제 기록</button></li>
 <li><a class="btn btn-tertiary" href="/orders/{{ o.order_no }}/time">{{ icon("clock", "sm") }}작업시간 기록</a></li>
-{% if me == "operator" %}<li><button class="btn btn-tertiary" type="button" data-open="dlg-cancel">{{ icon("xoct", "sm") }}주문 취소</button></li>{% endif %}
+<li><button class="btn btn-tertiary" type="button" data-open="dlg-cancel">{{ icon("xoct", "sm") }}주문 취소</button></li>
 {% if revert_ok %}<li><button class="btn btn-tertiary" type="button" data-open="dlg-revert">{{ icon("back", "sm") }}직전 단계 되돌리기</button></li>{% endif %}
 </ul></details>
 {% endif %}
@@ -98,7 +98,7 @@
 <dialog id="dlg-issue" aria-labelledby="iss-t"><form class="dlg" method="post" action="/orders/{{ o.order_no }}/actions/open_issue">{{ csrf_input() }}<input type="hidden" name="_tab" value="{{ tab }}">
 <h2 id="iss-t">문제 기록</h2>
 <fieldset><legend>유형 <span class="req">(필수)</span></legend>
-{% set types = ["CHANGE_REQUEST", "REWORK", "DELIVERY_DELAY", "CANCEL_REQUEST"] + (["DISPUTED"] if me == "operator" else []) %}
+{% set types = ["CHANGE_REQUEST", "REWORK", "DELIVERY_DELAY", "CANCEL_REQUEST", "DISPUTED"] %}
 {% for t in types %}<label class="choice"><input type="radio" name="type" value="{{ t }}" {% if t == "CHANGE_REQUEST" and not can_change %}disabled aria-describedby="chg-note"{% endif %}> {{ ISSUE_LABEL[t] }}</label>{% endfor %}
 {% if not can_change %}<p class="help" id="chg-note">공장 발주 뒤에는 변경 요청 대신 재작업 문제로 기록하세요. 귀책이 ‘고객 변심’이면 변경 가능 판정·추가 견적·고객 동의·결제 확인을 거쳐 재작업해요.</p>{% endif %}
 </fieldset>
@@ -106,7 +106,7 @@
 {{ area("note", "내용", "", True) }}
 <div class="dlg-actions"><button type="button" class="btn btn-secondary" data-close>취소</button><button class="btn btn-primary" type="submit">기록</button></div></form></dialog>
 
-{% if me == "operator" and not ended %}
+{% if not ended %}
 {% set paid_total = pay_events|selectattr("event_type", "equalto", "PAID")|sum(attribute="amount_krw") %}
 {% set cancel_extra %}
 <fieldset><legend>귀책 <span class="req">(필수)</span></legend>{% for k, v in FAULT_LABEL.items() %}<label class="choice"><input type="radio" name="fault" value="{{ k }}"> {{ v }}</label>{% endfor %}</fieldset>

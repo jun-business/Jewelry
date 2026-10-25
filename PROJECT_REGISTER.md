@@ -399,6 +399,7 @@
 | 2026-10-25 | 시뮬레이션 높음 7건 수정(D-41) | 견적 버전 승인·환불 후 진행 차단·보류 해제 버튼·견적서 전달 필수·검수 사진·고객 견적서 문구·상담 AI 근거 | docs/시뮬레이션_2026-10-25_다중agent_보고.md | 계약 유효 조건에 견적서 전달 추가(시험 도우미 갱신), 검수 통과에 사진 필수 | — |
 | 2026-10-25 | 시뮬레이션 중간 묶음 수정(D-42) | AI 표기·대화 정리 맥락·문자 고객 문구·견적 작성·승인 경고·결제 안내·공용 이메일·공장 사양·단계 알림·환불 정리 | docs/시뮬레이션_2026-10-25_다중agent_보고.md | 설정 payment_how 추가, 견적 사양 extra_terms 추가, AI 프롬프트 brief-v2·chat-digest-v2 | — |
 | 2026-10-25 | 결제·주문 완료를 아버님 계정도(D-43) | 결제 요청·입력·확인·불일치 해결·주문 완료를 maker 역할에 개방(계정 전환 없음) | docs/DECISION_LOG.md D-43 | 전이 주체 변경: create_payment_req·verify_initial·verify_final·close = maker+operator | — |
+| 2026-10-25 | 운영자 전용 동작 전부 아버님 계정에 개방(D-44) | 취소·상한 예외·문제 해결·상담 L3 판단·설정·연동·개인정보 처리를 maker에도 | docs/DECISION_LOG.md D-44 | 전이 cancel = maker+operator, 운영자 전용 검사 제거 | — |
 | 2026-10-18 | SRS-004 r2 · 코드 | 실제 Google 폼 질문 ID 연결: 설정 > 폼 매핑(미인식 질문 ID + 가린 예시 답변) → `intake_question_binding`(operator, 감사), `load_mapping` 덧붙임(자리표시 ID 유지), 저장 후 전체 재해석(해석 변경분만 revision · 시스템 보류 해제 · 빈 값 채움 · AI 1회). d29e3d1(파일 답 모양 인식) 유지 + 첫 단위 시험 | 아버님 PC 실폼 시험에서 글 답 전부 None → NEEDS_INFO·NO_CONSENT, AI 미실행(인수 조건 C-1 선행 결함). OAuth 범위 유지 | D-18, TC-S-057 신설, TC-U-056~058, INSTALL §5, 14_TR §9, 회귀 184 PASS | SRS-004 1회 |
 
 ## 6. 산출물 품질 게이트

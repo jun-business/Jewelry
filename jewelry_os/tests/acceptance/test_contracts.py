@@ -433,14 +433,14 @@ def test_evidence_page_export_and_pii_controls(ctx, maker, operator):
     wm, wo = web(ctx, "maker"), web(ctx, "operator")
     page = wm.get(f"/contracts/{rid}").text
     assert "고객이 본 Form B 고지 문구" in page and "cu***@example.com" in page and "customer1@example.com" not in page
-    assert wm.get(f"/contracts/{rid}/export").status_code == 403  # 내보내기는 운영자만
+    assert wm.get(f"/contracts/{rid}/export").status_code == 200  # D-43: 아버님 계정도 내보낸다(기록 남음)
     assert "customer1@example.com" in wo.get(f"/contracts/{rid}?reveal=1").text
     r = wo.get(f"/contracts/{rid}/export")
     import io
     import zipfile
     z = zipfile.ZipFile(io.BytesIO(r.content))
     assert {"contract.json", "quote_snapshot.json", "form_b_notice.json", "events.json"} <= set(z.namelist())
-    assert ctx.db.scalar("SELECT COUNT(*) FROM audit_events WHERE action IN ('contract_exported','contract_pii_viewed')") == 2
+    assert ctx.db.scalar("SELECT COUNT(*) FROM audit_events WHERE action IN ('contract_exported','contract_pii_viewed')") == 3  # 아버님 내보내기 포함
 
 
 def test_code_and_link_not_in_logs_or_audit(ctx, maker, operator, caplog):
@@ -661,7 +661,7 @@ def test_kakao_channel_on_quote_document_and_text(ctx, maker, operator):
     assert w.post("/settings/policy", data={"kakao_channel_url": ""}).status_code == 303  # 비우면 표시 안 함
     assert "카카오톡 채널 틴틴골드" not in w.get(f"/docs/quote/{qid}.txt").text
     assert 'value="' in w.get("/settings/policy").text and web(ctx, "maker").post(
-        "/settings/policy", data={"kakao_channel_url": ""}).status_code == 403
+        "/settings/policy", data={"kakao_channel_url": ""}).status_code == 303  # D-43
 
 
 def test_quote_documents_state_balance_before_factory(ctx, maker, operator):

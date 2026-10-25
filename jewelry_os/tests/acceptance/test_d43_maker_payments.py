@@ -1,5 +1,8 @@
-"""D-43: 아버님 계정 하나로 결제 요청·결제 입력·불일치 해결·잔금·잔금 확인·주문 완료까지(계정 전환 없음)."""
+"""D-43: 아버님 계정 하나로 업무 전체 — 결제·주문 완료·취소·상한 예외·상담 L3·설정(계정 전환 없음)."""
+import pytest
 from helpers import get, order_at
+
+from jewelry_os.services import cs
 from webutil import web
 
 
@@ -39,3 +42,33 @@ def test_maker_balance_request_through_close(ctx, maker, operator):
     assert "운영자 계정만 할 수 있어요" not in wm.get(f"/orders/{s['order_no']}/qc").text
     assert act(wm, s["order_no"], "close", evidence="배달 완료 조회").status_code == 303
     assert get(ctx, s["order_no"])["lifecycle_state"] == "CLOSED"
+
+
+def test_maker_cancels_and_approves_capacity_exception(ctx, maker, operator):
+    o = order_at(ctx, maker, operator, "INITIAL_PAYMENT_VERIFIED")
+    no = o["order_no"]
+    wm = web(ctx, "maker")
+    assert 'data-open="dlg-cancel"' in wm.get(f"/orders/{no}").text
+    assert act(wm, no, "cancel", fault="CUSTOMER_CHANGE", refund_decision="PARTIAL", refund_amount="100000",
+               refund_basis="환불 정책 3조", evidence="카톡 취소 요청", reason="고객 요청").status_code == 303
+    assert get(ctx, no)["lifecycle_state"] == "CANCELLED"
+    r = order_at(ctx, maker, operator, "OWNER_REVIEW", rid="d43-cap")
+    assert "운영자 계정만 할 수 있어요" not in wm.get(f"/orders/{r['order_no']}").text
+    from jewelry_os.services import orders
+    with pytest.raises(ValueError, match="상한"):  # 역할 검사는 통과하고, 상한에 닿지 않아 예외가 필요 없다는 안내
+        orders.approve_capacity_exception(ctx, get(ctx, r["order_no"]), maker, "단골 급한 의뢰", "2026-12-20")
+
+
+def test_maker_records_l3_judgment_and_changes_settings(ctx, maker, operator):
+    o = order_at(ctx, maker, operator, "INITIAL_PAYMENT_VERIFIED")
+    no = o["order_no"]
+    wm = web(ctx, "maker")
+    l3 = cs.create_draft(ctx, get(ctx, no), maker, "환불해 주세요")
+    assert cs.draft(ctx, l3)["level"] == "L3"
+    assert "운영자 계정만 할 수 있어요" not in wm.get(f"/orders/{no}/cs").text
+    assert wm.post(f"/cs/drafts/{l3}/judgment", data={"judgment": "정책상 일부 환불"}).status_code == 303
+    assert wm.post(f"/cs/drafts/{l3}/approve", data={"confirm": "on"}).status_code == 303
+    page = wm.get("/settings/policy").text
+    assert "운영자 계정만 바꿀 수 있어요" not in page and 'aria-disabled="true"' not in page
+    assert wm.post("/settings/gates/GATE-CAP-01", data={"status": "PASSED", "confirm": "on",
+                                                         "evidence": "아버님 확인"}).status_code == 303

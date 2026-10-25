@@ -18,8 +18,7 @@
 <form class="card-sub" id="cap-exc" method="post" action="/orders/{{ o.order_no }}/actions/approve_capacity_exception">{{ csrf_input() }}<input type="hidden" name="_tab" value="{{ tab }}">
 <h3>상한 초과 예외 승인 (운영자)</h3><p class="t-sm">동시 진행 {{ capacity[0] }}/{{ capacity[1] }}건이에요. 예외로 받을 사유와 예상 납기를 적으면 아버님이 제작 가능 여부를 확인하고 수락할 수 있어요.</p>
 {{ area("reason", "예외 사유", "", True, None, None, 2) }}{{ text("expected_eta", "예상 납기", "", True, None, None, "date") }}
-<button class="btn btn-secondary btn-sm" type="submit" {% if me != "operator" %}aria-disabled="true" aria-describedby="cap-role"{% endif %}>예외 승인 기록</button>
-{% if me != "operator" %}<p class="err" id="cap-role">운영자 계정만 할 수 있어요.</p>{% endif %}</form>
+<button class="btn btn-secondary btn-sm" type="submit">예외 승인 기록</button></form>
 {% endif %}
 <div class="btn-row">
 <button class="btn btn-secondary btn-sm" type="button" data-open="dlg-info">정보 요청</button>

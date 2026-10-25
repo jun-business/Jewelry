@@ -1,4 +1,4 @@
-"""업무 설정·Gate 상태·정책(UI-08). 업무 설정 쓰기는 operator만."""
+"""업무 설정·Gate 상태·정책(UI-08). 업무 설정 쓰기는 두 계정 모두(D-43)."""
 from __future__ import annotations
 
 from ..core import clock

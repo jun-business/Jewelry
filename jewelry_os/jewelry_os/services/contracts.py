@@ -961,7 +961,7 @@ def notice_text(body: dict) -> list[dict]:
 
 
 def export_zip(ctx, req_id, actor) -> bytes:
-    """계약 증거 내보내기(운영자만 — 호출부 확인). 개인정보가 들어 있으니 내보낸 사실을 기록한다."""
+    """계약 증거 내보내기(아버님·운영자 — 호출부 확인, D-43). 개인정보가 들어 있으니 내보낸 사실을 기록한다."""
     import io
     import zipfile
     ev = evidence(ctx, req_id)

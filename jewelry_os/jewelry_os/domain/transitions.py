@@ -42,7 +42,7 @@ TRANSITIONS: dict[str, T] = {t.action: t for t in [
     T("verify_final", (S.QC_PASSED,), S.FINAL_PAYMENT_VERIFIED, frozenset({"maker", "operator"}), "잔금 확인"),
     T("ship", (S.FINAL_PAYMENT_VERIFIED,), S.SHIPPED, frozenset({"maker", "operator"}), "발송 기록"),
     T("close", (S.SHIPPED,), S.CLOSED, frozenset({"maker", "operator"}), "주문 완료 처리"),
-    T("cancel", _ACTIVE, S.CANCELLED, frozenset({"operator"}), "주문 취소"),
+    T("cancel", _ACTIVE, S.CANCELLED, frozenset({"maker", "operator"}), "주문 취소"),
     T("revalidate_design", (S.CUSTOMER_DESIGN_APPROVED,), S.DETAIL_CAD, frozenset({"maker"}), "새 디자인 재확인"),
     # 비전이 액션(차단 표 대상)
     T("build_packet", (S.CUSTOMER_DESIGN_APPROVED,), None, frozenset({"maker"}), "발주 패킷 만들기"),

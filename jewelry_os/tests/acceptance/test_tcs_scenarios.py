@@ -248,11 +248,11 @@ def test_tcs_005_capacity(ctx, maker, operator):
     assert o["lifecycle_state"] == "OWNER_REVIEW"  # ⑤ 시스템이 만든 수락 0
     w = web(ctx, "maker")
     r = act(w, no, "accept", reason="사유만 적음")
-    msg = "동시 진행 3/3건이에요. 운영자의 상한 초과 예외 승인(사유·예상 납기)이 있어야 수락할 수 있어요."
+    msg = "동시 진행 3/3건이에요. 상한 초과 예외 승인(사유·예상 납기)을 먼저 기록해야 수락할 수 있어요."
     assert r.status_code == 409 and msg in r.text  # ② H1 r1 Q2: 사유만으로는 수락 불가
     assert 'id="cap-exc"' in w.get(f"/orders/{no}").text
     wo = web(ctx, "operator")
-    assert act(w, no, "approve_capacity_exception", reason="x", expected_eta="2026-12-01").status_code == 403
+    assert act(w, no, "approve_capacity_exception", reason="x").status_code == 409  # D-43: 아버님도 하지만 예상 납기 필수
     assert act(wo, no, "approve_capacity_exception", reason="단골 고객 급한 의뢰").status_code == 409  # 예상 납기 없음
     assert act(wo, no, "approve_capacity_exception", reason="단골 고객 급한 의뢰",
                expected_eta="2026-12-20").status_code == 303
@@ -572,7 +572,7 @@ def test_tcs_014_test_mode_gates(ctx, maker, operator):
     assert r.status_code == 303  # ⑥
     settings.put(ctx, "google_mode", "mock", operator)
     configure_adapters(ctx)
-    assert wm.post("/settings/gates/GATE-CAP-01", data={"status": "PASSED", "confirm": "on", "evidence": "x"}).status_code == 403  # ⑦
+    # ⑦ D-43: 아버님 계정도 Gate 상태를 기록한다(test_d43_maker_payments)
     assert ctx.db.scalar("SELECT COUNT(*) FROM gate_records") >= 4  # ⑧
     assert all(r["evidence"] and r["recorded_by"] and r["recorded_at"] for r in ctx.db.all("SELECT * FROM gate_records"))
     n4 = new_order(ctx, "t4")

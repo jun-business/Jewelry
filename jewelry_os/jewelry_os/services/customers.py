@@ -168,7 +168,7 @@ def _link(c, cid, other_id, actor, reason):
 
 def erase(ctx, cid, actor, reason):
     """개인정보 삭제 요청(SRS-084): 연락처·표시명·폼 원문 개인정보 파기, 주문·금전 기록은 법정 보존."""
-    if actor is None or actor.role != "operator":
+    if actor is None or actor.role not in ("maker", "operator"):  # D-43
         raise TransitionBlocked([unmet("G-ROLE-OPERATOR")])
     if not (reason or "").strip():
         raise TransitionBlocked([unmet("G-REASON")])

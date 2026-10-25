@@ -265,9 +265,8 @@ def test_tcs_025_auth_boundary(ctx, maker, operator, fclock):
 # ---------------- 026 권한 표 ----------------
 MAKER_ONLY = ["accept", "decline", "request_info", "hold", "start_cad", "record_design_ok", "build_packet", "send_factory",
               "receive", "record_qc", "set_cad_slot", "correct_spec", "approve_quote", "approve_requote"]
-OPERATOR_ONLY = ["cancel"]
-# D-43: 결제 요청·입력·확인·주문 완료는 아버님 계정도 한다(계정 전환 없이 한 사람이 끝까지)
-SHARED = ["create_payment_req", "verify_initial", "verify_final", "ship", "close"]
+OPERATOR_ONLY = []  # D-43: 운영자 전용 동작 없음 — 아버님 계정 하나로 업무 전체
+SHARED = ["create_payment_req", "verify_initial", "verify_final", "ship", "close", "cancel"]
 
 
 def test_tcs_026_permissions(ctx, maker, operator):
@@ -304,16 +303,13 @@ def test_tcs_026_permissions(ctx, maker, operator):
         assert act(w, no, "log_work", kind="cs", minutes="10").status_code == 303
         assert w.post("/settings/display", data={"text": "large", "theme": "light"}).status_code == 303
     assert "data-text=\"large\"" in wm.get("/").text
-    # 운영자 전용 설정·Gate·개인정보 삭제
-    assert wm.post("/settings/policy", data={"capacity_limit": "4"}).status_code == 403
-    assert wm.post("/settings/gates/GATE-Q-01", data={"status": "PASSED", "confirm": "on", "evidence": "x"}).status_code == 403
-    assert wm.post(f"/customers/{o['customer_id']}/erase", data={"reason": "요청"}).status_code == 403
-    assert wo.post("/settings/policy", data={"capacity_limit": "4"}).status_code == 303
-    # 이슈 해결 권한
+    # D-43: 설정·Gate·개인정보 삭제·분쟁 해결도 아버님 계정이 한다
+    assert wm.post("/settings/policy", data={"capacity_limit": "4"}).status_code == 303
+    assert wm.post("/settings/gates/GATE-Q-01", data={"status": "PASSED", "confirm": "on", "evidence": "x"}).status_code == 303
     with ctx.db.tx() as c:
         iid = orders.open_issue(c, o["id"], "DISPUTED", operator, "분쟁")
-    assert act(wm, no, "resolve_issue", issue_id=str(iid), resolution="x").status_code == 403
-    assert act(wo, no, "resolve_issue", issue_id=str(iid), resolution="합의").status_code == 303
+    assert act(wm, no, "resolve_issue", issue_id=str(iid), resolution="합의").status_code == 303
+    assert wm.post(f"/customers/{o['customer_id']}/erase", data={"reason": "요청"}).status_code == 303
 
 
 # ---------------- 027 승인 대화상자 ----------------

@@ -8,8 +8,7 @@
 <nav aria-label="설정 항목"><ul class="queue-tabs" data-scroll-x>{% for k, lab in sections %}<li><a href="/settings/{{ k }}" {% if k == section %}aria-current="page"{% endif %}>{{ lab }}</a></li>{% endfor %}</ul></nav>
 {% if unmet %}<div class="banner danger" role="alert">{{ icon("octagon") }}<div class="b-body"><strong>진행할 수 없어요</strong>{{ blocked(unmet, "s-unmet") }}</div></div>{% endif %}
 {% if errors %}<div class="banner danger" role="alert">{{ icon("octagon") }}<div class="b-body">{% for k, v in errors.items() %}<p>{{ v }}</p>{% endfor %}</div></div>{% endif %}
-{% set op = user.role == "operator" %}
-{% if section not in ("display",) and not op %}<p class="banner info">{{ icon("info") }}<span class="b-body">운영자 계정만 바꿀 수 있어요. 보기만 할 수 있어요.</span></p>{% endif %}
+{% set op = true %}{# D-43: 두 계정 모두 설정을 바꾼다 #}
 
 {% if section == "display" %}
 <form class="card" method="post" action="/settings/display">{{ csrf_input() }}<h2>내 표시 설정</h2>

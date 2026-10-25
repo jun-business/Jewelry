@@ -21,8 +21,9 @@ router = APIRouter()
 
 
 def _operator(request):
+    # D-43: 업무 설정·정책·연동도 아버님 계정이 바꾼다(두 계정 모두 같은 권한)
     u = request.state.user
-    if u is None or u.role != "operator":
+    if u is None or u.role not in ("maker", "operator"):
         raise TransitionBlocked([unmet("G-ROLE-OPERATOR")])
 
 
@@ -225,8 +226,6 @@ async def analytics(request: Request, test: int = 0):
 async def ad_spend(request: Request):
     ctx = request.state.ctx
     f = await form_of(request)
-    if request.state.user.role != "operator":
-        return flash_redirect("/analytics", "운영자 계정만 할 수 있어요.", "error")
     metrics.set_ad_spend(ctx, request.state.user, f.get("month"), f.get("channel"), int(f.get("amount") or 0))
     return flash_redirect("/analytics", "광고비를 저장했어요.")
 
@@ -520,8 +519,6 @@ async def system_op(request: Request, op: str):
         alerts.evaluate(ctx)
         return flash_redirect(f.get("back") or "/settings/backup", "백업을 만들었어요.")
     if op == "security-checklist":
-        if request.state.user.role != "operator":
-            return flash_redirect("/system", "운영자 계정만 할 수 있어요.", "error")
         for item, _ in system.SECURITY_ITEMS:
             system.set_security_item(ctx, item, f.get(item) == "on", request.state.user)
         return flash_redirect("/system", "PC 보안 점검표를 기록했어요.")
@@ -536,8 +533,6 @@ async def system_op(request: Request, op: str):
 @router.post("/settings/channeltalk/{op}")
 async def channeltalk_op(request: Request, op: str):
     ctx = request.state.ctx
-    if request.state.user.role != "operator":
-        raise HTTPException(403)
     f = await form_of(request)
     from ..adapters import channeltalk
     if op == "keys":
@@ -645,8 +640,6 @@ async def packet_zip(request: Request, pid: int):
 async def oauth_start(request: Request):
     ctx = request.state.ctx
     await form_of(request)
-    if request.state.user.role != "operator":
-        return flash_redirect("/settings/google", "운영자 계정만 할 수 있어요.", "error")
     from ..adapters.google import GoogleOAuth
     state = secrets.token_urlsafe(16)
     ctx.extra["oauth_state"] = state

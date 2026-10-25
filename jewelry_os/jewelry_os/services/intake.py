@@ -91,7 +91,7 @@ def validate_binding(binding: dict) -> dict:
 
 
 def save_binding(ctx, binding: dict, actor) -> dict:
-    """질문 연결 저장(operator만 — 호출부 검사, 감사 setting_changed) 후 받은 응답 전체를 다시 읽는다. 반환 = sync 통계."""
+    """질문 연결 저장(호출부 검사, 감사 setting_changed) 후 받은 응답 전체를 다시 읽는다. 반환 = sync 통계."""
     b = validate_binding(binding)
     if settings.get(ctx, BINDING_KEY) != b:
         settings.put(ctx, BINDING_KEY, b, actor)

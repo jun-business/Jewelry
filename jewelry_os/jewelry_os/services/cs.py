@@ -179,7 +179,7 @@ class ImmutableDraft(Exception):
 
 
 def record_judgment(ctx, draft_id, actor, text):
-    if actor is None or actor.role != "operator":
+    if actor is None or actor.role not in ("maker", "operator"):  # D-43: 아버님 계정도 판단 기록
         raise TransitionBlocked([unmet("G-ROLE-OPERATOR")])
     if not (text or "").strip():
         raise TransitionBlocked([unmet("G-REASON")])

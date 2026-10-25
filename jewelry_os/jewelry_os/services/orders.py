@@ -78,9 +78,8 @@ def open_issue(c, order_id, type_, actor, note=None, detail=None, fault=None) ->
     return cur.lastrowid
 
 
-OPERATOR_ISSUES = {"REFUND_REVIEW", "DISPUTED", "CANCEL_REQUEST"}  # D-43: 결제 금액 불일치는 결제를 입력한 아버님도 해결
 FAULT_REQUIRED = {"REWORK", "CHANGE_REQUEST", "CANCEL_REQUEST"}
-MANUAL_OPEN = {"maker": {"CHANGE_REQUEST", "REWORK", "DELIVERY_DELAY", "CANCEL_REQUEST"},
+MANUAL_OPEN = {"maker": {"CHANGE_REQUEST", "REWORK", "DELIVERY_DELAY", "CANCEL_REQUEST", "DISPUTED"},  # D-43
                "operator": {"CHANGE_REQUEST", "REWORK", "DELIVERY_DELAY", "CANCEL_REQUEST", "DISPUTED"}}
 CHANGE_OPEN_STATES = {S.FREE_CONCEPT, S.QUOTE_APPROVED, S.CUSTOMER_ACCEPTED, S.PAYMENT_PENDING,
                       S.INITIAL_PAYMENT_VERIFIED, S.DETAIL_CAD, S.CUSTOMER_DESIGN_APPROVED}
@@ -116,10 +115,8 @@ def resolve_issue(ctx, issue_id, actor, resolution: str, outcome: str | None = N
     i = ctx.db.one("SELECT * FROM issues WHERE id=?", (issue_id,))
     if i is None or i["state"] != "OPEN":
         raise ValueError("열린 문제가 아니에요")
-    if actor is None or (i["type"] in OPERATOR_ISSUES and actor.role != "operator"):
+    if actor is None or actor.role not in ("maker", "operator"):  # D-43: 모든 문제를 아버님 계정도 해결
         raise TransitionBlocked([unmet("G-ROLE-OPERATOR")])
-    if i["type"] == "CHANGE_REQUEST" and actor.role != "operator":
-        raise TransitionBlocked([unmet("G-ROLE-OPERATOR")])  # 수동 해결(변경 철회)은 operator, 보통은 재동의로 자동
     miss = []
     if not (resolution or "").strip():
         miss.append("해결 내용")
@@ -195,9 +192,9 @@ def cancel_order(ctx, o, actor, payload):
 
 # ---------------- 조회 ----------------
 def approve_capacity_exception(ctx, o, actor, reason: str, expected_eta: str) -> int:
-    """동시 진행 상한 초과 예외 승인(H1 r1 Q2, SRS-134 r2) — 운영자. 수락은 아버님이 제작 가능 확인과 함께 한다."""
+    """동시 진행 상한 초과 예외 승인(H1 r1 Q2, SRS-134 r2) — 아버님·운영자(D-43). 수락은 아버님이 제작 가능 확인과 함께 한다."""
     from datetime import date
-    if actor is None or actor.role != "operator":
+    if actor is None or actor.role not in ("maker", "operator"):
         raise TransitionBlocked([unmet("G-ROLE-OPERATOR")])
     if S(o["lifecycle_state"]) != S.OWNER_REVIEW:
         raise TransitionBlocked([unmet("G-WRONG-STATE")])
@@ -230,7 +227,7 @@ def pending_capacity_exception(ctx, order_id):
 
 
 def accept_order(ctx, o, actor, payload):
-    """수락. 상한 초과면 운영자 예외 승인 + 아버님 제작 가능 확인이 필요하고, 승인자·사유·예상 납기를 남긴다."""
+    """수락. 상한 초과면 예외 승인 + 아버님 제작 가능 확인이 필요하고, 승인자·사유·예상 납기를 남긴다."""
     exc = pending_capacity_exception(ctx, o["id"])
     over = capacity.at_capacity(ctx)
     p = dict(payload)

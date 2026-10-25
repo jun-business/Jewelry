@@ -34,10 +34,10 @@
 <p class="meta">정책 참조: {{ (d.policy_title ~ " v" ~ d.policy_version) if d.policy_id else "없음" }}{% if uj %} · 불명확: {{ uj|join(", ") }}{% endif %}</p>
 {% if d.status == "DRAFT" %}<p class="t-sm">아버님이 승인해야 복사할 수 있어요.</p>{% endif %}
 {% if d.level == "L2" %}{{ banner("info", "가격·납기·사이즈 등 판단이 필요한 답변이에요.") }}{% endif %}
-{% if d.level == "L3" %}{{ banner("danger", "환불·분쟁·지재권·하자 관련 — 운영자가 먼저 판단을 기록하고, 아버님이 승인해요.", "확약하는 표현을 쓰지 마세요(무인 확약 불가).", ic="octagon") }}
+{% if d.level == "L3" %}{{ banner("danger", "환불·분쟁·지재권·하자 관련 — 먼저 판단을 기록한 뒤 승인해요.", "확약하는 표현을 쓰지 마세요(무인 확약 불가).", ic="octagon") }}
 <div class="internal"><div class="internal-head">{{ icon("lock", "sm") }}운영자 판단(내부 전용)</div>
 {% if d.operator_judgment %}<p>{{ d.operator_judgment }} <span class="meta">{{ d.judgment_at|kdatetime }}</span></p>
-{% elif d.status == "DRAFT" %}<form method="post" action="/cs/drafts/{{ d.id }}/judgment">{{ csrf_input() }}{{ area("judgment", "판단 내용", "", True, None, None, 2) }}<button class="btn btn-secondary btn-sm" type="submit" {% if me != "operator" %}aria-disabled="true" aria-describedby="j-role-{{ d.id }}"{% endif %}>판단 기록</button>{% if me != "operator" %}<p class="err" id="j-role-{{ d.id }}">운영자 계정만 할 수 있어요.</p>{% endif %}</form>{% endif %}</div>{% endif %}
+{% elif d.status == "DRAFT" %}<form method="post" action="/cs/drafts/{{ d.id }}/judgment">{{ csrf_input() }}{{ area("judgment", "판단 내용", "", True, None, None, 2) }}<button class="btn btn-secondary btn-sm" type="submit">판단 기록</button></form>{% endif %}</div>{% endif %}
 {% if d.status == "DRAFT" %}
 <form method="post" action="/cs/drafts/{{ d.id }}/approve" data-confirm-required>{{ csrf_input() }}
 <label for="body-{{ d.id }}">본문</label><textarea id="body-{{ d.id }}" name="body" rows="6">{{ d.body }}</textarea>
@@ -48,7 +48,7 @@
 <button class="btn btn-secondary" type="button" aria-disabled="true" aria-describedby="cp-why-{{ d.id }}">{{ icon("copy", "sm") }}복사</button>
 <button class="btn btn-tertiary" type="submit" formaction="/cs/drafts/{{ d.id }}/save">임시 저장</button></div>
 <p class="err" id="cp-why-{{ d.id }}">아버님이 승인해야 복사할 수 있어요.</p>
-{% if cant %}<p class="err" id="ap-why-{{ d.id }}">{{ "운영자 판단 기록이 먼저 필요해요(L3)." if (d.level == "L3" and not d.operator_judgment) else "아버님(제작 책임) 계정만 할 수 있어요." }}</p>{% endif %}
+{% if cant %}<p class="err" id="ap-why-{{ d.id }}">{{ "판단 기록이 먼저 필요해요(L3)." if (d.level == "L3" and not d.operator_judgment) else "아버님(제작 책임) 계정만 할 수 있어요." }}</p>{% endif %}
 </form>
 {% else %}
 <div class="copy-block"><label for="body-{{ d.id }}">본문(읽기 전용)</label><textarea id="body-{{ d.id }}" rows="6" readonly>{{ d.body }}</textarea></div>

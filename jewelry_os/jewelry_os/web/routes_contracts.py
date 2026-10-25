@@ -211,8 +211,8 @@ async def contract_page(request: Request, rid: int):
     if contracts.get(ctx, rid) is None:
         raise HTTPException(404)
     ev = contracts.evidence(ctx, rid)
-    reveal = request.query_params.get("reveal") == "1" and user.role == "operator"
-    if reveal:  # 원본 응답의 이메일은 운영자만, 기록을 남기고 본다
+    reveal = request.query_params.get("reveal") == "1"  # D-43: 두 계정 모두(열람은 기록 남음)
+    if reveal:  # 원본 응답의 이메일은 기록을 남기고 본다
         from ..services import audit
         with ctx.db.tx() as c:
             audit.record(c, "contract", rid, user, "contract_pii_viewed", order_id=ev["req"]["order_id"], prev=audit.PII)
@@ -227,8 +227,6 @@ async def contract_page(request: Request, rid: int):
 async def contract_export(request: Request, rid: int):
     ctx = request.state.ctx
     user = _admin(request)
-    if user.role != "operator":  # 개인정보가 담긴 증거 묶음 — 운영자만(고객 개인정보 삭제 권한과 같음)
-        raise HTTPException(403)
     if contracts.get(ctx, rid) is None:
         raise HTTPException(404)
     data = contracts.export_zip(ctx, rid, user)

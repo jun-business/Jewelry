@@ -13,7 +13,7 @@ def test_keys_saved_from_settings_never_shown(ctx, maker, operator):
     w = web(ctx, "operator")
     page = w.get("/settings/google").text
     assert "카카오 상담(채널톡)" in page and 'type="password"' in page
-    assert web(ctx, "maker").post("/settings/channeltalk/keys", data={"access_key": KEY, "access_secret": SECRET}).status_code == 403
+    assert web(ctx, "maker").post("/settings/channeltalk/keys", data={"access_key": KEY, "access_secret": ""}).status_code == 303  # D-43
     assert w.post("/settings/channeltalk/keys", data={"access_key": KEY, "access_secret": ""}).status_code == 303
     assert not ct.configured(ctx.cfg)  # 둘 다 있어야 저장
     r = w.post("/settings/channeltalk/keys", data={"access_key": KEY, "access_secret": SECRET})
