@@ -125,53 +125,6 @@ def save(ctx, quote_id, actor, f: QuoteForm) -> None:
                    int(f.design_minutes or 0), f.internal_note or None, quote_id))
 
 
-# ---------------- D-35 청약철회 예외 고지의 구체성 ----------------
-# 전자상거래법 시행령 제21조: ‘이 거래’에 대해 개별 생산·회복할 수 없는 중대한 피해를 별도로 고지해야 한다.
-# 그래서 주문마다 이 주문만의 사정(사이즈·각인·디자인·소재·설계·발주 비용)이 들어가야 한다.
-SPECIFIC_WORDS = ("호", "사이즈", "각인", "이니셜", "문구", "디자인", "시안", "CAD", "설계", "스톤", "보석", "다이아",
-                  "소재", "금", "K", "함량", "가공", "주조", "공장", "발주", "원가", "형상", "모양", "맞춤")
-BLANKET_WORDS = ("환불 불가", "환불불가", "반품 불가", "교환 불가", "취소 불가", "일체 환불", "절대")
-MIN_LOSS_LEN = 25
-
-
-def loss_reason_problems(spec: dict) -> list[str]:
-    """손해 사유·개별 제작 특성이 구체적인지(규칙 검사). 반환: 고칠 점(없으면 [])."""
-    out = []
-    custom = (spec.get("custom_made") or "").strip()
-    loss = (spec.get("loss_reasons") or "").strip()
-    if not custom:
-        out.append("개별 주문제작 특성이 비어 있어요")
-    if not loss:
-        out.append("청약철회 시 예상 손해 사유가 비어 있어요")
-        return out
-    if len(loss) < MIN_LOSS_LEN:
-        out.append(f"손해 사유가 너무 짧아요({len(loss)}자) — 이 주문만의 사정을 {MIN_LOSS_LEN}자 이상으로 적어 주세요")
-    if not any(w in loss for w in SPECIFIC_WORDS):
-        out.append("손해 사유에 이 주문의 구체적인 사정(사이즈·각인·디자인·소재·설계·발주 비용 등)이 없어요")
-    if any(w in loss + custom for w in BLANKET_WORDS):
-        out.append("‘환불 불가’ 같은 일괄 제한 표현은 쓰지 마세요 — 법정 요건을 충족할 때만 제한될 수 있어요")
-    mentioned = [v for k, v in spec.items() if k in ("size", "engraving", "stones") and (v or "").strip()
-                 and v.strip() not in ("없음", "해당 없음", "-")]
-    missing = [v.strip() for v in mentioned if v.strip() not in loss + custom]
-    if missing:
-        out.append("사양에 적은 사이즈·각인·스톤 값(" + ", ".join(missing) + ")이 개별 제작 특성이나 손해 사유에 들어 있지 않아요")
-    return out
-
-
-def suggest_loss_text(spec: dict, product_type: str | None) -> dict:
-    """이 주문 사양으로 만든 예시 문구(그대로 쓰지 말고 고쳐 쓰도록 안내)."""
-    v = lambda k: (spec.get(k) or "").strip()  # noqa: E731
-    bits = [x for x in (v("size") and f"{v('size')} 맞춤 사이즈",
-                        v("engraving") not in ("", "없음") and f"각인 ‘{v('engraving')}’",
-                        v("stones") not in ("", "없음") and f"스톤 {v('stones')}",
-                        (v("material") or v("purity")) and f"{v('material')} {v('purity')}".strip() + " 소재") if x]
-    item = product_type or "주얼리"
-    custom = f"고객님이 요청한 디자인({', '.join(bits) if bits else '세부 사양'})으로 이 고객님만을 위해 1점 제작하는 {item}이에요."
-    loss = (f"{', '.join(bits) if bits else '고객님 맞춤 사양'}이 들어가 다른 고객에게 판매하거나 되돌려 쓰기 어렵고, "
-            "상세 CAD 설계 작업과 공장 발주 뒤의 금속·가공 비용은 회수하기 어려워요.")
-    return {"custom_made": custom, "loss_reasons": loss}
-
-
 class ImmutableQuote(Exception):
     """승인된 견적 수정 시도(405)."""
 

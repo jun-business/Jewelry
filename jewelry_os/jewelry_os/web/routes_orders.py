@@ -9,8 +9,8 @@ from ..core.db import ConflictError, jload
 from ..domain import transitions as tr
 from ..domain.guards import TransitionBlocked, unmet
 from ..domain.states import ENDED, S
-from ..services import (analysis, capacity, change_orders, contracts, cs, customers, files, intake, manufacturing, orders,
-                        payments, quotes, refunds, settings)
+from ..services import (analysis, capacity, change_orders, contracts, cs, customers, files, intake, loss_review,
+                        manufacturing, orders, payments, quotes, refunds, settings)
 from .app import blocked_status, flash_redirect, form_of, render
 
 router = APIRouter()
@@ -92,16 +92,11 @@ def order_vm(ctx, o, user, tab):
     }
     vm.update(contract_vm(ctx, o, q_appr))
     vm["refunds"] = [refunds.view(ctx, r) for r in refunds.of_order(ctx, o["id"])]
-    if q_draft:  # D-35 견적 작성 화면: 손해 사유 검사·예시 문구
-        dsp = jload(q_draft["spec_json"], {})
-        vm["loss_problems"] = quotes.loss_reason_problems(dsp)
-        vm["loss_suggest"] = quotes.suggest_loss_text(dsp, o["product_type"])
     from ..services import loss_review
     lq = q_draft or q_appr
     if lq:  # D-36 청약철회 고지 검토(규칙 + AI + 사람)
         vm["lr_quote"] = lq
         vm["lr"] = loss_review.view(ctx, lq)
-        vm["lr_rules"] = quotes.loss_reason_problems(jload(lq["spec_json"], {}))
         vm["LR_CRIT"] = loss_review.CRITERIA_LABEL
     vm["s_defaults"] = {"revision": "기본: " + settings.get(ctx, "quote_revision_scope_default"),
                         "delivery": "기본: " + settings.get(ctx, "quote_delivery_default")}
@@ -130,8 +125,7 @@ def contract_vm(ctx, o, q_appr) -> dict:
             "contract_ready": contracts.readiness(ctx),
             "contract_email_masked": contracts.mask_email(ctx.dec(primary["respondent_email_enc"])) if primary else "—",
             "q_appr_ref": contracts.quote_ref(q_appr) if q_appr else None,
-            "q_appr_loss_ok": not quotes.loss_reason_problems(spec),
-            "q_appr_loss_problems": quotes.loss_reason_problems(spec) if q_appr else [],
+            "q_appr_loss_ok": loss_review.confirmed(ctx, q_appr) if q_appr else True,
             "CONTRACT_LABEL": contracts.STATUS_LABEL, "CONTRACT_CHIP": contracts.STATUS_CHIP,
             "CONTRACT_CHANNELS": contracts.DELIVERY_CHANNELS, "CONTRACT_IDENTITY": contracts.IDENTITY_METHODS}
 

@@ -144,7 +144,7 @@ def test_issue_is_idempotent_and_requires_loss_reasons(ctx, maker, operator):
     quotes.approve(ctx, get(ctx, o2["order_no"]), maker, C)
     with pytest.raises(tr.TransitionBlocked) as e:
         _issue(ctx, get(ctx, o2["order_no"]), operator)
-    assert e.value.unmet[0].code == "G-QUOTE-LOSS-REASONS"
+    assert e.value.unmet[0].code == "G-LOSS-CONFIRM"
 
 
 # ---------------- [B3][V5] 중복 수집 ----------------
@@ -724,39 +724,6 @@ def test_quote_has_design_revision_delivery_refund_terms(ctx, maker, operator):
     assert w.post("/settings/policy", data={"quote_delivery_default": "택배 발송, 2일 내 도착"}).status_code == 303
     assert settings.get(ctx, "quote_delivery_default") == "택배 발송, 2일 내 도착"
 
-
-
-def test_loss_reasons_must_be_specific(ctx, maker, operator):
-    """D-35 손해 사유 구체성 — 일반 문구·일괄 제한 표현·사양 누락이면 링크를 만들지 않고, 예시 문구를 안내."""
-    p = quotes.loss_reason_problems
-    good = {"size": "12호", "engraving": "J&K", "custom_made": "12호, 각인 J&K로 1점 제작",
-            "loss_reasons": "12호 맞춤 사이즈와 각인 J&K 때문에 다른 고객에게 판매하기 어렵고 CAD 설계 비용을 회수하기 어려워요."}
-    assert p(good) == []
-    assert any("너무 짧아요" in x for x in p({**good, "loss_reasons": "맞춤이라 재판매 불가"}))
-    assert any("일괄 제한" in x for x in p({**good, "loss_reasons": good["loss_reasons"] + " 환불 불가"}))
-    assert any("구체적인 사정" in x for x in p({**good, "loss_reasons": "이 상품은 고객님이 원하셔서 만든 것이라 손해가 큽니다 정말로요"}))
-    assert any("사이즈·각인·스톤 값" in x for x in p({**good, "engraving": "LOVE"}))
-    s = quotes.suggest_loss_text({"size": "12호", "engraving": "J&K", "material": "골드", "purity": "18K"}, "반지")
-    assert "12호 맞춤 사이즈" in s["custom_made"] and "각인 ‘J&K’" in s["loss_reasons"] and p({**good, **s}) == []
-    # 약한 문구로 승인된 견적은 링크 발행이 막히고 이유가 보인다
-    from conftest import approve_policies
-    approve_policies(ctx, operator)
-    o2 = new_order(ctx, "r2")
-    from jewelry_os.devtools import advance
-    advance(ctx, o2, "FREE_CONCEPT", maker, operator)
-    quotes.upload_concept(ctx, get(ctx, o2), maker, "c.png", bytes([0x89]) + b"PNG weak", "시안", 10)
-    q2 = quotes.draft(ctx, get(ctx, o2), maker)
-    quotes.save(ctx, q2, maker, quotes.QuoteForm(items=[{"kind": "metal", "label": "금", "amount": "900000"}],
-                                                 spec={"material": "골드", "size": "12호", "custom_made": "1점 맞춤 제작",
-                                                       "loss_reasons": "주문제작이라 환불 불가"},
-                                                 tax_included=True, shipping_included=True, promised_date="2026-12-15",
-                                                 valid_until="2026-11-30"))
-    page = web(ctx, "maker").get(f"/orders/{o2}/quote").text
-    assert "무엇을 적나요?" in page and "data-loss-problem" in page and "이 주문 사양으로 만든 예시" in page
-    quotes.approve(ctx, get(ctx, o2), maker, C)
-    with pytest.raises(tr.TransitionBlocked) as e:
-        _issue(ctx, get(ctx, o2), operator)
-    assert e.value.unmet[0].code == "G-QUOTE-LOSS-REASONS" and "일괄 제한" in e.value.unmet[0].message
 
 
 def test_loss_review_ai_then_human_decides(ctx, maker, operator):

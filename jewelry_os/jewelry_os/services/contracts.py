@@ -368,10 +368,6 @@ def issue(ctx, o, actor, reissue: bool = False, sleep=time.sleep) -> int:
             return prev["id"]  # 멱등: 같은 견적 버전 요청이 이미 있다
     if q["valid_until"] and q["valid_until"] < clock.today_kst().isoformat():
         raise TransitionBlocked([unmet("G-QUOTE-EXPIRED")])
-    spec = jload(q["spec_json"], {})
-    weak = quotes.loss_reason_problems(spec)  # D-35: 주문마다 구체적으로
-    if weak:
-        raise TransitionBlocked([unmet("G-QUOTE-LOSS-REASONS", detail=" · ".join(weak))])
     from . import loss_review  # D-36: AI 검토 뒤 사람의 최종 판단
     if not loss_review.confirmed(ctx, q):
         raise TransitionBlocked([unmet("G-LOSS-CONFIRM")])  # 견적서에 주문별 개별 제작 특성·예상 손해 사유(D-25)

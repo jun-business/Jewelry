@@ -8,7 +8,7 @@
 {% endif %}
 <dl class="kv">
 <dt>견적 확정 상태</dt><dd>{% if q_appr %}v{{ q_appr.version }} 승인됨 · 견적번호 <span class="mono">{{ q_appr_ref }}</span>{% else %}확정 견적 없음{% endif %}</dd>
-{% if q_appr and not q_appr_loss_ok %}<dt>견적서 고지</dt><dd class="err">개별 주문제작 특성·손해 사유를 고쳐야 링크를 만들 수 있어요: {{ q_appr_loss_problems|join(" · ") }}. 새 견적 버전에 고쳐 승인하세요.</dd>{% endif %}
+{% if q_appr and not q_appr_loss_ok %}<dt>견적서 고지</dt><dd class="err">개별 제작 특성·손해 사유를 AI 검토 뒤 사람이 최종 확인해야 링크를 만들 수 있어요 — 위 ‘청약철회 고지 검토’에서 확인하세요.</dd>{% endif %}
 <dt>링크 생성</dt><dd>{% if k %}발행 {{ k.issued_at|kdatetime }} · 적용 정책 {{ k.refund_policy_version or k.contract_form_schema_version }}{% else %}아직 만들지 않았어요{% endif %}</dd>
 {% if k %}<dt>고객에게 보냄</dt><dd>{% if k.delivered_at %}{{ CONTRACT_CHANNELS.get(k.delivered_channel, k.delivered_channel) }} · {{ k.delivered_at|kdatetime }} · {{ k.delivered_note }}{% else %}<span class="missing">보낸 기록 없음</span>{% endif %}</dd>
 <dt>고객 제출</dt><dd>{% if contract_resps %}{{ contract_resps|length }}건 · 마지막 {{ contract_resps[-1].last_submitted_time|kdatetime }}{% else %}아직 없음{% endif %}</dd>

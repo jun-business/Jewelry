@@ -52,10 +52,7 @@
 <li>개별 제작 특성: 고객이 정한 사이즈(호수)·각인 문구·디자인·스톤·소재처럼 이 고객만을 위한 사양</li>
 <li>손해 사유: 그 사양 때문에 다른 고객에게 팔 수 없는 이유, 이미 들어간 설계(CAD)·공장 발주·금속 가공 비용처럼 되돌릴 수 없는 손해</li>
 <li>쓰지 말 것: 모든 환불·반품을 일괄로 막는 표현</li></ul></details>
-{% if loss_problems %}<ul class="blocked">{% for p in loss_problems %}<li data-loss-problem>{{ icon("alert", "sm") }}<span>{{ p }}</span></li>{% endfor %}</ul>{% endif %}
-{% if loss_suggest %}<div class="internal"><div class="internal-head">이 주문 사양으로 만든 예시 — 그대로 쓰지 말고 고쳐 쓰세요</div>
-<p class="t-sm"><strong>개별 제작 특성</strong> <span id="sug-custom">{{ loss_suggest.custom_made }}</span> <button class="btn btn-tertiary btn-sm" type="button" data-copy="sug-custom">{{ icon("copy", "sm") }}복사</button></p>
-<p class="t-sm"><strong>손해 사유</strong> <span id="sug-loss">{{ loss_suggest.loss_reasons }}</span> <button class="btn btn-tertiary btn-sm" type="button" data-copy="sug-loss">{{ icon("copy", "sm") }}복사</button></p></div>{% endif %}
+
 {% for k, lab in CONTRACT_SPEC_FIELDS %}{{ area("spec_" ~ k, lab, sp.get(k) or "", False, None, None, 3) }}{% endfor %}
 <h3>수정 가능 범위·배송 일정</h3><p class="t-sm">비워 두면 기본 문구가 견적서에 들어가요(설정 › 운영 정책). 취소·환불 조건은 Form B의 단계별 안내가 자동으로 들어가요.</p>
 {{ area("spec_revision_scope", "수정 가능 범위", sp.get("revision_scope") or "", False, None, s_defaults.revision, 2) }}
@@ -97,9 +94,8 @@
 
 {% if lr_quote %}<section class="card" id="loss-review" aria-labelledby="lr-t"><div class="card-head"><h2 id="lr-t">청약철회 고지 검토</h2>
 <span class="chips">{% if lr.confirmed %}{{ chip("done", "사람 확인 완료", "check") }}{% else %}{{ chip("hold", "사람 확인 필요") }}{% endif %}</span></div>
-<p class="t-sm">견적 v{{ lr_quote.version }}의 개별 제작 특성·손해 사유를 ① 규칙 검사 ② AI 검토(법률 자문 아님)로 살핀 뒤, ③ 사람이 최종 판단해요. 문구를 바꾸면 다시 검토해요.</p>
-<h3>① 규칙 검사</h3>{% if lr_rules %}<ul class="blocked">{% for p in lr_rules %}<li>{{ icon("octagon", "sm") }}<span>{{ p }}</span></li>{% endfor %}</ul>{% else %}<p>{{ chip("done", "통과", "check") }}</p>{% endif %}
-<h3>② AI 검토</h3>
+<p class="t-sm">견적 v{{ lr_quote.version }}의 개별 제작 특성·손해 사유를 AI가 법정 요건 기준으로 검토해 의견과 고친 문구를 드려요(법률 자문 아님). 그걸 참고해 사람이 최종 판단해요. 문구를 바꾸면 다시 검토해요.</p>
+<h3>AI 검토</h3>
 {% if lr.r and lr.current %}{% if lr.res %}<p><strong>{{ lr.verdict_label }}</strong> <span class="meta">{{ lr.r.model_id }} · {{ lr.r.created_at|kdatetime }}</span></p>
 <ul class="timeline">{% for c in lr.res.criteria %}<li>{{ icon("check" if c.met else "alert", "sm") }}<span>{{ LR_CRIT.get(c.key, c.key) }} — {{ c.comment }}</span></li>{% endfor %}</ul>
 {% if lr.res.suggestions %}<p class="t-sm">고칠 점: {{ lr.res.suggestions|join(" · ") }}</p>{% endif %}
@@ -108,8 +104,8 @@
 {% if lr.res.improved_loss_reasons %}<p class="t-sm"><strong>손해 사유</strong> <span id="ai-loss">{{ lr.res.improved_loss_reasons }}</span> <button class="btn btn-tertiary btn-sm" type="button" data-copy="ai-loss">{{ icon("copy", "sm") }}복사</button></p>{% endif %}</div>{% endif %}
 {% else %}<p class="t-sm">AI 검토를 하지 못했어요({{ lr.r.status }}). 사람이 근거를 적고 판단할 수 있어요.</p>{% endif %}
 {% elif lr.r %}<p class="t-sm">문구가 바뀌었어요. 다시 검토하세요.</p>{% else %}<p class="t-muted">아직 검토하지 않았어요.</p>{% endif %}
-<form method="post" action="/quotes/{{ lr_quote.id }}/loss/run">{{ csrf_input() }}<button class="btn btn-secondary btn-sm" type="submit" {% if lr_rules %}aria-disabled="true"{% endif %}>{{ icon("refresh", "sm") }}AI 검토 {{ "다시 " if lr.r else "" }}실행</button>{% if lr_rules %}<span class="t-sm"> 규칙 검사를 먼저 통과하세요(견적을 고쳐 저장)</span>{% endif %}</form>
-{% if lr.r and lr.current and not lr.confirmed %}<h3>③ 최종 판단(사람)</h3>
+<form method="post" action="/quotes/{{ lr_quote.id }}/loss/run">{{ csrf_input() }}<button class="btn btn-secondary btn-sm" type="submit">{{ icon("refresh", "sm") }}AI 검토 {{ "다시 " if lr.r else "" }}실행</button></form>
+{% if lr.r and lr.current and not lr.confirmed %}<h3>최종 판단(사람)</h3>
 <form method="post" action="/quotes/{{ lr_quote.id }}/loss/decide" class="stack">{{ csrf_input() }}
 {{ area("note", "판단 근거" ~ ("(선택)" if lr.res and lr.res.verdict == "sufficient" else "(필수 — AI가 ‘충분’이 아님)"), "", False, None, None, 2) }}
 <button class="btn btn-primary btn-sm" type="submit">{{ "확인 — 이 문구로 고지" if lr.res and lr.res.verdict == "sufficient" else "근거를 적고 이 문구로 진행" }}</button></form>{% endif %}

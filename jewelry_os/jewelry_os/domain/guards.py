@@ -25,7 +25,6 @@ MESSAGES = {
     "G-CONTRACT-STATE": "계약 요청이 ‘{status}’ 상태라 할 수 없어요.",
     "G-CONTRACT-REVIEW": "본인 확인 방법을 고르고 확인 근거를 메모로 남겨야 해요.",
     "G-CONTRACT-DELIVERY": "보낸 채널·보낸 항목(견적서·사전 고지·링크 중 하나 이상)을 고르고 메모(예: 카카오톡 상담방에 보냄)를 남겨야 해요.",
-    "G-QUOTE-LOSS-REASONS": "견적서의 개별 주문제작 특성·청약철회 시 예상 손해 사유를 이 주문에 맞게 구체적으로 적어야 계약 동의 링크를 만들 수 있어요({detail}). 새 견적 버전에 고쳐 승인하세요.",
     "G-LOSS-REVIEW-FIRST": "지금 문구로 손해 사유 검토(AI)를 먼저 실행하세요. 문구가 바뀌면 다시 검토해요.",
     "G-LOSS-OVERRIDE-NOTE": "AI 검토가 ‘충분’이 아니에요. 그대로 진행하려면 판단 근거를 적어 주세요(또는 문구를 고치세요).",
     "G-LOSS-CONFIRM": "견적서의 개별 제작 특성·손해 사유를 사람이 최종 확인해야 계약 동의 링크를 만들 수 있어요(시안·견적 탭 › 청약철회 고지 검토).",
@@ -87,7 +86,7 @@ FIX_LINK = {
     "G-RECEIVE-INFO": "making", "G-QC-INCOMPLETE": "qc", "G-QC-FAIL": "qc", "G-BALANCE": "payment",
     "G-SHIP-INFO": "qc", "G-NO-CONSENT": "intake", "G-ISSUE-OPEN": "history", "G-TEST-QUOTE": "quote",
     "G-L3-JUDGMENT": "cs", "G-CONTRACT-REQUIRED": "quote#contract", "G-CONTRACT-FORM": "/settings/google",
-    "G-QUOTE-EXPIRED": "quote", "G-QUOTE-LOSS-REASONS": "quote", "G-LOSS-CONFIRM": "quote#loss-review", "G-BALANCE-BEFORE-FACTORY": "payment", "G-CONTRACT-STATE": "quote#contract",
+    "G-QUOTE-EXPIRED": "quote", "G-LOSS-CONFIRM": "quote#loss-review", "G-BALANCE-BEFORE-FACTORY": "payment", "G-CONTRACT-STATE": "quote#contract",
     "G-CONTRACT-REVIEW": "quote#contract", "G-CONTRACT-DELIVERY": "quote#contract", "G-GATE-LIVE": "/settings/gates", "G-CAPACITY": "intake#cap-exc",
 }
 
