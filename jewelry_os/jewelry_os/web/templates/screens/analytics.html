@@ -46,6 +46,9 @@
 <p class="t-sm">계약 없이 최종 상담일로부터 {{ lost_months }}개월이 지난 문의는 개인정보를 파기하고, 그 전에 이유를 개인정보 없이 남겨 여기에 모아요(제품·소재·예산 구간·유입 경로·진행 정도).</p>
 {% if lost %}<div class="table-wrap"><table><caption class="sr-only">계약 안 된 이유별 건수</caption><thead><tr><th scope="col">이유</th><th scope="col" class="num">건수</th><th scope="col" class="num">평균 견적</th></tr></thead><tbody>
 {% for r in lost %}<tr><td>{{ r.label }}</td><td class="num">{{ r.count }}</td><td class="num">{{ r.avg_quote|won if r.avg_quote else "—" }}</td></tr>{% endfor %}
+</tbody></table></div>
+<h3>최근 기록</h3><div class="table-wrap"><table><caption class="sr-only">계약 안 된 문의 최근 기록</caption><thead><tr><th scope="col">주문</th><th scope="col">이유</th><th scope="col">디자인</th><th scope="col" class="num">마지막 견적</th></tr></thead><tbody>
+{% for r in lost_recent %}<tr><td>{{ r.order_no }}</td><td>{{ r.label }}</td><td style="white-space:pre-line">{{ r.design_summary or "—" }}</td><td class="num">{{ r.last_quote_total|won if r.last_quote_total else "—" }}</td></tr>{% endfor %}
 </tbody></table></div>{% else %}<p class="t-muted">아직 쌓인 기록이 없어요.</p>{% endif %}</section>
 <section class="card" aria-labelledby="mo-t"><h2 id="mo-t">월별 매출</h2>
 <div class="table-wrap"><table><thead><tr><th scope="col">월</th><th scope="col" class="num">실매출</th><th scope="col" class="num">시험</th></tr></thead><tbody>

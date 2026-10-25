@@ -12,7 +12,7 @@ from datetime import date, timedelta
 from ..core import clock
 from ..core.db import jdump, jload
 from ..domain.states import PHASE_LABEL, PHASE_OF, S
-from . import audit, customers, settings
+from . import analysis, audit, customers, settings
 
 REASON_LABEL = {
     "SHOP_DECLINED": "틴틴골드가 거절", "CANCELLED": "진행 중 취소", "CUSTOMER_REFUSED_CONTRACT": "고객이 계약 동의 거부",
@@ -87,6 +87,29 @@ def classify(c, o) -> tuple[str, dict]:
     return "OTHER", detail
 
 
+def design_summary(c, o, a: dict) -> str:
+    """사진 대신 남기는 디자인 글 설명 — 의뢰 내용(연락처·주소·이름 가림, 각인 문구는 ‘있음’만)과 공방 시안 메모."""
+    name = c.execute("SELECT display_name FROM customers WHERE id=?", (o["customer_id"],)).fetchone()
+    name = name["display_name"] if name else None
+
+    def clean(v, n=300):
+        s = analysis.redact_text(str(v)).strip()
+        if name and len(name) >= 2:
+            s = s.replace(name, "[이름]")
+        return s[:n]
+    parts = [f"{label}: {clean(a[k], 80)}" for k, label in (("product_type", "제품"), ("material", "소재"), ("size", "사이즈"),
+                                                           ("stones", "스톤")) if a.get(k)]
+    if a.get("engraving"):
+        parts.append("각인: 있음")
+    if a.get("description"):
+        parts.append(f"요청: {clean(a['description'])}")
+    notes = [r["notes"] for r in c.execute("SELECT notes FROM concepts WHERE order_id=? AND notes IS NOT NULL AND notes<>'' "
+                                           "ORDER BY version", (o["id"],))]
+    if notes:
+        parts.append("시안 메모: " + " / ".join(clean(x, 150) for x in notes))
+    return "\n".join(parts)
+
+
 def _record(c, o, last, reason, detail) -> None:
     """파기 전 분석 기록 — 개인정보 없이(제품·소재·예산 구간·경로·진행 정도·이유)."""
     a = {}
@@ -104,13 +127,13 @@ def _record(c, o, last, reason, detail) -> None:
     c.execute(
         "INSERT OR IGNORE INTO lost_inquiries(order_id, order_no, created_at, last_activity_at, recorded_at, final_state, "
         "phase_reached, reason_code, reason_detail_json, product_type, material, budget_range, source_channel, "
-        "desired_lead_days, concept_count, quote_versions, last_quote_total, is_test) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+        "desired_lead_days, concept_count, quote_versions, last_quote_total, design_summary, is_test) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
         (o["id"], o["order_no"], o["created_at"], last, clock.now_iso(), o["lifecycle_state"],
          PHASE_LABEL[PHASE_OF[S(o["lifecycle_state"])]], reason, jdump(detail), o["product_type"], a.get("material"),
          a.get("budget_range"), o["source_channel"], lead,
          c.execute("SELECT COUNT(*) FROM concepts WHERE order_id=?", (o["id"],)).fetchone()[0],
          c.execute("SELECT COUNT(*) FROM quotes WHERE order_id=? AND status<>'DRAFT'", (o["id"],)).fetchone()[0],
-         q["total_krw"] if q else None, o["is_test"]))
+         q["total_krw"] if q else None, design_summary(c, o, a), o["is_test"]))
 
 
 def candidates(ctx) -> list[dict]:
@@ -167,3 +190,9 @@ def summary(ctx, include_test=False) -> list[dict]:
                       f"GROUP BY reason_code ORDER BY n DESC")
     return [{"code": r["reason_code"], "label": REASON_LABEL.get(r["reason_code"], r["reason_code"]), "count": r["n"],
              "avg_quote": r["avg_quote"]} for r in rows]
+
+
+def recent(ctx, include_test=False, limit=20) -> list[dict]:
+    w = "" if include_test else "WHERE is_test=0"
+    rows = ctx.db.all(f"SELECT * FROM lost_inquiries {w} ORDER BY last_activity_at DESC LIMIT ?", (limit,))
+    return [{**dict(r), "label": REASON_LABEL.get(r["reason_code"], r["reason_code"])} for r in rows]

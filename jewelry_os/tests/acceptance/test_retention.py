@@ -16,7 +16,8 @@ def _no_pii(ctx):
 
 def test_old_uncontracted_inquiry_is_recorded_then_erased(ctx, maker, operator, fclock):
     ctx.files.files["i"] = g.sample_jpeg("i")
-    o = order_at(ctx, maker, operator, "OWNER_REVIEW", name="홍비밀", contact="010-7777-8888", files=["i"])
+    o = order_at(ctx, maker, operator, "OWNER_REVIEW", name="홍비밀", contact="010-7777-8888", files=["i"],
+                 desc="홍비밀입니다. 18K 꼬임 반지, 연락은 010-7777-8888로 주세요")
     ref = ctx.db.one("SELECT * FROM assets WHERE order_id=? AND kind='reference'", (o["id"],))
     path = ctx.cfg.files_dir / ref["storage_ref"]
     assert path.exists()
@@ -30,13 +31,14 @@ def test_old_uncontracted_inquiry_is_recorded_then_erased(ctx, maker, operator, 
     assert ctx.db.one("SELECT storage_ref, fetch_status FROM assets WHERE id=?", (ref["id"],))["fetch_status"] == "PURGED"
     rec = ctx.db.one("SELECT * FROM lost_inquiries WHERE order_id=?", (o["id"],))
     assert rec["reason_code"] == "NOT_REVIEWED" and rec["product_type"] == "반지" and rec["source_channel"]
+    assert "제품: 반지" in rec["design_summary"] and "꼬임 반지" in rec["design_summary"]  # 사진 대신 글 설명
     _no_pii(ctx)
     assert ctx.db.one("SELECT 1 FROM audit_events WHERE action='inquiry_purged'")
     assert ctx.db.scalar("SELECT COUNT(*) FROM orders WHERE id=?", (o["id"],)) == 1  # 주문 뼈대는 남음(통계)
     assert retention.purge(ctx) == 0  # 다시 돌려도 그대로
     assert ctx.db.scalar("SELECT COUNT(*) FROM lost_inquiries") == 1
     page = web(ctx, "operator").get("/analytics?test=1").text
-    assert "계약 안 된 문의" in page and "검토 전 방치" in page
+    assert "계약 안 된 문의" in page and "검토 전 방치" in page and "꼬임 반지" in page
 
 
 def test_contracted_or_recent_inquiries_are_kept(ctx, maker, operator, fclock):

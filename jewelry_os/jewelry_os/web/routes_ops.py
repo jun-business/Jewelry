@@ -212,7 +212,7 @@ async def analytics(request: Request, test: int = 0):
     month = clock.kst(clock.now()).strftime("%Y-%m")
     spend = ctx.db.all("SELECT * FROM ad_spend ORDER BY month DESC, channel")
     lost = retention.summary(ctx, bool(test))  # D-40 계약 안 된 문의 이유
-    return render(request, "screens/analytics.html", {"lost": lost, "lost_months": retention.months(ctx),
+    return render(request, "screens/analytics.html", {"lost": lost, "lost_recent": retention.recent(ctx, bool(test)), "lost_months": retention.months(ctx),
                                                         "k": metrics.kpis(ctx, bool(test)), "sources": src,
                                                        "summary": summary, "funnel": metrics.funnel(ctx, bool(test)),
                                                        "per": per, "monthly": metrics.monthly(ctx), "test": test,

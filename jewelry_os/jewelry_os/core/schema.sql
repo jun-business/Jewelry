@@ -915,6 +915,7 @@ CREATE TABLE IF NOT EXISTS lost_inquiries (
   concept_count INTEGER NOT NULL DEFAULT 0,
   quote_versions INTEGER NOT NULL DEFAULT 0,
   last_quote_total INTEGER,
+  design_summary TEXT,
   is_test INTEGER NOT NULL DEFAULT 0
 );
 CREATE TRIGGER IF NOT EXISTS lost_no_delete BEFORE DELETE ON lost_inquiries BEGIN SELECT RAISE(ABORT, 'lost inquiry records are kept'); END;

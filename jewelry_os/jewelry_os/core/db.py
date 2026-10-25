@@ -80,6 +80,9 @@ class Database:
 
 def _migrate(c: sqlite3.Connection) -> None:
     """v1 → v2: payment_requests에 CHANGE 단계·change_order_id(H1 r1 Q10). SQLite는 CHECK를 바꿀 수 없어 표를 다시 만든다."""
+    cols = [r[1] for r in c.execute("PRAGMA table_info(lost_inquiries)")]
+    if cols and "design_summary" not in cols:  # D-40 디자인 글 설명(사진 대신)
+        c.execute("ALTER TABLE lost_inquiries ADD COLUMN design_summary TEXT")
     sql = c.execute("SELECT sql FROM sqlite_master WHERE type='table' AND name='payment_requests'").fetchone()[0]
     if "'CHANGE'" in sql:
         return
