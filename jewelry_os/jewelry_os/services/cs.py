@@ -64,6 +64,49 @@ def scrub_internal_labels(text: str) -> str:
 INTAKE_KEYS = ("product_type", "description", "material", "size", "stones_engraving", "budget_range", "desired_date")
 
 
+def contact_pref(answers: dict) -> str:
+    """Form A ‘선호 연락 방법’ → sms | phone | kakao."""
+    v = str((answers or {}).get("contact_kind") or "")
+    return "sms" if "문자" in v else "phone" if "전화" in v else "kakao"
+
+
+def product_words(o) -> str:
+    return (o["product_type"] or "주얼리").replace(" / ", "·").replace("/", "·")
+
+
+def first_contact_sms(ctx, o, answers: dict, q=None) -> str:
+    """처음 보내는 문자 — 누가·왜 보냈는지 첫 줄에(S-14). 문자를 고른 고객에게는 카톡으로 옮기라고 하지 않고
+    견적 요약을 문자에 그대로 담는다(S-45·S-48). q가 없으면 정보 요청 단계용 인사만."""
+    from ..domain.money import won
+
+    def kdate(v):
+        try:
+            d = __import__("datetime").date.fromisoformat(str(v)[:10])
+            return f"{d.month}월 {d.day}일"
+        except ValueError:
+            return "견적서 참고"
+    shop, name = settings.get(ctx, "shop_name"), o["customer_name"] or "고객"
+    head = f"[{shop}] {name} 고객님, 보내 주신 {product_words(o)} 의뢰서 잘 받았어요."
+    if q is None:
+        return head
+    if contact_pref(answers) == "sms":
+        pay = (f"총 {won(q['total_krw'])}(예약금 {won(q['deposit_krw'])} · 잔금 {won(q['balance_krw'])})"
+               if q["deposit_krw"] else f"총 {won(q['total_krw'])}")
+        return (f"[{shop}] {name} 고객님, 의뢰하신 {product_words(o)} 시안과 견적이 준비됐어요.\n"
+                f"{pay} · 완성 예정 {kdate(q['promised_date'])}.\n"
+                "시안 그림과 견적서 파일을 이 문자에 함께 보내 드려요. 궁금한 점은 이 번호로 답장 주세요.")
+    url = settings.kakao_chat_url(settings.get(ctx, "kakao_channel_url"))
+    return (f"[{shop}] {name} 고객님, 의뢰하신 {product_words(o)} 시안과 견적이 준비됐어요. 카카오톡 채널({url})로 "
+            "\"시안 받을게요\"라고 보내 주시면 바로 보내 드릴게요. 문자가 편하시면 이 번호로 답장 주셔도 돼요.")
+
+
+def intake_context(ctx, o) -> dict:
+    """AI에 함께 주는 의뢰서 내용 — 이름·연락처는 빼고 전화·이메일·주소는 가린다."""
+    from . import analysis, intake
+    answers, _rev = intake.answers_of(ctx, o)
+    return {k: analysis.redact_text(str(answers[k]))[:400] for k in INTAKE_KEYS if answers.get(k)}
+
+
 def public_process_facts(ctx) -> list[str]:
     """의뢰서(Form A) 안내·계약 동의서(Form B)로 이미 고객에게 공개된 진행 안내 — AI 답변 초안의 근거.
     상담 정책이 자리표시뿐이어도 기본 절차는 답할 수 있게(2026-10-25 시뮬레이션 S-11)."""
@@ -87,12 +130,10 @@ def create_draft(ctx, o, actor, question: str, body: str | None = None, level: s
     if body is None:
         try:
             from . import cs_digest
-            from . import intake
-            answers, _rev = intake.answers_of(ctx, o)
             octx = {"phase_label": _phase_label(o), "shop_name": settings.get(ctx, "shop_name"),
                     "process_facts": public_process_facts(ctx),
                     # 의뢰서 내용(이름·연락처 제외) — 대화만 보고 '예산 미기재'라고 하지 않게(S-12)
-                    "intake": {k: redact(str(answers[k]))[:400] for k in INTAKE_KEYS if answers.get(k)}}
+                    "intake": intake_context(ctx, o)}
             dg = cs_digest.for_draft(ctx, o)
             if dg:
                 octx["chat_digest"] = dg  # D-31: 대화 정리를 답변 근거로
@@ -225,3 +266,43 @@ def inbox(ctx):
     recent = ctx.db.all("SELECT m.*, t.order_id, o.order_no FROM cs_messages m JOIN cs_threads t ON t.id=m.thread_id "
                         "LEFT JOIN orders o ON o.id=t.order_id ORDER BY m.recorded_at DESC LIMIT 20")
     return {"pending": pending, "to_send": to_send, "recent": recent}
+
+
+# ---------------- 단계별 고객 알림 문구(복사해서 카톡·문자로 보냄) — 2026-10-25 시뮬레이션 S-37·S-53·S-41 ----------------
+def _hello(ctx, o) -> str:
+    return f"[{settings.get(ctx, 'shop_name')}] {o['customer_name'] or '고객'} 고객님,"
+
+
+def notice_cad_start(ctx, o) -> str:
+    """상세 CAD 착수 알림 — 이 시점부터 취소 기준이 바뀌므로 고객이 알 수 있게 남긴다."""
+    t = clock.today_kst()
+    return "\n".join([f"{_hello(ctx, o)} 예약금 확인했어요. 오늘({t.month}월 {t.day}일) 상세 설계(CAD)를 시작합니다.",
+                      "지금부터 취소하시면 계약 동의서의 ‘상세 CAD 작업 착수 후’ 기준으로 처리돼요.",
+                      "최종 시안은 준비되는 대로 이 채팅으로 보내 드릴게요."])
+
+
+def notice_design_request(ctx, o, design_version: int) -> str:
+    """최종 시안 확인 요청 — 승인 전에 고객이 볼 항목을 체크리스트로(각인 철자는 확대 이미지로)."""
+    from ..domain.states import SPEC_FIELDS
+    from . import orders
+    spec = orders.current_spec(ctx, o["id"])
+    lines = [f"{_hello(ctx, o)} 최종 시안(디자인 v{design_version})을 보내 드려요. 아래를 하나씩 확인해 주세요."]
+    lines += [f"· {lab}: {spec[k]}" for k, lab in SPEC_FIELDS if spec.get(k)]
+    lines += ["· 각인 글자는 확대 이미지로 철자·글씨체를 꼭 확인해 주세요.",
+              "이대로 괜찮으시면 ‘최종 시안 승인합니다’라고 답해 주세요. 고칠 곳이 있으면 편하게 말씀해 주세요.",
+              "승인하시면 잔금 안내를 드리고, 그 뒤에는 사양을 바꾸기 어려워요."]
+    return "\n".join(lines)
+
+
+def notice_address_request(ctx, o) -> str:
+    return "\n".join([f"{_hello(ctx, o)} 검수를 마쳤어요. 보내 드릴 곳을 알려 주세요.",
+                      "· 받는 분 이름", "· 연락처", "· 주소(우편번호 포함)",
+                      "배송에만 쓰고 안전하게 보관해요."])
+
+
+def notice_shipped(ctx, o, shipment) -> str:
+    via = " ".join(x for x in (shipment["carrier"], f"(송장 {shipment['tracking_no']})" if shipment["tracking_no"] else "")
+                   if x) if shipment else ""
+    return "\n".join([f"{_hello(ctx, o)} 검수를 마치고 오늘 보냈어요{(' — ' + via) if via else ''}.",
+                      "받으시면 사이즈·각인·스톤 세팅을 확인해 주세요.",
+                      "이상한 점이 있으면 사진과 함께 이 채팅으로 알려 주세요. 확인해서 안내드릴게요."])

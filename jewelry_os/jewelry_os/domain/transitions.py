@@ -176,9 +176,10 @@ def spec_missing(spec: dict) -> list[str]:
 def spec_diff(quote_spec: dict, factory_spec: dict) -> list[str]:
     diff = []
     for k, lab in SPEC_FIELDS:
-        a = (quote_spec.get(k) or "").strip()
-        b = (factory_spec.get(k) or "").strip()
-        if a and a != b:
+        a = " ".join((quote_spec.get(k) or "").split())
+        b = " ".join((factory_spec.get(k) or "").split())
+        # 견적 문구를 그대로 두고 뒤에 상세를 덧붙인 것(예: '…큐빅 1개 (오른쪽 귀)')은 같은 사양의 구체화(S-39)
+        if a and a != b and not b.startswith(a):
             diff.append(lab)
     return diff
 

@@ -25,6 +25,7 @@
 {% if pq.payment_guide %}<p>{{ pq.payment_guide }}</p>{% endif %}</section>
 <section><h2>제작·배송 일정</h2><dl class="kv"><dt>완성 예정</dt><dd>{{ pq.promised_date|kdate }}</dd>{% if pq.delivery_plan %}<dt>배송</dt><dd>{{ pq.delivery_plan }}</dd>{% endif %}</dl><p class="t-sm">지금 단계: {{ pq.phase_label }}</p></section>
 {% if pq.revision_scope %}<section><h2>수정 가능 범위</h2><p>{{ pq.revision_scope }}</p></section>{% endif %}
+{% if pq.extra_terms %}<section><h2>추가 약속</h2><p class="pre-wrap">{{ pq.extra_terms }}</p></section>{% endif %}
 <section><h2>취소·환불 조건</h2>{% if pq.refund_terms %}<p class="pre-wrap t-sm">{{ pq.refund_terms }}</p>{% endif %}
 {% if pq.terms_body %}<h3>{{ pq.terms_label }}</h3><p class="pre-wrap t-sm">{{ pq.terms_body }}</p>{% endif %}</section>
 <footer class="doc-foot"><p>이 견적은 제작 의뢰 확인용이며, 계약 동의와 결제가 확인된 뒤 작업을 시작해요.{% if pq.terms_label %} 수정·환불 기준: {{ pq.terms_label }}.{% endif %}</p>

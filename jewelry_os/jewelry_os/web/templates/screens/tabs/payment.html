@@ -7,7 +7,13 @@
 <div class="file-card" data-payment-request="{{ r.phase }}">
 <div class="fc-body"><strong>{{ PAY_PHASE_LABEL[r.phase] }} · {{ r.expected_krw|won }}</strong>
 <span class="chips">{{ chip("progress" if r.status in ("DRAFT", "LINK_READY", "PAID") else ("done" if r.status == "PAID_VERIFIED" else ("issue" if r.status == "MISMATCH" else "ended")), "결제 확인 대기" if r.status == "PAID" else PAY_STATUS_LABEL.get(r.status, r.status)) }}{% if r.is_test %}{{ chip("test", "시험", "flask") }}{% else %}{{ chip("version", "실거래") }}{% endif %}</span>
-<div class="meta">견적 v{{ r.quote_version }} · 판매자 관리코드 <span class="mono">{{ r.seller_code }}</span> · {{ r.created_at|kdate }}</div></div>
+<div class="meta">견적 v{{ r.quote_version }} · 판매자 관리코드 <span class="mono">{{ r.seller_code }}</span> · {{ r.created_at|kdate }}</div>
+{% if r.status in ("DRAFT", "LINK_READY") and pay_guides.get(r.id) %}
+<div class="field"><label for="pg-{{ r.id }}">고객에게 보낼 결제 안내(카톡·문자)</label>
+<textarea id="pg-{{ r.id }}" rows="5" readonly>{{ pay_guides[r.id] }}</textarea>
+{% if not payment_how_set %}<p class="err">결제 방법(결제처)이 아직 설정되지 않았어요 — 설정 › 운영 정책 › ‘결제 방법’에 적은 뒤 보내세요.</p>{% endif %}
+<button class="btn btn-tertiary btn-sm" type="button" data-copy="pg-{{ r.id }}">{{ icon("copy", "sm") }}안내 복사</button></div>{% endif %}
+</div>
 </div>
 {% endfor %}
 {% if o.payment_policy == "FULL" or (o.lifecycle_state in ("QC_PASSED", "FINAL_PAYMENT_VERIFIED", "SHIPPED", "CLOSED") and balance_amount is none and not pay_reqs|selectattr("phase", "equalto", "BALANCE")|list) %}

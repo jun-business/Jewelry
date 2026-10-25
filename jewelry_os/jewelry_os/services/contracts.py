@@ -886,7 +886,14 @@ def review(ctx, req_id, actor, method: str, note: str, remember_email: bool = Tr
         _event(c, req, "reviewed", actor, detail={"method": method, "note": note.strip(), "responses": len(resps),
                                                    "rev_key": _rev_key(resps), "response_row_id": primary["id"],
                                                    "email_saved": saved})
-        return evaluate(ctx, c, req_id, actor)
+        status = evaluate(ctx, c, req_id, actor)
+        if saved:  # 이 이메일로 이미 들어와 본인 확인을 기다리는 다른 요청도 다시 판정 — 경고 누락 방지(S-31)
+            for other in c.execute("SELECT DISTINCT r.id FROM contract_requests r JOIN contract_responses p "
+                                   "ON p.request_id=r.id WHERE r.id<>? AND r.status IN ('RESPONSE_RECEIVED','REVIEW_REQUIRED') "
+                                   "AND r.identity_status<>'VERIFIED' AND p.respondent_email_hash=?",
+                                   (req_id, primary["respondent_email_hash"])).fetchall():
+                evaluate(ctx, c, other["id"], actor)
+        return status
 
 
 # ---------------- 업무 진행 조건 ----------------

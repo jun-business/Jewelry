@@ -1,6 +1,7 @@
 """템플릿 표기 규칙(PDS §6.11): KST 날짜·금액·라벨·상대 시각."""
 from __future__ import annotations
 
+import re
 from datetime import date, datetime, timedelta
 
 from ..core import clock
@@ -141,10 +142,34 @@ def action_label(action, row=None) -> str:
     return ACTION_TEXT.get(action, "기록을 남겼어요")
 
 
+AI_FIELD_LABEL = {"material": "소재", "purity": "함량", "size": "호수·사이즈", "stones": "스톤", "engraving": "각인",
+                  "budget": "예산", "deadline": "희망 시기", "desired_date": "희망 시기", "product_type": "제품 종류",
+                  "budget_range": "예산", "stones_engraving": "스톤·각인", "finish": "마감", "length": "길이"}
+AI_RISK_LABEL = {"BRAND_IMITATION": "상표·디자인 모방 의심", "IP_CHARACTER": "캐릭터·로고 사용", "COMPLEX_SHAPE": "복잡한 형상"}
+_AI_KEY_RE = re.compile(r"^\s*([a-z_]+)\s*(?:\((.*)\))?\s*(.*)$", re.S)
+
+
+def ai_item(text) -> str:
+    """AI가 돌려준 ‘불명확한 점’에 섞인 영어 필드 이름을 한국어로(2026-10-25 시뮬레이션 S-7). 'size (최종 크기 확인)' → '호수·사이즈 — 최종 크기 확인'."""
+    s = str(text or "")
+    m = _AI_KEY_RE.match(s)
+    if not m or m.group(1) not in AI_FIELD_LABEL and not re.fullmatch(r"[a-z]+(?:_[a-z]+)+", m.group(1)):
+        return s
+    label = AI_FIELD_LABEL.get(m.group(1), "확인 필요")
+    rest = " ".join(x for x in (m.group(2), m.group(3)) if x and x.strip()).strip()
+    return f"{label} — {rest}" if rest else f"{label} 확인 필요"
+
+
+def ai_risk(code) -> str:
+    """알 수 없는 위험 코드(예: animal_motif)는 영어 그대로 보이지 않게(S-8)."""
+    return AI_RISK_LABEL.get(code, "확인 필요")
+
+
 def install(env) -> None:
     import json as _json
     env.filters.update(kst_input=kst_input, won=won, kdate=kdate, ktime=ktime, kdatetime=kdatetime, rel=rel, state_label=state_label,
-                       phase_label=phase_label, chip_kind=chip_kind, action_label=action_label,
+                       phase_label=phase_label, chip_kind=chip_kind, action_label=action_label, ai_item=ai_item,
+                       ai_risk=ai_risk,
                        fromjson=lambda s: _json.loads(s) if s else {},
                        maybe_won=lambda v: won(int(str(v).replace(",", ""))) if str(v).replace(",", "").isdigit() else v,
                        role_names=lambda roles: "·".join(st.ROLE_LABEL.get(r, r) for r in roles))

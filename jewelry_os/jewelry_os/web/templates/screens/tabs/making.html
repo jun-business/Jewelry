@@ -10,6 +10,7 @@
 <span class="t-sm">다음 빈 주말 제안:</span>{% for d in slots %}<label class="choice"><input type="radio" name="date" value="{{ d.isoformat() }}" {% if loop.first %}checked{% endif %}> {{ d.isoformat()|kdate }}</label>{% endfor %}
 <button class="btn btn-secondary btn-sm" type="submit" {% if me != "maker" %}aria-disabled="true"{% endif %}>이 날짜로 정하기</button></form>
 <p class="help">제안만 해요. 날짜는 아버님이 직접 정해야 확정돼요.</p>{% endif %}
+{% if msgs.cad_start %}<div class="field" id="msg-cad_start-box"><label for="msg-cad_start">고객에게 보낼 ‘상세 설계 시작’ 알림 — 이때부터 취소 기준이 바뀌어요</label><textarea id="msg-cad_start" rows="5" readonly>{{ msgs.cad_start }}</textarea><button class="btn btn-tertiary btn-sm" type="button" data-copy="msg-cad_start">{{ icon("copy", "sm") }}복사</button></div>{% endif %}
 </section>
 
 <section class="card" aria-labelledby="dz-t"><h2 id="dz-t">디자인 파일</h2>
@@ -34,6 +35,7 @@
 <section class="card" id="design-ok" aria-labelledby="dok-t"><h2 id="dok-t">고객 최종 시안 동의</h2>
 <form method="post" action="/orders/{{ o.order_no }}/actions/record_design_ok" data-confirm-required>{{ csrf_input() }}<input type="hidden" name="version" value="{{ o.version }}"><input type="hidden" name="_tab" value="making">
 <p>대상: 디자인 v{{ latest.version }}</p>
+{% if msgs.design_request %}<div class="field" id="msg-design_request-box"><label for="msg-design_request">고객에게 보낼 최종 시안 확인 요청(확인 항목 포함) — 각인 확대 이미지를 같이 보내세요</label><textarea id="msg-design_request" rows="5" readonly>{{ msgs.design_request }}</textarea><button class="btn btn-tertiary btn-sm" type="button" data-copy="msg-design_request">{{ icon("copy", "sm") }}복사</button></div>{% endif %}
 {{ evidence("", errors, "고객 동의 증빙") }}
 <div class="field"><label for="dok-at">동의 일시</label><input id="dok-at" type="datetime-local" name="accepted_at"></div>
 <label class="choice"><input type="checkbox" name="confirm" value="on"> 고객이 위 디자인 버전에 동의한 것을 확인했습니다</label><p class="err need-confirm" hidden>확인란을 체크해야 진행돼요.</p>
@@ -52,9 +54,12 @@
 {% endfor %}
 <div class="field"><label for="fs-stl">연결 STL 파일</label><select id="fs-stl" name="stl_asset_id">{% for d in designs %}{% if d.stl_asset_id %}<option value="{{ d.stl_asset_id }}" {% if fspec.get("stl_asset_id") == d.stl_asset_id %}selected{% endif %}>v{{ d.version }} · {{ assets[d.stl_asset_id].filename }}</option>{% endif %}{% endfor %}</select></div>
 </div>
-<div class="btn-row"><button class="btn btn-secondary" type="submit" {% if me != "maker" %}aria-disabled="true"{% endif %}>사양서 저장</button>
-<button class="btn btn-tertiary" type="submit" name="align_to_quote" value="1">공장 사양을 견적에 맞추기</button></div>
-</form></section>
+<p class="help">견적 문구 뒤에 상세를 덧붙이는 건 괜찮아요(예: ‘…큐빅 1개 (오른쪽 귀)’). 견적 문구 자체를 바꾸면 변경 요청으로 고객 동의를 다시 받아야 해요.</p>
+<div class="btn-row"><button class="btn btn-secondary" type="submit" {% if me != "maker" %}aria-disabled="true"{% endif %}>사양서 저장</button></div>
+</form>
+<form method="post" action="/orders/{{ o.order_no }}/factory-spec" class="btn-row">{{ csrf_input() }}<input type="hidden" name="align_to_quote" value="1">
+<button class="btn btn-tertiary" type="submit" data-confirm-text="입력한 공장 사양을 지우고 승인 견적의 사양으로 바꿀까요?">견적 사양으로 다시 채우기</button>
+<span class="t-sm">위 칸의 입력을 지우고 승인 견적 사양으로 바꿔요.</span></form></section>
 
 <section class="card" aria-labelledby="pk-t"><h2 id="pk-t">발주 패킷</h2>
 {% set vp = packets|selectattr("status", "equalto", "VALID")|list %}

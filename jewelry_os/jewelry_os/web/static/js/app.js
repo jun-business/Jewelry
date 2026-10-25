@@ -227,6 +227,25 @@
     z.addEventListener("drop", (e) => { if (e.dataTransfer.files.length) { input.files = e.dataTransfer.files; announce(e.dataTransfer.files[0].name + " 선택됨"); } });
   });
 
+  /* ---- 입력을 덮어쓰는 버튼은 한 번 더 묻는다(S-40) ---- */
+  document.addEventListener("click", (e) => {
+    const b = e.target.closest("[data-confirm-text]");
+    if (b && !window.confirm(b.dataset.confirmText)) { e.preventDefault(); e.stopPropagation(); }
+  }, true);
+
+  /* ---- 견적 품목 합계·예약금·잔금을 입력하는 동안 계산(2026-10-25 시뮬레이션 S-16·B-2) ---- */
+  const qTotal = $("#q-total");
+  if (qTotal) {
+    const form = qTotal.closest("form"), fmt = (n) => n.toLocaleString("ko-KR") + "원";
+    const recalc = () => {
+      const t = $$("input[name$='_amount']", form).reduce((s, el) => s + (parseInt(el.value.replace(/[^\d]/g, ""), 10) || 0), 0);
+      qTotal.textContent = fmt(t);
+      const dep = $("#q-dep"), bal = $("#q-bal");
+      if (dep && bal && qTotal.dataset.policy !== "FULL") { const d = Math.ceil(t / 3); dep.textContent = fmt(d); bal.textContent = fmt(t - d); }
+    };
+    form.addEventListener("input", (e) => { if (e.target.name && e.target.name.endsWith("_amount")) recalc(); });
+  }
+
   /* ---- 서비스 워커(E-27 오프라인 셸) ---- */
   if ("serviceWorker" in navigator) navigator.serviceWorker.register("/sw.js", { scope: "/" }).catch(() => {});
 })();

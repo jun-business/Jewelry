@@ -266,4 +266,55 @@ def view(ctx, r) -> dict:
             "bearer_label": BEARER_LABEL.get(r["shipping_fee_bearer"] or "", "—"),
             "late": bool(r["status"] == "APPROVED" and r["refund_due_at"] and
                          r["refund_due_at"] < clock.today_kst().isoformat()),
+            "provisional_due": provisional_due(ctx, r),
+            "legal_pending_judgment": r["legal_review_status"] == "DONE" and r["legal_withdrawal"] is None,
+            "resolve_kinds": RESOLVE_KINDS,
+            "fully_refunded": tr.fully_refunded(ctx.db.conn, r["order_id"]),
+            "order_ended": ctx.db.scalar("SELECT lifecycle_state FROM orders WHERE id=?", (r["order_id"],)) in
+            ("CANCELLED", "CLOSED", "DECLINED"),
             "events": events_of(ctx, r["id"])}
+
+
+
+RESOLVE_KINDS = {"REPAIR": "무상 수선", "REMAKE": "재제작", "NO_DEFECT": "확인 결과 하자 아님(설명 완료)"}
+FAULT_OF_REASON = {"CHANGE_OF_MIND": "CUSTOMER_CHANGE", "DEFECT": "DEFECT", "MISMATCH": "MISMATCH", "OTHER": "UNKNOWN"}
+
+
+def resolve_without_refund(ctx, rid, actor, kind: str, note: str) -> None:
+    """하자·불일치 요청을 환불 대신 수선·재제작·설명으로 끝낸다(2026-10-25 시뮬레이션 S-51).
+    환급액 0원으로 결정·완료해 기록을 남기고, 재제작이면 주문에 재작업 문제(판매자 귀책)를 연다."""
+    if kind not in RESOLVE_KINDS or not (note or "").strip():
+        raise TransitionBlocked([unmet("G-REFUND-INPUT", fields="해결 방법·근거")])
+    r = get(ctx, rid)
+    label = f"{RESOLVE_KINDS[kind]}: {note.strip()}"
+    approve(ctx, rid, actor, 0, label)
+    complete(ctx, rid, actor, 0, RESOLVE_KINDS[kind], note.strip())
+    if kind == "REMAKE":
+        from . import orders
+        with ctx.db.tx() as c:
+            orders.open_issue(c, r["order_id"], "REWORK", actor, f"하자 요청 #{rid} 재제작: {note.strip()}",
+                              fault="DEFECT" if r["reason_kind"] == "DEFECT" else "MISMATCH")
+
+
+def close_order_after_refund(ctx, rid, actor) -> bool:
+    """받은 결제를 모두 환급한 뒤 주문을 ‘취소’로 정리 — 같은 내용을 주문 취소 창에 다시 입력하지 않게(S-33)."""
+    from ..domain.states import ENDED, S
+    from . import orders
+    r = get(ctx, rid)
+    o = ctx.db.one("SELECT * FROM orders WHERE id=?", (r["order_id"],))
+    if r["status"] != "COMPLETED" or S(o["lifecycle_state"]) in ENDED or not tr.fully_refunded(ctx.db.conn, o["id"]):
+        return False
+    orders.cancel_order(ctx, orders.get(ctx, o["order_no"]), actor, {
+        "confirm": "on", "fault": FAULT_OF_REASON.get(r["reason_kind"], "UNKNOWN"), "refund_decision": "FULL",
+        "refund_basis": r["decision_reason"] or "", "channel": "기타",
+        "evidence": f"취소·환불 요청 #{rid} 환급 완료 — {r['refund_evidence'] or ''}",
+        "reason": f"취소·환불 요청 #{rid}: {r['refund_reason'] or REASON_LABEL[r['reason_kind']]}"})
+    return True
+
+
+def provisional_due(ctx, r) -> str | None:
+    """결정 전에도 보이는 참고 환급 기한(S-34): 미공급이면 요청일+3영업일. 공급된 상품은 반환받은 날부터라 날짜 없음."""
+    if r["status"] != "RECEIVED" or r["delivered_at"]:
+        return None
+    hol = {h["date"] for h in ctx.db.all("SELECT date FROM holidays")}
+    return add_business_days(clock.kst(clock.parse(r["requested_at"])).date(), 3, hol).isoformat()

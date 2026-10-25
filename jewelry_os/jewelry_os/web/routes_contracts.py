@@ -13,7 +13,7 @@ from pathlib import Path
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import Response
 
-from ..domain.guards import TransitionBlocked
+from ..domain.guards import TransitionBlocked, unmet
 from ..services import contracts, orders, refunds, settings
 from .app import flash_redirect, form_of, render, templates
 
@@ -275,6 +275,8 @@ async def refund_op(request: Request, rid: int, op: str):
     back = f"/refunds/{rid}"
     try:
         if op == "legal":
+            if (f.get("legal_withdrawal") or "") not in ("yes", "no", ""):  # 선택지 밖 값은 거부(S-50)
+                raise TransitionBlocked([unmet("G-REFUND-INPUT", fields="법정 청약철회 판단(선택지 중 하나)")])
             lw = {"yes": True, "no": False}.get(f.get("legal_withdrawal") or "")
             refunds.legal_review(ctx, rid, user, f.get("legal_note") or "", lw)
             msg = "법적 검토 결과를 기록했어요."
@@ -286,6 +288,11 @@ async def refund_op(request: Request, rid: int, op: str):
             refunds.complete(ctx, rid, user, f.get("amount"), f.get("method") or "", f.get("evidence") or "",
                              f.get("completed_at") or None)
             msg = "환급 완료를 기록했어요."
+        elif op == "resolve":
+            refunds.resolve_without_refund(ctx, rid, user, f.get("kind") or "", f.get("note") or "")
+            msg = "환불 없이 해결한 내용을 기록했어요."
+        elif op == "close_order":
+            msg = "주문을 취소로 정리했어요." if refunds.close_order_after_refund(ctx, rid, user) else "정리할 주문이 없어요."
         elif op == "withdraw":
             refunds.withdraw(ctx, rid, user, f.get("withdraw_note") or "")
             msg = "고객 요청 철회를 기록했어요."

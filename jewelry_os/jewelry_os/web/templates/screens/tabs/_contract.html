@@ -66,7 +66,8 @@
 <p class="t-sm">제출한 Google 계정: {{ contract_email_masked }}. 기존 연락처나 확인된 상담 채널로 고객 본인이 제출했는지 확인하세요. 주문번호·견적 불일치나 동의 거부·설명 요청은 여기서 풀 수 없어요.</p>
 <div class="grid-2"><div class="field"><label for="ct-m">확인 방법</label><select id="ct-m" name="method">{% for kk, lab in CONTRACT_IDENTITY.items() %}{% if kk != "verified_email" or k.identity_method == "verified_email" %}<option value="{{ kk }}">{{ lab }}</option>{% endif %}{% endfor %}</select></div>
 {{ text("review_note", "확인 근거(필수)", "") }}</div>
-<label class="choice"><input type="checkbox" name="remember_email" value="on" checked> 이 Google 계정을 이 고객의 확인된 계약 이메일로 기억</label>
+<label class="choice"><input type="checkbox" name="remember_email" value="on"> 이 Google 계정을 이 고객의 확인된 계약 이메일로 기억</label>
+<p class="help">고객 본인 계정이 확실할 때만 체크하세요. 가족·공용 계정이면 다른 고객의 응답이 이 고객으로 묶일 수 있어요.</p>
 <button class="btn btn-primary" type="submit">검증 완료</button></form>
 {% endif %}
 {% if k and k.status == "ACCEPTED" and o.lifecycle_state == "QUOTE_APPROVED" %}

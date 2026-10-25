@@ -81,7 +81,7 @@
 <dl class="kv">
 <dt>약속일</dt><dd>{{ o.promised_date|kdate if o.promised_date else "—" }}</dd>
 <dt>견적 총액</dt><dd>{{ q_appr.total_krw|won if q_appr else "—" }}{% if q_appr and q_appr.is_test %} {{ chip("test", "시험 견적", "flask") }}{% endif %}</dd>
-<dt>결제</dt><dd>{% for r in pay_reqs %}{{ PAY_PHASE_LABEL[r.phase] }} {{ PAY_STATUS_LABEL.get(r.status, r.status) if r.status != "PAID" else "확인 대기" }}{% if not loop.last %} · {% endif %}{% else %}—{% endfor %}</dd>
+<dt>결제</dt><dd>{% for r in pay_reqs %}{{ PAY_PHASE_LABEL[r.phase] }} {{ PAY_STATUS_LABEL.get(r.status, r.status) if r.status != "PAID" else "확인 대기" }}{% if not loop.last %} · {% endif %}{% else %}—{% endfor %}{% if refunded_total %} · 환급 완료 {{ refunded_total|won }}{% endif %}</dd>
 <dt>작업시간</dt><dd>{{ (work._total // 60) }}시간 {{ work._total % 60 }}분</dd>
 </dl></section>
 </aside>

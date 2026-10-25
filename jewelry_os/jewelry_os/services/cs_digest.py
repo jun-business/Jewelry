@@ -6,6 +6,8 @@
 - AI 월 호출·비용 한도는 의뢰 정리와 함께 센다."""
 from __future__ import annotations
 
+import inspect
+
 import logging
 
 from ..adapters.ai import (DECISION_KINDS, DIGEST_PROMPT_VERSION, QUESTION_TOPICS, REQUEST_KINDS, SPEC_KEYS,
@@ -70,6 +72,12 @@ def validate(raw, ids: set[int]) -> tuple[dict | None, str | None]:
             "unclear": [str(u)[:200] for u in (raw.get("unclear") or [])][:8]}, None
 
 
+def _intake_context(ctx, order) -> dict:
+    """대화 정리에 함께 주는 의뢰서 내용(이름·연락처 제외) — '예산 미기재' 같은 오판 방지(2026-10-25 S-12)."""
+    from . import cs
+    return cs.intake_context(ctx, order)
+
+
 def run(ctx, actor=None, thread_id=None, order=None, force=False) -> str:
     """대화 정리. order가 있으면 주문의 모든 대화, 없으면 그 문의 스레드. 반환: 상태(OK·BUDGET·SCHEMA…·SAME·EMPTY)."""
     msgs = thread_messages(ctx, thread_id=thread_id, order_id=order["id"] if order else None)
@@ -90,7 +98,10 @@ def run(ctx, actor=None, thread_id=None, order=None, force=False) -> str:
         status, err = "BUDGET", "BUDGET"
     else:
         try:
-            result, err = validate(ctx.analyzer.digest_chat(sent), {m["id"] for m in sent})
+            fn = ctx.analyzer.digest_chat
+            intake_ctx = _intake_context(ctx, order) if order is not None else None
+            raw = fn(sent, intake=intake_ctx) if intake_ctx and "intake" in inspect.signature(fn).parameters else fn(sent)
+            result, err = validate(raw, {m["id"] for m in sent})
             if err:
                 status = err
         except AnalyzerError as e:

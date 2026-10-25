@@ -55,7 +55,7 @@ def draft(ctx, o, actor) -> int:
         last = tr.latest_quote(c, o["id"])
         if last is not None:
             return clone_as_draft(c, last, actor)
-        spec = orders.current_spec(ctx, o["id"])
+        spec = orders.current_spec(ctx, o["id"]) or initial_spec(ctx, o)
         v = 1
         valid = (clock.today_kst() + timedelta(days=int(settings.get(ctx, "quote_valid_days")))).isoformat()
         cur = c.execute("INSERT INTO quotes(order_id, version, status, spec_json, payment_policy, valid_until, created_by, "
@@ -63,6 +63,23 @@ def draft(ctx, o, actor) -> int:
                         (o["id"], v, "DRAFT", jdump({k: spec.get(k) or "" for k, _ in SPEC_FIELDS}),
                          o["payment_policy"], valid, actor.id, clock.now_iso()))
         return cur.lastrowid
+
+
+def initial_spec(ctx, o) -> dict:
+    """첫 견적 초안의 제작 사양 — AI 정리 값, 없으면 고객이 Form A에 쓴 값(2026-10-25 시뮬레이션 S-17).
+    아버님이 확인·수정하는 출발점일 뿐이고, 승인 전까지 고객 문서에 나가지 않는다."""
+    from . import analysis, intake
+    b = analysis.latest_brief(ctx, o["id"])
+    fields = ((b or {}).get("result") or {}).get("fields") or {}
+    answers, _rev = intake.answers_of(ctx, o)
+    raw = {"material": answers.get("material"), "size": answers.get("size"),
+           "stones": answers.get("stones_engraving"), "engraving": None, "purity": None}
+    out = {}
+    for k, _lab in SPEC_FIELDS:
+        v = fields.get(k) or raw.get(k)
+        if v and str(v).strip() not in ("모름", "아직 모르겠어요", "없음"):
+            out[k] = str(v).strip()[:200]
+    return out
 
 
 def clone_as_draft(c, q, actor) -> int:
@@ -270,11 +287,13 @@ class PublicQuote:
     refund_terms: str | None = None      # Form B ‘제작 단계별 취소·환불 안내’와 같은 원문
     terms_body: str | None = None        # 승인된 수정·환불 정책 본문
     payment_guide: str | None = None     # 결제처·방법 안내(설정 문구, S-21)
+    extra_terms: str | None = None       # 추가 약속(금값 고정 등, S-30)
 
     ALLOWED = ("shop_name", "order_no", "customer_name", "version", "issued_at", "valid_until", "product_type", "spec",
                "spec_summary", "items", "total", "tax_included", "shipping_included", "deposit", "balance",
                "payment_policy", "promised_date", "terms_label", "phase_label", "is_test", "design_asset_id",
-               "design_label", "revision_scope", "delivery_plan", "refund_terms", "terms_body", "payment_guide")
+               "design_label", "revision_scope", "delivery_plan", "refund_terms", "terms_body", "payment_guide",
+               "extra_terms")
 
 
 def is_placeholder(text: str | None) -> bool:
@@ -309,6 +328,8 @@ def public_text(pq: PublicQuote) -> str:
         lines.append(f"배송 일정: {pq.delivery_plan}")
     if pq.revision_scope:
         lines.append(f"수정 가능 범위: {pq.revision_scope}")
+    if pq.extra_terms:
+        lines.append(f"추가 약속: {pq.extra_terms}")
     if pq.refund_terms:
         lines += ["[취소·환불 조건]", pq.refund_terms]
     if pq.terms_label:
@@ -344,4 +365,5 @@ def public_quote(ctx, quote_id) -> PublicQuote | None:
         revision_scope=(spec.get("revision_scope") or "").strip() or settings.get(ctx, "quote_revision_scope_default"),
         delivery_plan=(spec.get("delivery_plan") or "").strip() or settings.get(ctx, "quote_delivery_default"),
         refund_terms=refund["text"] or None, terms_body=terms["body"] if terms else None,
-        payment_guide=(settings.get(ctx, "quote_payment_guide") or "").strip() or None)
+        payment_guide=(settings.get(ctx, "quote_payment_guide") or "").strip() or None,
+        extra_terms=(spec.get("extra_terms") or "").strip() or None)

@@ -247,3 +247,19 @@ def receivables(ctx) -> dict:
     live = sum(r["expected_krw"] - 0 for r in rows if not r["is_test"])
     test = sum(r["expected_krw"] for r in rows if r["is_test"])
     return {"rows": rows, "live": live, "test": test}
+
+
+
+def customer_guide(ctx, o, r) -> str:
+    """결제 요청 1건에 대해 고객에게 보낼 결제 안내(2026-10-25 시뮬레이션 S-26·S-36).
+    번호가 여러 개라 헷갈리지 않게 ‘주문 메모에 적을 것’은 관리코드 하나만, 금액은 그대로 입력하라고 쓴다."""
+    from ..domain.money import won
+    from . import settings
+    phase = {"DEPOSIT": "예약금", "BALANCE": "잔금", "FULL": "결제 금액"}.get(r["phase"], "결제 금액")
+    how = (settings.get(ctx, "payment_how") or "").strip() or "[결제처 안내 — 설정 › 운영 정책 › ‘결제 방법’에 적어 주세요]"
+    return "\n".join([
+        f"[{settings.get(ctx, 'shop_name')}] {o['customer_name'] or '고객'} 고객님, {phase} 결제 안내드려요.",
+        f"· 금액: {won(r['expected_krw'])} — 이 금액 그대로 입력해 주세요",
+        f"· 결제 방법: {how}",
+        f"· 주문 메모: {r['seller_code']} (이 코드만 적어 주세요. 계약 확인코드와는 다른 번호예요)",
+        "결제하시면 확인한 뒤 바로 알려 드릴게요."])

@@ -57,22 +57,22 @@
 <dt>{{ lab }}</dt><dd>{% if r.fields.get(k) %}{{ r.fields[k]|maybe_won if k == "budget" else r.fields[k] }}{% else %}<span class="missing">{{ "고객 미기재" if not parsed.get(k) else "AI 확인 필요" }}</span>{% endif %}</dd>
 {% endfor %}
 </dl>
-{% if r.required_missing_fields %}<h3>불명확한 점</h3><ul>{% for m in r.required_missing_fields %}<li>{{ m }}</li>{% endfor %}</ul>{% endif %}
+{% set risk_text = r.risk_flags|map(attribute="reason")|list %}{% set unclear = r.required_missing_fields|reject("in", risk_text)|list %}{% if unclear %}<h3>불명확한 점</h3><ul>{% for m in unclear %}{% if not (m.split(" ")[0] in (r.risk_flags|map(attribute="code")|list)) %}<li>{{ m|ai_item }}</li>{% endif %}{% endfor %}</ul>{% endif %}
 {% if r.assumptions %}<h3>추정 사용 내역</h3><ul class="t-sm">{% for m in r.assumptions %}<li>{{ m }}</li>{% endfor %}</ul>{% endif %}
 {% if r.customer_questions %}
 <h3>고객에게 물어볼 것</h3>
 <form method="post" action="/orders/{{ o.order_no }}/cs/drafts">{{ csrf_input() }}
 <input type="hidden" name="question" value="추가 정보 요청">
-<textarea name="body" rows="5" aria-label="질문 초안">안녕하세요, 의뢰 주셔서 감사해요. 정확한 상담을 위해 몇 가지 여쭤볼게요.
+<textarea name="body" rows="6" aria-label="질문 초안">{{ first_contact }} 정확한 상담을 위해 몇 가지 여쭤볼게요.
 {% for q in r.customer_questions %}- {{ q }}
-{% endfor %}</textarea>
+{% endfor %}{% if contact_pref == "sms" %}이 번호로 문자 답장 주시면 돼요.{% endif %}</textarea>
 <input type="hidden" name="level" value="L1">
 <p class="help">상담 초안으로 만들어져요. 아버님이 승인한 뒤 복사해서 보내요(자동 발송 없음).</p>
 <button class="btn btn-secondary" type="submit">이 질문으로 상담 초안 만들기</button></form>
 {% endif %}
 <div class="internal"><div class="internal-head">{{ icon("lock", "sm") }}내부 전용 — 고객 문서·문구에 나가지 않아요</div>
 <h3>위험 신호</h3>
-{% if r.risk_flags %}<ul>{% for f in r.risk_flags %}<li>{{ chip("internal", {"BRAND_IMITATION": "상표·디자인 모방 의심", "COMPLEX_SHAPE": "복잡한 형상"}.get(f.code, f.code)) }} {{ f.reason }}</li>{% endfor %}</ul>{% else %}<p class="t-sm">AI가 찾은 위험 신호는 없어요.</p>{% endif %}
+{% if r.risk_flags %}<ul>{% for f in r.risk_flags %}<li>{{ chip("internal", f.code|ai_risk) }} {{ f.reason }}</li>{% endfor %}</ul>{% else %}<p class="t-sm">AI가 찾은 위험 신호는 없어요.</p>{% endif %}
 <p class="t-sm"><strong>AI는 법적 판단을 하지 않아요. 아버님이 검토하세요.</strong></p></div>
 {% endif %}
 </section>

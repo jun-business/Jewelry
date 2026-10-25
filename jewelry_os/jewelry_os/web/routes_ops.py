@@ -348,6 +348,8 @@ async def settings_post(request: Request, section: str):
                     raise ValueError("부가가치율은 0~100 사이로 입력하세요.")
                 if settings.get(ctx, "simplified_vat_rate_pct") != rate:
                     settings.put(ctx, "simplified_vat_rate_pct", rate, user)
+            if "payment_how" in f and settings.get(ctx, "payment_how") != (f.get("payment_how") or "").strip():
+                settings.put(ctx, "payment_how", (f.get("payment_how") or "").strip(), user)  # S-26 비워도 저장
             for k in ("quote_revision_scope_default", "quote_delivery_default", "quote_payment_guide"):  # 견적서 기본 문구
                 if (f.get(k) or "").strip() and settings.get(ctx, k) != f[k].strip():
                     settings.put(ctx, k, f[k].strip(), user)
@@ -605,6 +607,8 @@ async def quote_doc_txt(request: Request, qid: int):
         lines.append(f"배송: {pq.delivery_plan}")
     if pq.revision_scope:
         lines.append(f"수정 가능 범위: {pq.revision_scope}")
+    if pq.extra_terms:
+        lines.append(f"추가 약속: {pq.extra_terms}")
     lines.append("취소·환불 조건: 견적서 파일과 계약 동의서에 제작 단계별로 안내돼 있어요.")
     kakao = settings.get(request.state.ctx, "kakao_channel_url")
     if kakao:

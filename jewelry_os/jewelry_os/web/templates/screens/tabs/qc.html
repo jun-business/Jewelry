@@ -2,6 +2,7 @@
 {# S-03f 검수·배송 탭 — UI-07 #}
 {% set st = o.lifecycle_state %}
 {% set approver = user.display_name ~ "(" ~ user.role_label ~ ")" %}
+{% if msgs and (msgs.address or msgs.shipped) %}<section class="card" aria-labelledby="qcm-t"><h2 id="qcm-t">고객에게 보낼 문구</h2>{% if msgs.address %}<div class="field" id="msg-address-box"><label for="msg-address">배송지 요청(받는 분·연락처·주소)</label><textarea id="msg-address" rows="5" readonly>{{ msgs.address }}</textarea><button class="btn btn-tertiary btn-sm" type="button" data-copy="msg-address">{{ icon("copy", "sm") }}복사</button></div>{% endif %}{% if msgs.shipped %}<div class="field" id="msg-shipped-box"><label for="msg-shipped">발송 안내</label><textarea id="msg-shipped" rows="5" readonly>{{ msgs.shipped }}</textarea><button class="btn btn-tertiary btn-sm" type="button" data-copy="msg-shipped">{{ icon("copy", "sm") }}복사</button></div>{% endif %}</section>{% endif %}
 <section class="card" id="qc-form" aria-labelledby="qc-t"><h2 id="qc-t">검수표</h2>
 {% if st == "FACTORY_RECEIVED" %}
 <form method="post" action="/orders/{{ o.order_no }}/actions/record_qc" enctype="multipart/form-data" data-guard>{{ csrf_input() }}<input type="hidden" name="_tab" value="qc">

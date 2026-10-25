@@ -89,6 +89,10 @@ def order_vm(ctx, o, user, tab):
         "kakao_chat_url": settings.kakao_chat_url(settings.get(ctx, "kakao_channel_url")),
         "change_open": any(i["type"] == "CHANGE_REQUEST" for i in orders.issues_of(ctx, o["id"])),
         "requote_before_consent": st == S.QUOTE_APPROVED,
+        "q_draft_loss_ok": __import__("jewelry_os.services.loss_review", fromlist=["x"]).confirmed(ctx, q_draft) if q_draft else True,
+        "contact_pref": cs.contact_pref(parsed),
+        "first_contact": cs.first_contact_sms(ctx, o, parsed),
+        "first_sms": cs.first_contact_sms(ctx, o, parsed, q_appr) if q_appr else None,
         "can_change": st in orders.CHANGE_OPEN_STATES,
         "decline_labels": __import__("jewelry_os.domain.states", fromlist=["x"]).DECLINE_LABEL,
         "sync": __import__("jewelry_os.web.filters", fromlist=["x"]).sync_indicator(ctx),
@@ -109,6 +113,17 @@ def order_vm(ctx, o, user, tab):
     vm["digest"] = cs_digest.view(ctx, order=o) if tab == "cs" else None
     vm["balance_prepaid"] = any(r["phase"] == "BALANCE" and r["status"] == "PAID_VERIFIED" for r in pay_reqs)
     vm["REFUND_REASONS"] = refunds.REASON_LABEL
+    vm["pay_guides"] = {r["id"]: payments.customer_guide(ctx, o, r) for r in pay_reqs}
+    shp = vm.get("shipment")
+    latest_design = (vm.get("designs") or [None])[0] if vm.get("designs") else None
+    vm["msgs"] = {  # 단계별 고객 알림 문구(S-37·S-53·S-41)
+        "cad_start": cs.notice_cad_start(ctx, o) if st == S.DETAIL_CAD else None,
+        "design_request": cs.notice_design_request(ctx, o, latest_design["version"]) if st == S.DETAIL_CAD and latest_design else None,
+        "address": cs.notice_address_request(ctx, o) if st in (S.QC_PASSED, S.FINAL_PAYMENT_VERIFIED) else None,
+        "shipped": cs.notice_shipped(ctx, o, shp) if st == S.SHIPPED else None}
+    vm["payment_how_set"] = bool((settings.get(ctx, "payment_how") or "").strip())
+    vm["refunded_total"] = ctx.db.scalar("SELECT COALESCE(SUM(refund_completed_amount),0) FROM refund_requests "
+                                         "WHERE order_id=? AND status='COMPLETED'", (o["id"],))  # S-33 요약에 환급 표시
     return vm
 
 
