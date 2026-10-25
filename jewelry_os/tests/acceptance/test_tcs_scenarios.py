@@ -550,7 +550,7 @@ def test_tcs_014_test_mode_gates(ctx, maker, operator):
     configure_adapters(ctx)
     o = order_at(ctx, maker, operator, "PAYMENT_PENDING", rid="t1")  # ③
     assert payments.requests_of(ctx, o["id"])[0]["is_test"] == 1
-    for gid in ("GATE-BIZ-01", "GATE-OPS-01", "GATE-SS-02", "GATE-LEGAL-01"):  # ④ (D-29: 사업자등록 Gate 추가)
+    for gid in ("GATE-BIZ-01", "GATE-OPS-01", "GATE-PAY-01", "GATE-PAY-02", "GATE-LEGAL-01"):  # ④ (D-29: 사업자등록 Gate 추가)
         assert wo.post(f"/settings/gates/{gid}", data={"status": "PASSED", "confirm": "on", "evidence": f"{gid} 증거"}).status_code == 303
     assert "시험 운영 모드" not in wo.get("/").text
     o2 = order_at(ctx, maker, operator, "CUSTOMER_ACCEPTED", rid="t2")
@@ -648,11 +648,11 @@ def test_gate_biz_01_blocks_live_until_registered(ctx, operator):
     """D-29 사업자등록·통신판매업 신고 Gate — 다른 실거래 Gate가 통과해도 이것이 없으면 시험 운영 모드."""
     from jewelry_os.domain.states import GATES, TEST_MODE_GATES
     assert GATES[0][0] == "GATE-BIZ-01" and "GATE-BIZ-01" in TEST_MODE_GATES
-    for gid in ("GATE-OPS-01", "GATE-SS-02", "GATE-LEGAL-01"):
+    for gid in ("GATE-OPS-01", "GATE-PAY-01", "GATE-PAY-02", "GATE-LEGAL-01"):
         settings.record_gate(ctx, gid, True, "증거", operator)
     assert settings.test_mode(ctx) and settings.unpassed_test_gates(ctx) == ["GATE-BIZ-01"]
     page = web(ctx, "operator").get("/settings/gates").text
-    assert "BIZ-01·OPS-01·SS-02·LEGAL-01 중 1개 미통과" in page and "사업자등록·통신판매업 신고" in page
-    assert "카카오 상담 운영 방식" in page and "공장 발주 전" in page and "R1~R7" in page
+    assert "BIZ-01·OPS-01·PAY-01·PAY-02·LEGAL-01 중 1개 미통과" in page and "사업자등록·통신판매업 신고" in page
+    assert "카카오 상담 운영 방식" in page and "발주 전" in page and "R1~R7" in page
     settings.record_gate(ctx, "GATE-BIZ-01", True, "사업자등록번호·통신판매업 신고번호", operator)
     assert not settings.test_mode(ctx)
