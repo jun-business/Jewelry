@@ -22,7 +22,7 @@
 <p class="t-sm">{{ "부가세 포함" if pq.tax_included else "부가세 별도" }} · {{ "배송비 포함" if pq.shipping_included else "배송비 별도" }}</p></section>
 <section><h2>결제 안내</h2>
 {% if pq.payment_policy == "FULL" %}<p>전액 {{ pq.total|won }}을 한 번에 결제해요.</p>{% else %}<p>예약금 {{ pq.deposit|won }}(계약 동의 후 · 상세 CAD 시작 전) · 잔금 {{ pq.balance|won }}{% if pq.balance %}(최종 CAD 승인 후 · 제작 발주 전){% endif %}</p>{% endif %}
-<p>결제는 네이버 스마트스토어에서 진행돼요. 예약금이 확인되면 상세 CAD를 시작하고, 잔금이 확인되면 제작을 발주해요.</p></section>
+{% if pq.payment_guide %}<p>{{ pq.payment_guide }}</p>{% endif %}</section>
 <section><h2>제작·배송 일정</h2><dl class="kv"><dt>완성 예정</dt><dd>{{ pq.promised_date|kdate }}</dd>{% if pq.delivery_plan %}<dt>배송</dt><dd>{{ pq.delivery_plan }}</dd>{% endif %}</dl><p class="t-sm">지금 단계: {{ pq.phase_label }}</p></section>
 {% if pq.revision_scope %}<section><h2>수정 가능 범위</h2><p>{{ pq.revision_scope }}</p></section>{% endif %}
 <section><h2>취소·환불 조건</h2>{% if pq.refund_terms %}<p class="pre-wrap t-sm">{{ pq.refund_terms }}</p>{% endif %}

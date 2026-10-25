@@ -173,13 +173,27 @@ def factory_job(ctx, order_id):
     return ctx.db.one("SELECT * FROM factory_jobs WHERE order_id=? ORDER BY id DESC LIMIT 1", (order_id,))
 
 
-def record_qc(ctx, o, actor, results: dict) -> str:
-    """results = {item: 'pass'|'fail', item_memo: str}. 전부 기록되면 PASS/FAIL, 아니면 INCOMPLETE."""
+def qc_photos(ctx, order_id):
+    return ctx.db.all("SELECT * FROM assets WHERE order_id=? AND kind='qc_photo' ORDER BY id", (order_id,))
+
+
+def record_qc(ctx, o, actor, results: dict, photos: list[tuple[str, bytes]] | None = None) -> str:
+    """results = {item: 'pass'|'fail', item_memo: str}. 전부 기록되면 PASS/FAIL, 아니면 INCOMPLETE.
+    photos = 검수 사진(각인·세팅 확대 등). 검수 통과에는 사진이 한 장 이상 있어야 한다 — 하자 분쟁 때
+    공방 쪽 증거(2026-10-25 시뮬레이션 S-52)."""
     _maker(actor)
     checklist = {k: {"label": lab, "result": results.get(k), "memo": results.get(f"{k}_memo") or ""} for k, lab in QC_ITEMS}
     vals = [v["result"] for v in checklist.values()]
     result = "INCOMPLETE" if any(v not in ("pass", "fail") for v in vals) else ("FAIL" if "fail" in vals else "PASS")
+    photos = [p for p in (photos or []) if p and p[1]]
+    for name, data in photos:
+        files.check("qc_photo", name, data)
+    if result == "PASS" and not photos and not qc_photos(ctx, o["id"]):
+        raise TransitionBlocked([unmet("G-QC-PHOTO")])
     with ctx.db.tx() as c:
+        for name, data in photos:
+            files.store(ctx, c, order_id=o["id"], order_no=o["order_no"], kind="qc_photo", filename=name, data=data,
+                        actor=actor)
         c.execute("INSERT INTO quality_checks(order_id, checklist_json, result, inspected_by, inspected_at) "
                   "VALUES (?,?,?,?,?)", (o["id"], jdump(checklist), result, actor.id, clock.now_iso()))
         audit.record(c, "qc", o["order_no"], actor, "qc_recorded", order_id=o["id"], next=result)

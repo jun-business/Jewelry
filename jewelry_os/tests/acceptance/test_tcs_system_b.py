@@ -156,7 +156,8 @@ def test_tcs_039_work_and_eta(ctx, maker, operator):
 # ---------------- 040 UI 최소 구성 ----------------
 def test_tcs_040_ui_minimum(ctx, maker, operator):
     ctx.files.files["i"] = g.sample_jpeg("i")
-    o = order_at(ctx, maker, operator, "OWNER_REVIEW", files=["i"])
+    # 사이즈 없는 의뢰 → '불명확한 점' 표시(예전엔 '금으로 12호'가 주소로 가려져 우연히 나왔음 — S-10)
+    o = order_at(ctx, maker, operator, "OWNER_REVIEW", files=["i"], desc="18K 금 반지를 만들고 싶어요. 예산 50만원")
     no = o["order_no"]
     wm, wo = web(ctx, "maker"), web(ctx, "operator")
     checks = {

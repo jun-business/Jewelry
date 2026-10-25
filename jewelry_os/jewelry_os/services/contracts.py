@@ -58,6 +58,8 @@ PROBLEM_TEXT = {
     "IDENTITY_OTHER_CUSTOMER": "제출한 Google 계정이 다른 고객의 확인된 계약 이메일이에요.",
     "OPERATOR_REVIEW_PENDING": "운영자 검증(응답·본인 확인)이 아직 안 됐어요.",
     "SCHEMA_CHANGED": "발행 당시와 Form B 문항 구성(버전)이 달라요.",
+    "QUOTE_NOT_DELIVERED": "확정 견적서를 고객에게 보낸 기록이 없어요. 개별 제작 특성·손해 사유는 견적서에만 있어서, "
+                           "보낸 기록이 있어야 계약이 유효해요(‘고객에게 보냄 기록’에서 견적서를 체크).",
 }
 # 관리자 확인으로 풀 수 있는 것. 그 밖(불일치·거부·설명 요청·누락·고지 변경)은 새로 발행해야 한다.
 SOFT = {"IDENTITY_UNVERIFIED", "IDENTITY_OTHER_CUSTOMER", "MULTIPLE_RESPONSES", "OPERATOR_REVIEW_PENDING"}
@@ -495,7 +497,7 @@ def notice_message(ctx, req) -> str:
              "제출하려면 Google 계정 로그인이 필요해요. 확인코드는 다른 분께 알려 주지 마세요.",
              f"▶ 계약 동의서: {prefill_url(ctx, req)}"]
     if kakao:
-        lines += ["", f"궁금한 점은 카카오톡 채널 {shop}으로 물어봐 주세요: {kakao}/chat"]
+        lines += ["", f"궁금한 점은 카카오톡 채널 ‘{shop}’에 물어봐 주세요: {kakao}/chat"]  # 받침 무관(S-23)
     return "\n".join(lines)
 
 
@@ -533,6 +535,8 @@ def record_delivery(ctx, req_id, actor, channel: str, note: str, evidence: tuple
                                                    "items": items, "missing": missing})
         audit.record(c, "contract", req_id, actor, "contract_delivered", order_id=req["order_id"],
                      detail={"channel": channel, "items": items})
+        if "quote" in items and c.execute("SELECT 1 FROM contract_responses WHERE request_id=?", (req_id,)).fetchone():
+            evaluate(ctx, c, req_id, actor)  # 응답이 먼저 와 있으면 견적서 전달 기록으로 다시 판정(S-47)
     return missing
 
 
@@ -751,6 +755,8 @@ def evaluate(ctx, c, req_id, actor) -> str:
             probs.append({"code": "IDENTITY_UNVERIFIED"})
     if not _reviewed(c, req_id, resps):  # 유효 계약 조건 10: 운영자 검증 완료(D-25)
         probs.append({"code": "OPERATOR_REVIEW_PENDING"})
+    if not quote_delivered(c, req_id):  # 사전 별도 고지 입증 — 견적서 미전달이면 유효 불가(2026-10-25 S-47)
+        probs.append({"code": "QUOTE_NOT_DELIVERED"})
     hard = [p for p in probs if p["code"] not in SOFT]
     if not probs:
         status = "ACCEPTED"
@@ -776,6 +782,12 @@ def evaluate(ctx, c, req_id, actor) -> str:
     if status == "ACCEPTED" and req["status"] != "ACCEPTED":
         _apply_to_order(ctx, c, req_id, primary, actor)
     return status
+
+
+def quote_delivered(c, req_id) -> bool:
+    """이 계약 요청의 확정 견적서를 고객에게 보낸 기록(‘보낸 것’에 견적서 포함)이 있는가."""
+    return any("quote" in ((jload(e["detail_json"], {}) or {}).get("items") or []) for e in c.execute(
+        "SELECT detail_json FROM contract_events WHERE request_id=? AND event='delivered'", (req_id,)).fetchall())
 
 
 def _rev_key(resps) -> str:

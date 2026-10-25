@@ -47,6 +47,9 @@ DEFAULTS = {
                                     "어렵고, 꼭 필요하면 추가 견적과 재동의를 거쳐요.",  # D-34 기본 문구(2026-10-25 확정)
     "quote_delivery_default": "검수를 통과하고 잔금이 확인되면 택배로 발송해요. 보통 발송 다음 날부터 1~3일 안에 도착해요"
                               "(도서산간 제외).",
+    # 2026-10-25 시뮬레이션 S-21: 결제처가 정해지기 전(PAY-01·02)에는 결제처 이름을 쓰지 않는다
+    "quote_payment_guide": "결제 방법은 계약 동의 후 카카오톡으로 따로 안내해 드려요. 예약금이 확인되면 상세 CAD를 시작하고, "
+                           "잔금이 확인되면 제작을 발주해요.",
     "kakao_channel_url": "https://pf.kakao.com/_dxhAWX",  # 틴틴골드 카카오톡 채널 — 견적서·카톡용 텍스트 문의처(D-27)               # D-19 (TBD-001 확정)
     "consent_version": "consent_v1",
     "tax_type": "unset",                 # H1 r1 Q9: unset | general | simplified | exempt (TBD-009)

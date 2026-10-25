@@ -4,13 +4,16 @@
 {% set approver = user.display_name ~ "(" ~ user.role_label ~ ")" %}
 <section class="card" id="qc-form" aria-labelledby="qc-t"><h2 id="qc-t">검수표</h2>
 {% if st == "FACTORY_RECEIVED" %}
-<form method="post" action="/orders/{{ o.order_no }}/actions/record_qc" data-guard>{{ csrf_input() }}<input type="hidden" name="_tab" value="qc">
+<form method="post" action="/orders/{{ o.order_no }}/actions/record_qc" enctype="multipart/form-data" data-guard>{{ csrf_input() }}<input type="hidden" name="_tab" value="qc">
 <div class="table-wrap"><table><thead><tr><th scope="col">항목</th><th scope="col">결과</th><th scope="col">메모</th></tr></thead><tbody>
 {% set prev = qc.checklist if qc else {} %}
 {% for k, lab in QC_ITEMS %}<tr><th scope="row">{{ lab }}</th>
 <td><fieldset class="choices"><legend class="sr-only">{{ lab }} 결과</legend><label class="choice"><input type="radio" name="{{ k }}" value="pass" {% if prev.get(k, {}).get("result") == "pass" %}checked{% endif %}> 통과</label><label class="choice"><input type="radio" name="{{ k }}" value="fail" {% if prev.get(k, {}).get("result") == "fail" %}checked{% endif %}> 불통과</label></fieldset></td>
 <td><input name="{{ k }}_memo" value="{{ prev.get(k, {}).get('memo', '') }}" aria-label="{{ lab }} 메모"></td></tr>{% endfor %}
 </tbody></table></div>
+<div class="field"><label for="qc-photos">검수 사진 <span class="req">(통과로 기록하려면 1장 이상)</span></label>
+<input id="qc-photos" type="file" name="qc_photos" accept=".jpg,.jpeg,.png,.webp" multiple aria-describedby="qc-photos-help">
+<p class="help" id="qc-photos-help">각인 글자·스톤 세팅·전체 모양이 보이게 확대해서 찍어 주세요. 고객이 하자를 말할 때 공방 쪽 증거가 돼요.{% if qc_photos %} 지금까지 {{ qc_photos|length }}장 올렸어요.{% endif %}</p></div>
 <p class="help">모든 항목을 통과로 기록하면 검수 통과로 넘어가요.</p>
 <label class="choice"><input type="checkbox" name="confirm" value="on"> 완제품을 직접 검수했습니다(전부 통과일 때 검수 통과로 기록돼요)</label>
 <button class="btn btn-primary btn-lg" type="submit" {% if me != "maker" %}aria-disabled="true"{% endif %}>검수 기록</button>
@@ -21,6 +24,7 @@
 {% endif %}
 {% elif qc %}<p>{{ chip("done" if qc.result == "PASS" else "issue", {"PASS": "검수 통과", "FAIL": "불통과", "INCOMPLETE": "기록 중"}[qc.result]) }} {{ qc.inspected_at|kdatetime }}</p>
 {% else %}<p class="t-muted">완제품을 받으면 검수표를 채울 수 있어요.</p>{% endif %}
+{% if qc_photos %}<h3>검수 사진</h3><ul class="file-list">{% for a in qc_photos %}<li><a href="/assets/{{ a.id }}" target="_blank" rel="noopener">{{ icon("image", "sm") }}{{ a.filename }}</a> <span class="meta">{{ a.file_hash[:12] }}</span></li>{% endfor %}</ul>{% endif %}
 </section>
 
 {% if margin %}

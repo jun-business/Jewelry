@@ -61,6 +61,24 @@ def scrub_internal_labels(text: str) -> str:
     return text
 
 
+INTAKE_KEYS = ("product_type", "description", "material", "size", "stones_engraving", "budget_range", "desired_date")
+
+
+def public_process_facts(ctx) -> list[str]:
+    """의뢰서(Form A) 안내·계약 동의서(Form B)로 이미 고객에게 공개된 진행 안내 — AI 답변 초안의 근거.
+    상담 정책이 자리표시뿐이어도 기본 절차는 답할 수 있게(2026-10-25 시뮬레이션 S-11)."""
+    facts = ["의뢰서를 검토한 뒤 무료 1차 시안과 확정 견적을 카카오톡으로 보내 드려요. 의뢰서 제출만으로 계약이 되지는 않아요.",
+             "견적에 동의하시면 별도 계약 동의서 링크(Google 로그인 필요)로 동의를 받아요.",
+             "예약금은 총액의 1/3로 계약 동의 후·상세 CAD 설계 시작 전에, 잔금 2/3는 최종 CAD 디자인 승인 후·공장 발주 전에 결제해요.",
+             "일반적인 제조 기간은 약 2주이고, 상세 설계·고객 승인·배송 기간은 별도예요. 정확한 완성일은 견적서에 적어 드려요.",
+             "예약금 결제 전 취소는 낼 돈이 없고, 예약금 결제 후 상세 CAD 시작 전 취소는 예약금 전액 환불이에요. 그 뒤 단계는 계약 "
+             "동의서의 단계별 취소·환불 안내를 따라요.",
+             "상품 하자나 계약한 사양과 다른 제작은 법령에 따라 수리·교환·환불해 드려요."]
+    if settings.get(ctx, "quote_revision_scope_default"):
+        facts.append(settings.get(ctx, "quote_revision_scope_default"))
+    return facts
+
+
 def create_draft(ctx, o, actor, question: str, body: str | None = None, level: str | None = None) -> int:
     """AI 초안(또는 직접 작성 — body·level 지정). 승인된 상담 정책만 근거로 참조(SRS-090)."""
     pol = settings.approved_policy(ctx, "cs")
@@ -69,7 +87,12 @@ def create_draft(ctx, o, actor, question: str, body: str | None = None, level: s
     if body is None:
         try:
             from . import cs_digest
-            octx = {"phase_label": _phase_label(o)}
+            from . import intake
+            answers, _rev = intake.answers_of(ctx, o)
+            octx = {"phase_label": _phase_label(o), "shop_name": settings.get(ctx, "shop_name"),
+                    "process_facts": public_process_facts(ctx),
+                    # 의뢰서 내용(이름·연락처 제외) — 대화만 보고 '예산 미기재'라고 하지 않게(S-12)
+                    "intake": {k: redact(str(answers[k]))[:400] for k in INTAKE_KEYS if answers.get(k)}}
             dg = cs_digest.for_draft(ctx, o)
             if dg:
                 octx["chat_digest"] = dg  # D-31: 대화 정리를 답변 근거로

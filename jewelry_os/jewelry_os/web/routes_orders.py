@@ -33,7 +33,9 @@ def _order(ctx, no):
 def order_vm(ctx, o, user, tab):
     st = S(o["lifecycle_state"])
     parsed, rev = intake.answers_of(ctx, o)
-    q_draft = ctx.db.one("SELECT * FROM quotes WHERE order_id=? AND status='DRAFT'", (o["id"],))
+    # 승인 처리(latest_quote DRAFT)와 같은 초안을 보여 준다 — 2026-10-25 시뮬레이션 S-24
+    q_draft = ctx.db.one("SELECT * FROM quotes WHERE order_id=? AND status='DRAFT' ORDER BY version DESC LIMIT 1",
+                         (o["id"],))
     q_appr = ctx.db.one("SELECT * FROM quotes WHERE order_id=? AND status='APPROVED' ORDER BY version DESC LIMIT 1",
                         (o["id"],))
     na = orders.next_action(ctx, o, user)
@@ -70,6 +72,7 @@ def order_vm(ctx, o, user, tab):
         "fspec": manufacturing.default_factory_spec(ctx, o),
         "packets": ctx.db.all("SELECT * FROM factory_packets WHERE order_id=? ORDER BY id DESC", (o["id"],)),
         "fjob": manufacturing.factory_job(ctx, o["id"]), "qc": manufacturing.latest_qc(ctx, o["id"]),
+        "qc_photos": manufacturing.qc_photos(ctx, o["id"]),
         "shipment": ctx.db.one("SELECT * FROM shipments WHERE order_id=? ORDER BY id DESC LIMIT 1", (o["id"],)),
         "margin": manufacturing.margin(ctx, o),
         "slots": capacity.suggest_cad_slots(ctx, 2), "cad_slot": ctx.db.one(
@@ -85,6 +88,7 @@ def order_vm(ctx, o, user, tab):
         "customer": customers.detail(ctx, o["customer_id"]),
         "kakao_chat_url": settings.kakao_chat_url(settings.get(ctx, "kakao_channel_url")),
         "change_open": any(i["type"] == "CHANGE_REQUEST" for i in orders.issues_of(ctx, o["id"])),
+        "requote_before_consent": st == S.QUOTE_APPROVED,
         "can_change": st in orders.CHANGE_OPEN_STATES,
         "decline_labels": __import__("jewelry_os.domain.states", fromlist=["x"]).DECLINE_LABEL,
         "sync": __import__("jewelry_os.web.filters", fromlist=["x"]).sync_indicator(ctx),
@@ -292,7 +296,9 @@ async def action(request: Request, no: str, code: str):
             manufacturing.receive(ctx, o, user, p)
             msg = "완제품 수령을 기록했어요."
         elif code == "record_qc":
-            res = manufacturing.record_qc(ctx, o, user, p)
+            photos = [(u.filename, await u.read()) for u in f.getlist("qc_photos")
+                      if hasattr(u, "filename") and u.filename]
+            res = manufacturing.record_qc(ctx, o, user, p, photos)
             msg = {"PASS": "검수를 통과했어요.", "FAIL": "검수에서 통과하지 못한 항목이 있어요. 재작업 문제로 기록하세요.",
                    "INCOMPLETE": "검수표를 임시 저장했어요."}[res]
         elif code == "ship":

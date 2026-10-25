@@ -27,6 +27,13 @@
 {% if unmet %}<div class="banner danger" role="alert" id="unmet-top">{{ icon("octagon") }}<div class="b-body"><strong>진행할 수 없어요</strong>{{ blocked(unmet, "unmet-list") }}</div></div>{% endif %}
 {% if errors %}<div class="banner danger" role="alert">{{ icon("octagon") }}<div class="b-body"><strong>입력을 확인해 주세요</strong><ul>{% for k, v in errors.items() %}{% if not k.startswith("_unmet") %}<li>{{ v }}</li>{% endif %}{% endfor %}</ul></div></div>{% endif %}
 {% if "NO_CONSENT" in hold_codes %}{{ banner("warning", "이 응답에는 개인정보 동의가 없어요.", "AI 정리도 하지 않았어요. 고객에게 동의를 받아 증빙을 기록하세요.", ("/orders/" ~ o.order_no ~ "/intake#consent", "동의 증빙 기록"), "alert") }}{% endif %}
+{% for h in holds %}{% if h.reason in ("NEEDS_INFO", "HOLD", "WAITLISTED") and not ended %}
+<div class="banner warning" id="hold-{{ h.reason|lower }}">{{ icon("hand") }}<div class="b-body"><strong>{{ HOLD_LABEL[h.reason] }} · {{ h.set_at|kdate }}부터</strong>{% if h.note %}<span>{{ h.note }}</span>{% endif %}
+{% if me == "maker" %}<form class="btn-row" method="post" action="/orders/{{ o.order_no }}/actions/release_hold">{{ csrf_input() }}<input type="hidden" name="_tab" value="{{ tab }}"><input type="hidden" name="reason_code" value="{{ h.reason }}">
+<label class="sr-only" for="rh-{{ h.reason }}">해제 메모</label><input id="rh-{{ h.reason }}" name="note" placeholder="{{ '예: 10/26 문자로 금속·길이 답 받음' if h.reason == 'NEEDS_INFO' else '해제 이유' }}">
+<button class="btn btn-secondary btn-sm" type="submit">{{ "고객 답 받음 — 정보 부족 풀기" if h.reason == "NEEDS_INFO" else (HOLD_LABEL[h.reason] ~ " 풀기") }}</button></form>
+{% else %}<span class="t-sm">아버님 계정에서 풀 수 있어요.</span>{% endif %}</div></div>
+{% endif %}{% endfor %}
 {% for i in issues %}
 <div class="banner danger" data-issue="{{ i.type }}">{{ icon("octagon") }}<div class="b-body"><strong>{{ ISSUE_LABEL[i.type] }} · {{ i.opened_at|kdate }} 열림</strong><span>{{ i.note or "" }}</span>
 {% set d = i.detail_json|fromjson if i.detail_json else {} %}{% if i.type == "PAYMENT_MISMATCH" %}<span class="t-sm">기대 {{ d.get("expected")|won }} · 입력 {{ d.get("paid")|won }} · 차이 {{ d.get("diff")|won }}</span>{% endif %}</div>

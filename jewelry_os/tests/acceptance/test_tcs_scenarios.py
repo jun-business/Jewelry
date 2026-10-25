@@ -27,7 +27,8 @@ PKG = Path(__file__).resolve().parents[2] / "jewelry_os"
 
 
 def act(w, no, code, **data):
-    return w.post(f"/orders/{no}/actions/{code}", data={"confirm": "on", **data})
+    files = [("qc_photos", ("engraving.jpg", b"\xff\xd8 qc", "image/jpeg"))] if code == "record_qc" else None  # S-52
+    return w.post(f"/orders/{no}/actions/{code}", data={"confirm": "on", **data}, files=files)
 
 
 def act_nc(w, no, code, **data):  # 확인 체크 없이
@@ -113,6 +114,8 @@ def test_tcs_002_e2e(ctx, maker, operator, fclock):
     assert wm.post(f"/quotes/{qid1}/loss/decide", data={"note": "사양과 맞음"}).status_code == 303  # 사람 최종 판단
     assert wo.post(f"/orders/{no}/contract/issue", data={}).status_code == 303  # 계약 동의 링크(Form B)
     rid = ctx.db.scalar("SELECT id FROM contract_requests")
+    assert wo.post(f"/contracts/{rid}/delivered", data={"items": ["quote", "notice", "link"], "channel": "kakao",
+                                                          "delivery_note": "카카오톡 상담방에 견적서·안내문 전송"}).status_code == 303
     assert "entry.528017888=TG-" in wo.get(f"/orders/{no}/quote").text  # 사전입력 링크가 화면에(복사용)
     form_b_response(ctx, rid)  # 고객이 링크로 제출
     assert wo.post(f"/orders/{no}/contract/sync", data={}).status_code == 303

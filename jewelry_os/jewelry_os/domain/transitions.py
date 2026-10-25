@@ -394,7 +394,20 @@ def block_unmet(c, order_id, action) -> list[Unmet]:
         if action in BLOCKS.get(i, set()) and i not in seen:
             seen.add(i)
             out.append(unmet("G-ISSUE-OPEN", issue_label=ISSUE_LABEL[i]))
+    if action in PROGRESS - {"close"} and fully_refunded(c, order_id):
+        out.append(unmet("G-REFUNDED"))  # 환급 완료로 검토 문제가 닫혀도 제작이 다시 열리지 않게(S-32)
     return out
+
+
+def fully_refunded(c, order_id) -> bool:
+    """받은 결제를 환급 완료로 모두 돌려준 주문인가(일부 환불은 해당 없음)."""
+    refunded = c.execute("SELECT COALESCE(SUM(refund_completed_amount),0) FROM refund_requests WHERE order_id=? "
+                         "AND status='COMPLETED'", (order_id,)).fetchone()[0]
+    if refunded <= 0:
+        return False
+    paid = c.execute("SELECT COALESCE(SUM(e.amount_krw),0) FROM payment_events e JOIN payment_requests r ON r.id=e.request_id "
+                     "WHERE r.order_id=? AND e.event_type='PAID'", (order_id,)).fetchone()[0]
+    return refunded >= paid
 
 
 # ---------------- 실행 ----------------
@@ -498,7 +511,8 @@ def revert_last(ctx, order_id, actor, reason: str):
             q = latest_quote(c, order_id, "APPROVED")
             if q is not None:  # 승인 견적은 불변 — 대체 처리하고 같은 내용의 새 초안을 만든다
                 from ..services import contracts, quotes
-                quotes.clone_as_draft(c, q, actor)
+                if latest_quote(c, order_id, "DRAFT") is None:  # 이미 고치던 초안이 있으면 그걸 쓴다(S-24)
+                    quotes.clone_as_draft(c, q, actor)
                 c.execute("UPDATE quotes SET status='SUPERSEDED' WHERE id=?", (q["id"],))
                 contracts.supersede_for_quote(c, order_id, None, actor, "견적 승인 되돌림")
         o = _order(c, order_id)

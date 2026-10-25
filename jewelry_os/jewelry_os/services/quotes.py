@@ -49,7 +49,7 @@ def draft(ctx, o, actor) -> int:
     """새 초안. 승인본이 있으면 그 내용을 복제(새 버전)."""
     _maker(actor)
     with ctx.db.tx() as c:
-        d = c.execute("SELECT id FROM quotes WHERE order_id=? AND status='DRAFT'", (o["id"],)).fetchone()
+        d = tr.latest_quote(c, o["id"], "DRAFT")
         if d:
             return d["id"]
         last = tr.latest_quote(c, o["id"])
@@ -141,6 +141,8 @@ def _approve_effect(ctx, actor, requote=False):
         prev = tr.latest_quote(c, o["id"], "APPROVED")
         if prev is not None:
             c.execute("UPDATE quotes SET status='SUPERSEDED' WHERE id=?", (prev["id"],))
+        # 승인하지 않은 다른 초안은 대체 처리 — 초안이 둘 이상 남아 엉뚱한 버전이 다음에 승인되지 않게(S-24)
+        c.execute("UPDATE quotes SET status='SUPERSEDED' WHERE order_id=? AND status='DRAFT' AND id<>?", (o["id"], q["id"]))
         from . import contracts  # 새 견적 버전 = 새 계약 동의(이전 동의 재사용 금지, D-24)
         contracts.supersede_for_quote(c, o["id"], q["id"], actor, f"견적 v{q['version']} 승인")
         c.execute("UPDATE quotes SET status='APPROVED', approved_by=?, approved_at=?, is_test=?, terms_policy_id=?, "
@@ -168,10 +170,12 @@ def change_request_open(c, order_id):
 
 
 def approve_requote(ctx, o, actor, payload):
-    """변경 요청 중 새 견적 버전 승인(비전이 — 단계 유지)."""
+    """변경 요청 중, 또는 고객 동의 전(견적 동의 대기)의 새 견적 버전 승인(비전이 — 단계 유지).
+    고객 동의 전 재견적은 되돌리기 없이 바로 승인하고 이전 계약 링크를 대체한다(S-24·B-6)."""
     _maker(actor)
     with ctx.db.tx() as c:
-        if not change_request_open(c, o["id"]):
+        cur_state = c.execute("SELECT lifecycle_state FROM orders WHERE id=?", (o["id"],)).fetchone()["lifecycle_state"]
+        if not change_request_open(c, o["id"]) and cur_state != S.QUOTE_APPROVED.value:
             raise TransitionBlocked([unmet("G-NOT-OPEN-CHANGE")])
         q = tr.latest_quote(c, o["id"], "DRAFT")
         if q is None:
@@ -265,11 +269,17 @@ class PublicQuote:
     delivery_plan: str | None = None
     refund_terms: str | None = None      # Form B ‘제작 단계별 취소·환불 안내’와 같은 원문
     terms_body: str | None = None        # 승인된 수정·환불 정책 본문
+    payment_guide: str | None = None     # 결제처·방법 안내(설정 문구, S-21)
 
     ALLOWED = ("shop_name", "order_no", "customer_name", "version", "issued_at", "valid_until", "product_type", "spec",
                "spec_summary", "items", "total", "tax_included", "shipping_included", "deposit", "balance",
                "payment_policy", "promised_date", "terms_label", "phase_label", "is_test", "design_asset_id",
-               "design_label", "revision_scope", "delivery_plan", "refund_terms", "terms_body")
+               "design_label", "revision_scope", "delivery_plan", "refund_terms", "terms_body", "payment_guide")
+
+
+def is_placeholder(text: str | None) -> bool:
+    """사업 책임자가 아직 채우지 않은 자리표시 문구([TBD-…])인가 — 고객 문서에 내보내지 않는다(S-22)."""
+    return "[TBD" in (text or "")
 
 
 def public_text(pq: PublicQuote) -> str:
@@ -290,6 +300,8 @@ def public_text(pq: PublicQuote) -> str:
     lines.append(f"결제: 전액 {won(pq.total)}" if pq.payment_policy == "FULL" else
                  f"결제: 예약금 {won(pq.deposit)}(계약 동의 후·상세 CAD 시작 전) · "
                  f"잔금 {won(pq.balance)}(최종 CAD 승인 후·제작 발주 전)")
+    if pq.payment_guide:
+        lines.append(pq.payment_guide)
     lines.append(f"완성 예정: {pq.promised_date or '-'}")
     if pq.design_label:
         lines.append(f"디자인: {pq.design_label}" + ("" if pq.design_asset_id else "(파일 별도 전달)"))
@@ -311,6 +323,8 @@ def public_quote(ctx, quote_id) -> PublicQuote | None:
     o = ctx.db.one("SELECT o.*, c.display_name AS customer_name FROM orders o JOIN customers c ON c.id=o.customer_id "
                    "WHERE o.id=?", (q["order_id"],))
     terms = ctx.db.one("SELECT * FROM policies WHERE id=?", (q["terms_policy_id"],)) if q["terms_policy_id"] else None
+    if terms is not None and is_placeholder(terms["body"]):
+        terms = None  # 자리표시 초안 정책은 고객 문서에 이름·본문 모두 내보내지 않는다(S-22)
     items = tuple(PublicItem(i["label_public"], i["amount_krw"]) for i in items_of(ctx, quote_id))
     spec = jload(q["spec_json"], {})
     concept = ctx.db.one("SELECT c.version, a.id, a.mime FROM concepts c JOIN assets a ON a.id=c.asset_id WHERE c.order_id=? "
@@ -329,4 +343,5 @@ def public_quote(ctx, quote_id) -> PublicQuote | None:
         design_label=f"시안 v{concept['version']}" if concept else None,
         revision_scope=(spec.get("revision_scope") or "").strip() or settings.get(ctx, "quote_revision_scope_default"),
         delivery_plan=(spec.get("delivery_plan") or "").strip() or settings.get(ctx, "quote_delivery_default"),
-        refund_terms=refund["text"] or None, terms_body=terms["body"] if terms else None)
+        refund_terms=refund["text"] or None, terms_body=terms["body"] if terms else None,
+        payment_guide=(settings.get(ctx, "quote_payment_guide") or "").strip() or None)

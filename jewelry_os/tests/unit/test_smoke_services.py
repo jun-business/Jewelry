@@ -68,7 +68,8 @@ def test_full_flow_services(ctx, maker, operator, fclock):
     manufacturing.receive(ctx, o, maker, {"received_at": "2026-11-09", "actual_cost": "520000", "confirm": "on"})
     o = orders.get(ctx, o["order_no"])
     res = manufacturing.record_qc(ctx, o, maker, {**{k: "pass" for k in ("spec", "purity_engraving", "size", "finish",
-                                                                            "setting", "fit")}, "confirm": "on"})
+                                                                            "setting", "fit")}, "confirm": "on"},
+                                  [("qc.jpg", b"\xff\xd8 qc")])  # S-52 검수 사진
     assert res == "PASS"
     assert payments.try_verify(ctx, o["id"]) == "verified"  # 발주 전에 확인한 잔금으로 잔금 확인 단계
     o = orders.get(ctx, o["order_no"])

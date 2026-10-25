@@ -66,6 +66,8 @@ def accept_contract(ctx, o, operator, email=None) -> int:
     if q is not None:
         confirm_loss(ctx, q["id"], operator)
     rid = contracts.issue(ctx, o, operator)
+    contracts.record_delivery(ctx, rid, operator, "kakao", "시험: 카카오톡 상담방에 견적서·안내문 전송",
+                              items=["quote", "notice", "link"])
     form_b_response(ctx, rid, email=email or f"customer{o['customer_id']}@example.com")
     contracts.sync_once(ctx, sleep=lambda s: None)
     if contracts.get(ctx, rid)["status"] == "REVIEW_REQUIRED":
@@ -141,7 +143,8 @@ def advance(ctx, order_no, target: str, maker, operator, total=1_200_000):
             manufacturing.receive(ctx, o, maker, {**C, "received_at": "2026-11-19", "actual_cost": str(total // 2)})
         elif st == "QC_PASSED":
             manufacturing.record_qc(ctx, o, maker, {**{k: "pass" for k in ("spec", "purity_engraving", "size", "finish",
-                                                                            "setting", "fit")}, **C})
+                                                                            "setting", "fit")}, **C},
+                                    [("qc-engraving.jpg", b"\xff\xd8 qc " + order_no.encode())])
         elif st == "FINAL_PAYMENT_VERIFIED":
             if o["payment_policy"] == "FULL":
                 payments.verify_final_full(ctx, o, operator, C)

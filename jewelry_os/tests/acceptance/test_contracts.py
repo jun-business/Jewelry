@@ -23,8 +23,12 @@ def _sync(ctx):
     return contracts.sync_once(ctx, sleep=NOOP)
 
 
-def _issue(ctx, o, operator):
-    return contracts.issue(ctx, get(ctx, o["order_no"]), operator, sleep=NOOP)
+def _issue(ctx, o, operator, deliver=True):
+    rid = contracts.issue(ctx, get(ctx, o["order_no"]), operator, sleep=NOOP)
+    if deliver:  # S-47: 견적서를 보낸 기록이 있어야 계약이 유효
+        contracts.record_delivery(ctx, rid, operator, "kakao", "카카오톡 상담방에 견적서·안내문 전송",
+                                  items=["quote", "notice", "link"])
+    return rid
 
 
 def _review(ctx, rid, operator, method="consult_channel"):
@@ -195,6 +199,7 @@ def test_b4_b5_tampered_prefill_blocks(ctx, maker, operator, field, code):
     assert "G-CONTRACT-REQUIRED" in check(ctx, get(ctx, o["order_no"]), "record_acceptance", operator)
     assert ctx.db.scalar("SELECT COUNT(*) FROM contract_responses") == 1  # 실패 응답도 증거로 보관
     new = contracts.issue(ctx, get(ctx, o["order_no"]), operator, reissue=True, sleep=NOOP)
+    contracts.record_delivery(ctx, new, operator, "kakao", "새 확인코드 안내문 전송", items=["quote", "notice", "link"])
     assert new != rid and _status(ctx, rid) == "SUPERSEDED" and _status(ctx, new) == "ISSUED"
 
 

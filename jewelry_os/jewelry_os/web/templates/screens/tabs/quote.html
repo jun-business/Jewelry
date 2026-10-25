@@ -66,10 +66,10 @@
 <div><p class="label">예상 마진</p><p class="t-lg">{{ (q.total_krw - q.cost_estimate_krw - q.variable_cost_krw)|won }}{% if q.total_krw %} ({{ ((q.total_krw - q.cost_estimate_krw - q.variable_cost_krw) * 100 // q.total_krw) }}%){% endif %}</p></div></div>
 {{ area("internal_note", "내부 메모", q.internal_note or "", False, None, None, 2) }}</div>
 <div class="btn-row"><button class="btn btn-secondary" type="submit" name="then" value="save">임시 저장</button>
-<button class="btn btn-primary" type="submit" name="then" value="approve" id="approve" {% if me != "maker" %}aria-disabled="true"{% endif %}>저장하고 {{ "재견적 승인" if change_open else "견적 승인" }}</button></div>
+<button class="btn btn-primary" type="submit" name="then" value="approve" id="approve" {% if me != "maker" %}aria-disabled="true"{% endif %}>저장하고 {{ "재견적 승인" if (change_open or requote_before_consent) else "견적 승인" }}</button></div>
 </form>
 {% set warn = [] %}{% if not gate_q %}{% set _ = warn.append("GATE-Q-01 전이라 이 견적은 ‘시험 견적’으로 승인돼요. 고객 문서에 시험 표시가 붙고 실거래 결제에 쓸 수 없어요.") %}{% endif %}{% if test_mode %}{% set _ = warn.append("시험 운영 모드예요. 실제 고객 결제를 받지 마세요.") %}{% endif %}
-{% set code = "approve_requote" if change_open else "approve_quote" %}
+{% set code = "approve_requote" if (change_open or requote_before_consent) else "approve_quote" %}
 {{ approval("dlg-approve", "/orders/" ~ o.order_no ~ "/actions/" ~ code, "견적 v" ~ q.version ~ "를 승인할까요?", [("총액", q.total_krw|won), ("부가세·배송비", ("포함" if q.tax_included else "별도") ~ " · " ~ ("포함" if q.shipping_included else "별도")), ("예약금·잔금", (q.deposit_krw|won) ~ " · " ~ (q.balance_krw|won)), ("약속 납기", q.promised_date|kdate), ("유효기간", q.valid_until|kdate)], "승인하면 고객 안내 문서를 만들 수 있어요. 승인한 견적은 고칠 수 없고 새 버전으로만 바꿀 수 있어요. 적용 정책 버전은 승인 시점에 고정돼요.", approver, "", warn, o.version, "quote", false, "", confirm == "approve_quote", "승인") }}
 {% if confirm == "approve_quote" %}<p class="t-sm">위 확인 패널에서 승인하세요.</p>{% endif %}
 {% elif q_appr %}

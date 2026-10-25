@@ -348,7 +348,7 @@ async def settings_post(request: Request, section: str):
                     raise ValueError("부가가치율은 0~100 사이로 입력하세요.")
                 if settings.get(ctx, "simplified_vat_rate_pct") != rate:
                     settings.put(ctx, "simplified_vat_rate_pct", rate, user)
-            for k in ("quote_revision_scope_default", "quote_delivery_default"):  # D-34 견적서 기본 문구
+            for k in ("quote_revision_scope_default", "quote_delivery_default", "quote_payment_guide"):  # 견적서 기본 문구
                 if (f.get(k) or "").strip() and settings.get(ctx, k) != f[k].strip():
                     settings.put(ctx, k, f[k].strip(), user)
             if "kakao_channel_url" in f:
@@ -598,8 +598,9 @@ async def quote_doc_txt(request: Request, qid: int):
         lines.append(f"결제: 예약금 {won(pq.deposit)}(계약 동의 후·상세 CAD 시작 전) · "
                      f"잔금 {won(pq.balance)}(최종 CAD 승인 후·제작 발주 전)")  # D-24, Form B Q5
     lines += [f"완성 예정: {kdate(pq.promised_date)}", f"견적 유효기간: {kdate(pq.valid_until)}까지",
-              "결제는 네이버 스마트스토어에서 진행돼요. 예약금이 확인되면 상세 CAD를, 잔금이 확인되면 제작을 시작해요.",
               f"지금 단계: {pq.phase_label}"]
+    if pq.payment_guide:
+        lines.insert(-1, pq.payment_guide)
     if pq.delivery_plan:
         lines.append(f"배송: {pq.delivery_plan}")
     if pq.revision_scope:

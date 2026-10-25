@@ -31,6 +31,8 @@ MESSAGES = {
     "G-REFUND-INPUT": "{fields}을(를) 입력해야 해요.",
     "G-REFUND-STATE": "환불 건이 ‘{status}’ 상태라 할 수 없어요.",
     "G-REFUND-LEGAL": "법적 검토(청약철회 가능 여부·법정 권리) 결과를 먼저 기록해야 승인할 수 있어요.",
+    "G-QC-PHOTO": "검수 사진이 없어요. 각인·스톤 세팅이 보이는 확대 사진을 한 장 이상 올려야 검수 통과로 기록돼요(하자 문의 때 증거).",
+    "G-REFUNDED": "받은 결제를 모두 돌려준 주문이에요. 끝내려면 ‘주문 취소’로 정리하고, 계속하려면 결제를 다시 받으세요.",
     "G-QUOTE-EXPIRED": "견적 유효기간이 지났어요. 새 견적 버전을 승인한 뒤 계약 동의 링크를 만드세요.",
     "G-BALANCE-BEFORE-FACTORY": "잔금(2/3) 결제가 확인되지 않아 공장 발주를 할 수 없어요.",
     "G-PAYMENT-REQUEST": "결제 요청이 아직 없어요.",
@@ -86,7 +88,7 @@ FIX_LINK = {
     "G-RECEIVE-INFO": "making", "G-QC-INCOMPLETE": "qc", "G-QC-FAIL": "qc", "G-BALANCE": "payment",
     "G-SHIP-INFO": "qc", "G-NO-CONSENT": "intake", "G-ISSUE-OPEN": "history", "G-TEST-QUOTE": "quote",
     "G-L3-JUDGMENT": "cs", "G-CONTRACT-REQUIRED": "quote#contract", "G-CONTRACT-FORM": "/settings/google",
-    "G-QUOTE-EXPIRED": "quote", "G-LOSS-CONFIRM": "quote#loss-review", "G-BALANCE-BEFORE-FACTORY": "payment", "G-CONTRACT-STATE": "quote#contract",
+    "G-QUOTE-EXPIRED": "quote", "G-LOSS-CONFIRM": "quote#loss-review", "G-REFUNDED": "payment", "G-QC-PHOTO": "qc", "G-BALANCE-BEFORE-FACTORY": "payment", "G-CONTRACT-STATE": "quote#contract",
     "G-CONTRACT-REVIEW": "quote#contract", "G-CONTRACT-DELIVERY": "quote#contract", "G-GATE-LIVE": "/settings/gates", "G-CAPACITY": "intake#cap-exc",
 }
 

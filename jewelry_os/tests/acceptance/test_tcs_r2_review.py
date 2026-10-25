@@ -13,7 +13,8 @@ QC_PASS = {k: "pass" for k in ("spec", "purity_engraving", "size", "finish", "se
 
 
 def act(w, no, code, **data):
-    return w.post(f"/orders/{no}/actions/{code}", data={"confirm": "on", **data})
+    files = [("qc_photos", ("engraving.jpg", b"\xff\xd8 qc", "image/jpeg"))] if code == "record_qc" else None  # S-52
+    return w.post(f"/orders/{no}/actions/{code}", data={"confirm": "on", **data}, files=files)
 
 
 # ---------------- TC-S-054 과세 유형별 매출·문의당 광고비·CAC ----------------

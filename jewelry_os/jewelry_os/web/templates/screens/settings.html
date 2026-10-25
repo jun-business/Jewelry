@@ -33,6 +33,7 @@
 </div>
 {{ area("quote_revision_scope_default", "견적서 기본 문구: 수정 가능 범위", s.quote_revision_scope_default, False, None, "견적에서 따로 적지 않으면 이 문구가 들어가요.", 2) }}
 {{ area("quote_delivery_default", "견적서 기본 문구: 배송 일정", s.quote_delivery_default, False, None, None, 2) }}
+{{ area("quote_payment_guide", "견적서 기본 문구: 결제 안내", s.quote_payment_guide, False, None, "결제처(예: 스마트스토어 상품·계좌)가 정해지면 여기에 적어요. 견적서와 카톡용 텍스트에 그대로 들어가요.", 2) }}
 <div class="field"><label for="f-kakao_channel_url">카카오톡 채널 주소</label><input id="f-kakao_channel_url" name="kakao_channel_url" type="url" inputmode="url" value="{{ s.kakao_channel_url }}" placeholder="https://pf.kakao.com/_xxxx" aria-describedby="help-kakao"><p class="help" id="help-kakao">카카오 비즈니스 관리자센터의 채널 URL. 견적서 아래와 카톡용 텍스트에 문의처로 표시돼요. 비우면 표시하지 않아요.</p></div>
 <fieldset><legend>사업자 과세 유형 (실적의 세금 제외 매출 계산)</legend>
 {% for k, v in TAX_TYPE_LABEL.items() %}<label class="choice"><input type="radio" name="tax_type" value="{{ k }}" {% if s.tax_type == k %}checked{% endif %}> {{ v }}</label>{% endfor %}
