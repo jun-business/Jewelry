@@ -895,6 +895,30 @@ CREATE TABLE IF NOT EXISTS customer_identities (
   UNIQUE (customer_id, kind, value_hash)
 );
 
+-- D-40 계약 안 된 문의 분석 기록(개인정보 없음). 보관기간 만료로 개인정보를 파기하기 전에 남긴다.
+CREATE TABLE IF NOT EXISTS lost_inquiries (
+  id INTEGER PRIMARY KEY,
+  order_id INTEGER NOT NULL UNIQUE REFERENCES orders(id),
+  order_no TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  last_activity_at TEXT NOT NULL,
+  recorded_at TEXT NOT NULL,
+  final_state TEXT NOT NULL,
+  phase_reached TEXT NOT NULL,
+  reason_code TEXT NOT NULL,
+  reason_detail_json TEXT NOT NULL DEFAULT '{}',
+  product_type TEXT,
+  material TEXT,
+  budget_range TEXT,
+  source_channel TEXT,
+  desired_lead_days INTEGER,
+  concept_count INTEGER NOT NULL DEFAULT 0,
+  quote_versions INTEGER NOT NULL DEFAULT 0,
+  last_quote_total INTEGER,
+  is_test INTEGER NOT NULL DEFAULT 0
+);
+CREATE TRIGGER IF NOT EXISTS lost_no_delete BEFORE DELETE ON lost_inquiries BEGIN SELECT RAISE(ABORT, 'lost inquiry records are kept'); END;
+
 CREATE INDEX IF NOT EXISTS ix_orders_state ON orders(lifecycle_state);
 CREATE INDEX IF NOT EXISTS ix_issues_order ON issues(order_id, state);
 CREATE INDEX IF NOT EXISTS ix_audit_order ON audit_events(order_id, id);

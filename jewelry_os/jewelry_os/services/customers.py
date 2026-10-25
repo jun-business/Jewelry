@@ -153,25 +153,30 @@ def erase(ctx, cid, actor, reason):
         raise TransitionBlocked([unmet("G-ROLE-OPERATOR")])
     if not (reason or "").strip():
         raise TransitionBlocked([unmet("G-REASON")])
-    from ..core.db import jdump
     with ctx.db.tx() as c:
-        ids = group_ids(c, cid)  # 연결된 고객 기록 모두(자동 연결된 같은 사람의 이전 기록 포함)
-        marks = ",".join("?" * len(ids))
-        c.execute(f"UPDATE customers SET display_name='삭제된 고객', contact_enc=NULL, deleted_at=? WHERE id IN ({marks})",
-                  (clock.now_iso(), *ids))
-        c.execute(f"DELETE FROM customer_identities WHERE customer_id IN ({marks})", ids)  # 확인된 계약 이메일
-        for o in c.execute(f"SELECT id, intake_id FROM orders WHERE customer_id IN ({marks})", ids).fetchall():
-            if o["intake_id"]:
-                for rv in c.execute("SELECT id, answers_json FROM intake_revisions WHERE intake_id=?",
-                                    (o["intake_id"],)).fetchall():
-                    a = jload(rv["answers_json"], {})
-                    for k in ("display_name", "contact_value", "contact_kind"):
-                        if k in a:
-                            a[k] = None
-                    c.execute("UPDATE intake_revisions SET answers_json=? WHERE id=?", (jdump(a), rv["id"]))
-            c.execute("UPDATE shipments SET recipient_enc=NULL WHERE order_id=?", (o["id"],))
-            c.execute("UPDATE cs_messages SET content_redacted=NULL, summary='(삭제된 고객의 메시지)' WHERE thread_id IN "
-                      "(SELECT id FROM cs_threads WHERE order_id=?)", (o["id"],))
-        from .intake import UNMAPPED_META  # 미인식 질문 예시값도 비운다(어느 응답의 값인지 남기지 않으므로 전부)
-        c.execute("DELETE FROM meta WHERE key=?", (UNMAPPED_META,))
-        audit.record(c, "customer", cid, actor, "customer_erased", prev=audit.PII, next=audit.PII, reason=reason)
+        erase_in_tx(ctx, c, cid, actor, reason)
+
+
+def erase_in_tx(ctx, c, cid, actor, reason):
+    """개인정보 파기 본체 — 운영자 요청(erase)과 보관기간 만료 정리(retention, actor=None)가 함께 쓴다."""
+    from ..core.db import jdump
+    ids = group_ids(c, cid)  # 연결된 고객 기록 모두(자동 연결된 같은 사람의 이전 기록 포함)
+    marks = ",".join("?" * len(ids))
+    c.execute(f"UPDATE customers SET display_name='삭제된 고객', contact_enc=NULL, deleted_at=? WHERE id IN ({marks})",
+              (clock.now_iso(), *ids))
+    c.execute(f"DELETE FROM customer_identities WHERE customer_id IN ({marks})", ids)  # 확인된 계약 이메일
+    for o in c.execute(f"SELECT id, intake_id FROM orders WHERE customer_id IN ({marks})", ids).fetchall():
+        if o["intake_id"]:
+            for rv in c.execute("SELECT id, answers_json FROM intake_revisions WHERE intake_id=?",
+                                (o["intake_id"],)).fetchall():
+                a = jload(rv["answers_json"], {})
+                for k in ("display_name", "contact_value", "contact_kind"):
+                    if k in a:
+                        a[k] = None
+                c.execute("UPDATE intake_revisions SET answers_json=? WHERE id=?", (jdump(a), rv["id"]))
+        c.execute("UPDATE shipments SET recipient_enc=NULL WHERE order_id=?", (o["id"],))
+        c.execute("UPDATE cs_messages SET content_redacted=NULL, summary='(삭제된 고객의 메시지)' WHERE thread_id IN "
+                  "(SELECT id FROM cs_threads WHERE order_id=?)", (o["id"],))
+    from .intake import UNMAPPED_META  # 미인식 질문 예시값도 비운다(어느 응답의 값인지 남기지 않으므로 전부)
+    c.execute("DELETE FROM meta WHERE key=?", (UNMAPPED_META,))
+    audit.record(c, "customer", cid, actor, "customer_erased", prev=audit.PII, next=audit.PII, reason=reason)

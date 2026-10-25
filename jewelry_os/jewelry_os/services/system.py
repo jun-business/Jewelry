@@ -6,7 +6,7 @@ import logging
 from datetime import timedelta
 
 from ..core import clock
-from . import alerts, analysis, backup, contracts, intake, settings
+from . import alerts, analysis, backup, contracts, intake, retention, settings
 
 log = logging.getLogger("jos.system")
 
@@ -142,6 +142,8 @@ async def scheduler_loop(ctx, stop: asyncio.Event):
             k = clock.kst(clock.now())
             if backup.due(ctx) or (k.hour == 3 and k.minute < 1):
                 await asyncio.to_thread(backup.make_backup, ctx)
+            if retention.due(ctx):  # 하루 한 번: 계약 안 된 문의 보관기간 정리(D-40)
+                await asyncio.to_thread(retention.purge, ctx)
         except Exception:
             log.exception("scheduler tick failed")
         try:

@@ -41,6 +41,7 @@ DEFAULTS = {
     "ai_monthly_call_limit": 300,
     "ai_monthly_cost_limit_krw": 30000,
     "ai_send_images": False,
+    "inquiry_retention_months": 3,       # 계약 안 된 문의 개인정보 보관(최종 상담일로부터, Form A 안내, D-40)
     "shop_name": "틴틴골드",
     "quote_revision_scope_default": "상세 CAD 단계에서 디자인 수정은 2회까지 포함돼요. 최종 CAD를 승인한 뒤에는 사양을 바꾸기 "
                                     "어렵고, 꼭 필요하면 추가 견적과 재동의를 거쳐요.",  # D-34 기본 문구(2026-10-25 확정)

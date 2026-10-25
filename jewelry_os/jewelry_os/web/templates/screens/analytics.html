@@ -42,6 +42,11 @@
 <div class="table-wrap"><table><thead><tr><th scope="col">월</th><th scope="col">경로</th><th scope="col" class="num">광고비</th><th scope="col" class="num">문의</th><th scope="col" class="num">문의당 광고비</th><th scope="col" class="num">유료 고객</th><th scope="col" class="num">CAC</th></tr></thead><tbody>
 {% for a in ad %}<tr data-ad="{{ a.month }}-{{ a.channel }}"><td>{{ a.month }}</td><td>{{ a.label }}</td><td class="num">{{ a.spend|won }}</td><td class="num">{{ a.inquiries }}</td><td class="num">{{ a.per_inquiry|won if a.per_inquiry is not none else "—" }}</td><td class="num">{{ a.paid_customers }}</td><td class="num">{{ a.cac|won if a.cac is not none else "—" }}</td></tr>{% else %}<tr><td colspan="7" class="t-muted">입력된 광고비가 없어요.</td></tr>{% endfor %}
 </tbody></table></div></section>
+<section class="card" aria-labelledby="lost-t"><h2 id="lost-t">계약 안 된 문의 — 이유</h2>
+<p class="t-sm">계약 없이 최종 상담일로부터 {{ lost_months }}개월이 지난 문의는 개인정보를 파기하고, 그 전에 이유를 개인정보 없이 남겨 여기에 모아요(제품·소재·예산 구간·유입 경로·진행 정도).</p>
+{% if lost %}<div class="table-wrap"><table><caption class="sr-only">계약 안 된 이유별 건수</caption><thead><tr><th scope="col">이유</th><th scope="col" class="num">건수</th><th scope="col" class="num">평균 견적</th></tr></thead><tbody>
+{% for r in lost %}<tr><td>{{ r.label }}</td><td class="num">{{ r.count }}</td><td class="num">{{ r.avg_quote|won if r.avg_quote else "—" }}</td></tr>{% endfor %}
+</tbody></table></div>{% else %}<p class="t-muted">아직 쌓인 기록이 없어요.</p>{% endif %}</section>
 <section class="card" aria-labelledby="mo-t"><h2 id="mo-t">월별 매출</h2>
 <div class="table-wrap"><table><thead><tr><th scope="col">월</th><th scope="col" class="num">실매출</th><th scope="col" class="num">시험</th></tr></thead><tbody>
 {% for m, v in monthly %}<tr><td>{{ m }}</td><td class="num">{{ v.live|won }}</td><td class="num">{{ v.test|won }}</td></tr>{% else %}<tr><td colspan="3" class="t-muted">결제 기록이 없어요.</td></tr>{% endfor %}

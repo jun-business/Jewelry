@@ -13,7 +13,7 @@ from ..core import clock, security
 from ..core.db import jdump, jload
 from ..domain.guards import TransitionBlocked, unmet
 from ..domain.states import GATES, LIVE_INTAKE_GATES
-from ..services import (alerts, analysis, audit, backup, capacity, contracts, cs, customers, files, intake, metrics, orders,
+from ..services import (alerts, analysis, audit, backup, retention, capacity, contracts, cs, customers, files, intake, metrics, orders,
                         payments, quotes, settings, system)
 from .app import blocked_status, flash_redirect, form_of, render, templates
 
@@ -211,7 +211,9 @@ async def analytics(request: Request, test: int = 0):
     per = [{"o": o, "c": metrics.contribution(ctx, o)} for o in orders_rows]
     month = clock.kst(clock.now()).strftime("%Y-%m")
     spend = ctx.db.all("SELECT * FROM ad_spend ORDER BY month DESC, channel")
-    return render(request, "screens/analytics.html", {"k": metrics.kpis(ctx, bool(test)), "sources": src,
+    lost = retention.summary(ctx, bool(test))  # D-40 계약 안 된 문의 이유
+    return render(request, "screens/analytics.html", {"lost": lost, "lost_months": retention.months(ctx),
+                                                        "k": metrics.kpis(ctx, bool(test)), "sources": src,
                                                        "summary": summary, "funnel": metrics.funnel(ctx, bool(test)),
                                                        "per": per, "monthly": metrics.monthly(ctx), "test": test,
                                                        "month": month, "spend": spend,
