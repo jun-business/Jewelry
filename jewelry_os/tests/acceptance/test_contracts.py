@@ -47,13 +47,13 @@ def _qa(ctx, maker, operator, rid="r1", **kw):
 def test_mapping_matches_real_form_b_v11():
     """실제 Form B(forms.get 원본)의 질문 ID·선택지와 매핑이 일치. entry 번호 = questionId(16진수)의 10진수."""
     body = contracts.bundled_form()
-    assert body["info"]["documentTitle"] == "JOS_B2C_Contract_v1" and body["revisionId"] == "00000079"
+    assert body["info"]["documentTitle"] == "JOS_B2C_Contract_v1" and body["revisionId"] == "0000007b"
     assert contracts.verify_mapping(body) == []
     qs = [i for i in body["items"] if "questionItem" in i]
     sections = [i for i in body["items"] if "pageBreakItem" in i]
     assert len(qs) == 9 and len(sections) + 1 == 6 and all(i["questionItem"]["question"].get("required") for i in qs)
     m = contracts.mapping()
-    assert m["version"] == "contract_v1.1" and len(m["consents"]) == 6
+    assert m["version"] == "contract_v1.2" and len(m["consents"]) == 6
     q61 = next(c for c in m["consents"] if c["key"] == "q6_1_refund_policy")
     assert q61["question_id"] == "46ab9313" and q61["accept"] == "내용을 확인했습니다."
     bad = copy.deepcopy(body)
@@ -126,7 +126,7 @@ def test_issue_is_idempotent_and_requires_loss_reasons(ctx, maker, operator):
         assert w.post(f"/orders/{o['order_no']}/contract/issue", data={}).status_code == 303
     assert ctx.db.scalar("SELECT COUNT(*) FROM contract_requests") == 1
     k = ctx.db.one("SELECT * FROM contract_requests")
-    assert k["quote_html_asset_id"] and k["contract_form_schema_version"] == "contract_v1.1"
+    assert k["quote_html_asset_id"] and k["contract_form_schema_version"] == "contract_v1.2"
     html = ctx.db.one("SELECT * FROM assets WHERE id=?", (k["quote_html_asset_id"],))
     from jewelry_os.services import files
     doc = files.read(ctx, html).decode("utf-8")
@@ -225,7 +225,7 @@ def test_v4_each_consent_must_be_agreed(ctx, maker, operator, key):
     _review(ctx, rid, operator) if expect == "REVIEW_REQUIRED" else None
     assert _status(ctx, rid) == expect and not tr.contract_ok(ctx.db.conn, o["id"])
     rec = ctx.db.one("SELECT * FROM contract_consents WHERE consent_key=?", (key,))
-    assert rec["result"] in ("REFUSED", "NEEDS_EXPLANATION") and rec["answer"] == REFUSE[key]
+    assert rec["result"] in ("REFUSED", "NEEDS_EXPLANATION", "UNKNOWN") and rec["answer"] == REFUSE[key]
 
 
 @pytest.mark.parametrize("key", list(REFUSE))
@@ -262,7 +262,7 @@ def test_v1_v2_q6_1_collected_and_explain_blocks_deposit(ctx, maker, operator):
     assert k["refund_policy_acknowledged"] == 1 and k["refund_policy_acknowledged_at"] and k["status"] == "ACCEPTED"
     w6 = ctx.db.one("SELECT * FROM contract_consents WHERE consent_key='q6_withdrawal'")  # 청약철회 별도 동의 독립 기록
     assert w6["result"] == "AGREED" and w6["notice_section_sha256"] != rec["notice_section_sha256"]
-    # 다른 주문: Q6-1 '추가 설명이 필요합니다.' → 검토 대기 + 예약금 청구 차단
+    # 다른 주문: Q6-1에 폼에 없는 답(옛 '추가 설명' 등) → 검토 대기 + 예약금 청구 차단(v1.2는 확인 선택지 하나)
     o2 = _qa(ctx, maker, operator, "r2")
     r2 = _issue(ctx, o2, operator)
     form_b_response(ctx, r2, consents={"q6_1_refund_policy": "추가 설명이 필요합니다."})
@@ -563,6 +563,7 @@ def test_unpublished_form_b_blocks_link_in_live_mode(ctx, maker, operator):
     """실제 Form B가 '게시' 전이면 고객이 링크를 열 수 없다(2026-10-24 실연동 확인) — 링크를 만들지 않고 이유를 보여 준다."""
     o = _qa(ctx, maker, operator)
     body = copy.deepcopy(contracts.bundled_form())
+    body["publishSettings"] = {"publishState": {}}  # 게시 전 상태(코드에 포함된 원본은 이제 게시된 상태)
 
     class LiveLike:  # Mock이 아닌 실제 어댑터처럼 게시 여부를 따진다
         def get_form(self, fid):

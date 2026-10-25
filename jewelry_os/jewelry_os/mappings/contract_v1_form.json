@@ -8,7 +8,7 @@
  "settings": {
   "emailCollectionType": "VERIFIED"
  },
- "revisionId": "00000079",
+ "revisionId": "0000007b",
  "responderUri": "https://docs.google.com/forms/d/e/1FAIpQLSfJFY36yo7oLOrdq_koL2M_hQhCO-9TBhtLH0PVRm_R_1BakQ/viewform",
  "items": [
   {
@@ -137,9 +137,6 @@
       "options": [
        {
         "value": "내용을 확인했습니다."
-       },
-       {
-        "value": "추가 설명이 필요합니다."
        }
       ]
      }
@@ -164,9 +161,6 @@
       "options": [
        {
         "value": "안내 내용을 확인했습니다."
-       },
-       {
-        "value": "추가 설명이 필요합니다."
        }
       ]
      }
@@ -201,6 +195,9 @@
   }
  ],
  "publishSettings": {
-  "publishState": {}
+  "publishState": {
+   "isPublished": true,
+   "isAcceptingResponses": true
+  }
  }
 }

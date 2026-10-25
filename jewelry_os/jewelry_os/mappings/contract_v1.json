@@ -1,7 +1,7 @@
 {
-  "version": "contract_v1.1",
+  "version": "contract_v1.2",
   "form_title": "JOS_B2C_Contract_v1",
-  "note": "Form B(견적 승인·주문제작 계약 동의) v1.1 — 6개 섹션·9개 필수 문항. 질문 ID는 Forms API forms.get으로 확인한 실제 값(2026-10-24, revisionId 00000079). 사전입력 entry 번호는 questionId(16진수)를 10진수로 바꾼 값이며 실제 미리 채우기 화면에서 따로 확인한다(prefill_check).",
+  "note": "Form B(견적 승인·주문제작 계약 동의) v1.2 — 6개 섹션·9개 필수 문항. 질문 ID는 Forms API forms.get으로 확인한 실제 값(2026-10-24, revisionId 0000007b — Q6-1·Q7은 확인 선택지 하나(2026-10-25)). 사전입력 entry 번호는 questionId(16진수)를 10진수로 바꾼 값이며 실제 미리 채우기 화면에서 따로 확인한다(prefill_check).",
   "prefill": {
     "order_no": {
       "question_id": "4094127c",
@@ -51,19 +51,13 @@
       "key": "q6_1_refund_policy",
       "question_id": "46ab9313",
       "title": "Q6-1. 제작 단계별 취소·환불 정책 확인",
-      "accept": "내용을 확인했습니다.",
-      "explain": [
-        "추가 설명이 필요합니다."
-      ]
+      "accept": "내용을 확인했습니다."
     },
     {
       "key": "q7_aftercare",
       "question_id": "76709415",
       "title": "Q7. 배송·반품·하자·A/S 처리 안내 확인",
-      "accept": "안내 내용을 확인했습니다.",
-      "explain": [
-        "추가 설명이 필요합니다."
-      ]
+      "accept": "안내 내용을 확인했습니다."
     },
     {
       "key": "q8_final",
