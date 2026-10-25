@@ -137,7 +137,7 @@ def accept(ctx, co_id, actor, channel: str, evidence: str, accepted_at: str | No
 
 def create_payment_request(ctx, co_id, actor) -> int:
     from . import payments
-    if actor is None or actor.role != "operator":
+    if actor is None or actor.role not in ("maker", "operator"):
         raise TransitionBlocked([unmet("G-ROLE-OPERATOR")])
     co = _open(ctx, co_id)
     if co["accepted_at"] is None:

@@ -63,8 +63,7 @@
 <form method="post" action="/orders/{{ o.order_no }}/actions/close" data-confirm-required>{{ csrf_input() }}<input type="hidden" name="version" value="{{ o.version }}"><input type="hidden" name="_tab" value="history">
 {{ area("evidence", "배달 확인 근거", "", True, errors, "예: 택배 조회 ‘배달 완료’, 고객 수령 메시지", 2) }}
 <label class="choice"><input type="checkbox" name="confirm" value="on"> 배달 완료를 확인했습니다</label><p class="err need-confirm" hidden>확인란을 체크해야 진행돼요.</p>
-<button class="btn btn-primary btn-lg" type="submit" data-primary {% if me != "operator" %}aria-disabled="true" aria-describedby="cl-role"{% endif %}>주문 완료 처리</button>
-{% if me != "operator" %}<p class="err" id="cl-role">운영자 계정만 할 수 있어요.</p>{% endif %}
+<button class="btn btn-primary btn-lg" type="submit" data-primary>주문 완료 처리</button>
 {{ blocked(checks.get("close"), "cl-why") }}
 </form></section>
 {% endif %}

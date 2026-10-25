@@ -78,7 +78,7 @@ def open_issue(c, order_id, type_, actor, note=None, detail=None, fault=None) ->
     return cur.lastrowid
 
 
-OPERATOR_ISSUES = {"PAYMENT_MISMATCH", "REFUND_REVIEW", "DISPUTED", "CANCEL_REQUEST"}
+OPERATOR_ISSUES = {"REFUND_REVIEW", "DISPUTED", "CANCEL_REQUEST"}  # D-43: 결제 금액 불일치는 결제를 입력한 아버님도 해결
 FAULT_REQUIRED = {"REWORK", "CHANGE_REQUEST", "CANCEL_REQUEST"}
 MANUAL_OPEN = {"maker": {"CHANGE_REQUEST", "REWORK", "DELIVERY_DELAY", "CANCEL_REQUEST"},
                "operator": {"CHANGE_REQUEST", "REWORK", "DELIVERY_DELAY", "CANCEL_REQUEST", "DISPUTED"}}

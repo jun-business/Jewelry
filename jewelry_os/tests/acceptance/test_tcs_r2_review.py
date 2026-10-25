@@ -76,14 +76,13 @@ def test_tcs_055_customer_change_full_flow(ctx, maker, operator):
     assert r.status_code == 409 and "고객 동의" in r.text and "추가 결제 확인" in r.text
     assert act(wo, no, "co_accept", co_id=str(co["id"]), channel="카카오톡", evidence="15만원 추가 동의합니다").status_code == 303
     assert act(wm, no, "co_quote", co_id=str(co["id"]), amount="1", description="x").status_code == 409  # 동의 뒤 수정 불가
-    assert act(wm, no, "co_payment_req", co_id=str(co["id"])).status_code == 403
-    assert act(wo, no, "co_payment_req", co_id=str(co["id"])).status_code == 303
+    assert act(wm, no, "co_payment_req", co_id=str(co["id"])).status_code == 303  # D-43: 아버님도 만든다
     req = ctx.db.one("SELECT * FROM payment_requests WHERE phase='CHANGE'")
     assert req["expected_krw"] == 150_000 and req["change_order_id"] == co["id"]
     assert "변경 추가금" in wo.get(f"/orders/{no}/payment").text
     r = act(wm, no, "resolve_issue", issue_id=str(iid), resolution="재작업")
     assert r.status_code == 409 and "추가 결제 확인" in r.text
-    act(wo, no, "record_payment", phase="CHANGE", naver_order_id="N9", naver_product_order_id="P9", amount="150000",
+    act(wm, no, "record_payment", phase="CHANGE", naver_order_id="N9", naver_product_order_id="P9", amount="150000",
         naver_status="PAYED", looked_up_at="2026-10-21T10:00")
     assert ctx.db.scalar("SELECT status FROM payment_requests WHERE phase='CHANGE'") == "PAID_VERIFIED"
     assert get(ctx, no)["lifecycle_state"] == "FACTORY_RECEIVED"  # 단계 전이 없음

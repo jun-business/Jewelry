@@ -15,7 +15,8 @@ EVENT_OF_STATUS = {"PAYED": "PAID", "CANCEL_REQUEST": "CANCEL_REQ", "CANCELED": 
 
 
 def _operator(actor):
-    if actor is None or actor.role != "operator":
+    # D-43: 결제 요청·입력·확인은 아버님 계정도 한다(계정 전환 없이 한 사람이 끝까지)
+    if actor is None or actor.role not in ("maker", "operator"):
         raise TransitionBlocked([unmet("G-ROLE-OPERATOR")])
 
 
@@ -202,7 +203,7 @@ def _verify_in_tx(ctx, c, order_id, actor) -> str | None:
 
 def try_verify(ctx, order_id, actor=None) -> str | None:
     """차단이 풀리는 동작(보류 해제·이슈 해결·동의 기록) 뒤 결제 확인 재시도.
-    주체 = 그 요청에 마지막 결제완료를 입력한 operator(확인 체크로 이미 확인한 사람, DD-002 r3)."""
+    주체 = 그 요청에 마지막 결제완료를 입력한 사람(D-43: 아버님·운영자, 확인 체크로 이미 확인한 사람, DD-002 r3)."""
     from ..core.security import User
     with ctx.db.tx() as c:
         o = c.execute("SELECT * FROM orders WHERE id=?", (order_id,)).fetchone()
@@ -213,7 +214,7 @@ def try_verify(ctx, order_id, actor=None) -> str | None:
             return None
         ev = c.execute("SELECT u.* FROM payment_events e JOIN users u ON u.id=e.recorded_by WHERE e.request_id=? AND "
                        "e.event_type='PAID' ORDER BY e.id DESC LIMIT 1", (req["id"],)).fetchone()
-        if ev is None or ev["role"] != "operator":
+        if ev is None or ev["role"] not in ("maker", "operator"):
             return None
         op = User(ev["id"], ev["username"], ev["display_name"], ev["role"], {})
         return _verify_in_tx(ctx, c, order_id, op)

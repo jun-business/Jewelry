@@ -32,7 +32,7 @@
 <button class="btn btn-secondary" type="submit">고객 동의 기록</button></form>
 {% endif %}
 {% endif %}
-{% if cov.co_open and co.accepted_at and co.amount_krw and not cov.req and me == "operator" %}
+{% if cov.co_open and co.accepted_at and co.amount_krw and not cov.req %}
 <form method="post" action="/orders/{{ o.order_no }}/actions/co_payment_req">{{ csrf_input() }}<input type="hidden" name="co_id" value="{{ co.id }}"><input type="hidden" name="_tab" value="payment">
 <button class="btn btn-secondary" type="submit">추가 결제 요청 만들기({{ co.amount_krw|won }})</button></form>
 {% endif %}

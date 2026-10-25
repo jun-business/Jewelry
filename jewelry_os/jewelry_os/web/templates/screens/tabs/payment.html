@@ -26,7 +26,7 @@
 {% if o.lifecycle_state in ("CUSTOMER_DESIGN_APPROVED", "QC_PASSED") and o.payment_policy != "FULL" and not pay_reqs|selectattr("phase", "equalto", "BALANCE")|list and balance_amount %}
 <form method="post" action="/orders/{{ o.order_no }}/actions/create_balance_req">{{ csrf_input() }}<input type="hidden" name="_tab" value="payment">
 <p class="t-sm">잔금 = 승인 견적 총액 − 확인된 예약금 = <strong>{{ balance_amount|won }}</strong></p>
-<button class="btn btn-primary" type="submit" {% if me != "operator" %}aria-disabled="true" aria-describedby="bal-role"{% endif %}>잔금 결제 요청 만들기</button>{% if me != "operator" %}<p class="err" id="bal-role">운영자 계정만 할 수 있어요.</p>{% endif %}</form>
+<button class="btn btn-primary" type="submit">잔금 결제 요청 만들기</button></form>
 {% endif %}
 </section>
 
@@ -45,8 +45,7 @@
 {{ area("note", "메모", form.get("note"), False, None, "“고객이 송금했다고 함” 같은 메시지만으로는 결제 확인이 되지 않아요.", 2) }}
 <label class="choice"><input type="checkbox" name="confirm" value="on"> 네이버 판매자센터에서 위 값을 직접 확인했습니다</label>
 <p class="err need-confirm" hidden>확인란을 체크해야 진행돼요.</p>
-<button class="btn btn-primary btn-lg" type="submit" data-primary {% if me != "operator" %}aria-disabled="true" aria-describedby="pay-role"{% endif %}>결제 입력</button>
-{% if me != "operator" %}<p class="err" id="pay-role">운영자 계정만 할 수 있어요.</p>{% endif %}
+<button class="btn btn-primary btn-lg" type="submit" data-primary>결제 입력</button>
 </form></section>
 {% endif %}
 

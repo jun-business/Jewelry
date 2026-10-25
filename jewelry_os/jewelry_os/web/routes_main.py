@@ -28,7 +28,7 @@ def dashboard_vm(ctx, user):
                 "SELECT COUNT(*) FROM orders WHERE lifecycle_state IN ('QUOTE_APPROVED','PAYMENT_PENDING')"),
              "extra": f"그중 지연 {wait_n}" if wait_n else None, "href": "/orders?queue=needs_info", "mine": True},
             {"label": "결제 확인 필요", "n": qc["payment"], "href": "/orders?queue=payment",
-             "mine": user.role == "operator", "note": None if user.role == "operator" else "운영자 담당"},
+             "mine": True},  # D-43: 결제 확인은 아버님·운영자 모두
             {"label": "제작 중인 주문", "n": qc["making"], "href": "/orders?queue=making", "mine": user.role == "maker"},
         ],
         "groups": groups, "active": capacity.active_count(ctx), "limit": capacity.limit(ctx),

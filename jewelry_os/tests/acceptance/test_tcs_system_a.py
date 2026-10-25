@@ -265,7 +265,9 @@ def test_tcs_025_auth_boundary(ctx, maker, operator, fclock):
 # ---------------- 026 권한 표 ----------------
 MAKER_ONLY = ["accept", "decline", "request_info", "hold", "start_cad", "record_design_ok", "build_packet", "send_factory",
               "receive", "record_qc", "set_cad_slot", "correct_spec", "approve_quote", "approve_requote"]
-OPERATOR_ONLY = ["create_payment_req", "create_balance_req", "record_payment", "verify_final_full", "close", "cancel"]
+OPERATOR_ONLY = ["cancel"]
+# D-43: 결제 요청·입력·확인·주문 완료는 아버님 계정도 한다(계정 전환 없이 한 사람이 끝까지)
+SHARED = ["create_payment_req", "verify_initial", "verify_final", "ship", "close"]
 
 
 def test_tcs_026_permissions(ctx, maker, operator):
@@ -279,18 +281,22 @@ def test_tcs_026_permissions(ctx, maker, operator):
     for code in OPERATOR_ONLY:
         if code in tr.TRANSITIONS:
             assert tr.TRANSITIONS[code].actors == {"operator"}, code
+    for code in SHARED:
+        assert tr.TRANSITIONS[code].actors == {"maker", "operator"}, code
     # 각 액션이 가능한 단계에서 다른 역할이 누르면 403(BD-006: 역할만 미충족)
     cases = [("OWNER_REVIEW", wo, "accept", {}), ("OWNER_REVIEW", wo, "decline", {"category": "UNFIT", "reason": "x"}),
-             ("CUSTOMER_ACCEPTED", wm, "create_payment_req", {}),
-             ("PAYMENT_PENDING", wm, "record_payment", {"naver_order_id": "N", "naver_product_order_id": "P",
-                                                        "amount": "1", "naver_status": "PAYED",
-                                                        "looked_up_at": "2026-10-20T12:00"}),
-             ("INITIAL_PAYMENT_VERIFIED", wo, "start_cad", {}), ("FACTORY_SENT", wo, "receive", {"received_at": "2026-11-19"}),
-             ("SHIPPED", wm, "close", {"evidence": "x"})]
+             ("INITIAL_PAYMENT_VERIFIED", wo, "start_cad", {}), ("FACTORY_SENT", wo, "receive", {"received_at": "2026-11-19"})]
     for i, (st, who, code, data) in enumerate(cases):
         oo = order_at(ctx, maker, operator, st, rid=f"perm{i}")
         r = act(who, oo["order_no"], code, **data)
         assert r.status_code == 403, (st, code, r.status_code)
+    # D-43: 아버님 계정이 결제 요청·결제 입력·주문 완료를 직접 한다
+    oo = order_at(ctx, maker, operator, "CUSTOMER_ACCEPTED", rid="perm-m1")
+    assert act(wm, oo["order_no"], "create_payment_req").status_code == 303
+    assert get(ctx, oo["order_no"])["lifecycle_state"] == "PAYMENT_PENDING"
+    oo = order_at(ctx, maker, operator, "SHIPPED", rid="perm-m2")
+    assert act(wm, oo["order_no"], "close", evidence="배달 완료 조회").status_code == 303
+    assert get(ctx, oo["order_no"])["lifecycle_state"] == "CLOSED"
     page = wo.get(f"/orders/{no}").text
     assert 'aria-disabled="true"' in page and "아버님(제작 책임) 계정만 할 수 있어요." in page
     for w in (wm, wo):  # 두 역할 모두 가능한 것
