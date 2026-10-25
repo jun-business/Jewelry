@@ -371,7 +371,10 @@ def issue(ctx, o, actor, reissue: bool = False, sleep=time.sleep) -> int:
     spec = jload(q["spec_json"], {})
     weak = quotes.loss_reason_problems(spec)  # D-35: 주문마다 구체적으로
     if weak:
-        raise TransitionBlocked([unmet("G-QUOTE-LOSS-REASONS", detail=" · ".join(weak))])  # 견적서에 주문별 개별 제작 특성·예상 손해 사유(D-25)
+        raise TransitionBlocked([unmet("G-QUOTE-LOSS-REASONS", detail=" · ".join(weak))])
+    from . import loss_review  # D-36: AI 검토 뒤 사람의 최종 판단
+    if not loss_review.confirmed(ctx, q):
+        raise TransitionBlocked([unmet("G-LOSS-CONFIRM")])  # 견적서에 주문별 개별 제작 특성·예상 손해 사유(D-25)
     try:
         body = _form_body(ctx, sleep)  # 네트워크는 트랜잭션 밖에서
     except SourceError as e:

@@ -292,6 +292,8 @@ def test_b8_new_quote_version_requires_reconsent(ctx, maker, operator):
               "custom_made": "12호 맞춤 사이즈 18K 골드 반지에 각인 J&K를 넣어 1점 제작"},
         tax_included=True, shipping_included=True, promised_date="2026-12-20", valid_until="2026-11-30"))
     quotes.approve_requote(ctx, get(ctx, o["order_no"]), maker, C)
+    from jewelry_os.devtools import confirm_loss
+    confirm_loss(ctx, qid, maker)
     assert _status(ctx, r1) == "SUPERSEDED" and not tr.contract_ok(ctx.db.conn, o["id"])  # v1 동의 재사용 안 함
     assert "G-CONTRACT-REQUIRED" in check(ctx, get(ctx, o["order_no"]), "create_payment_req", operator)
     r2 = _issue(ctx, o, operator)
@@ -755,3 +757,58 @@ def test_loss_reasons_must_be_specific(ctx, maker, operator):
     with pytest.raises(tr.TransitionBlocked) as e:
         _issue(ctx, get(ctx, o2), operator)
     assert e.value.unmet[0].code == "G-QUOTE-LOSS-REASONS" and "일괄 제한" in e.value.unmet[0].message
+
+
+def test_loss_review_ai_then_human_decides(ctx, maker, operator):
+    """D-36 규칙 검사 + AI 검토 + 사람의 최종 판단 — 확인 전에는 계약 링크를 만들지 않는다."""
+    from jewelry_os.services import loss_review
+    o = order_at(ctx, maker, operator, "FREE_CONCEPT")
+    quotes.upload_concept(ctx, get(ctx, o["order_no"]), maker, "c.png", bytes([0x89]) + b"PNG lr", "시안", 10)
+    qid = quotes.draft(ctx, get(ctx, o["order_no"]), maker)
+    spec = {"material": "골드", "purity": "18K", "size": "12호", "engraving": "J&K",
+            "custom_made": "12호 맞춤 사이즈와 각인 J&K로 이 고객님만을 위해 1점 제작",
+            "loss_reasons": "12호 맞춤 사이즈와 각인 J&K 때문에 다른 고객에게 판매하기 어렵고, 상세 CAD 설계와 발주 비용을 회수하기 어려워요."}
+    form = dict(items=[{"kind": "metal", "label": "금", "amount": "900000"}], tax_included=True, shipping_included=True,
+                promised_date="2026-12-15", valid_until="2026-11-30")
+    quotes.save(ctx, qid, maker, quotes.QuoteForm(spec=spec, **form))
+    with pytest.raises(tr.TransitionBlocked):
+        loss_review.decide(ctx, qid, maker, "")  # 검토 전 판단 불가
+    assert loss_review.run(ctx, qid, maker) == "OK"
+    sent = ctx.analyzer.calls[-1]
+    assert "김하늘" not in sent and "J&K" in sent  # 고객 이름은 보내지 않음
+    v = loss_review.view(ctx, ctx.db.one("SELECT * FROM quotes WHERE id=?", (qid,)))
+    assert v["res"]["verdict"] == "sufficient" and v["current"] and not v["confirmed"]
+    assert loss_review.decide(ctx, qid, maker) == "ACCEPTED"
+    q = ctx.db.one("SELECT * FROM quotes WHERE id=?", (qid,))
+    assert loss_review.confirmed(ctx, q)
+    # 문구가 바뀌면 다시 검토·판단
+    quotes.save(ctx, qid, maker, quotes.QuoteForm(spec={**spec, "loss_reasons": spec["loss_reasons"] + " 추가 설명."}, **form))
+    assert not loss_review.confirmed(ctx, ctx.db.one("SELECT * FROM quotes WHERE id=?", (qid,)))
+    # AI가 부족하다고 하면 근거 없이 진행 불가, 근거를 적으면 사람 판단으로 진행
+    ctx.analyzer.review_loss = lambda p: {"verdict": "insufficient", "criteria": [{"key": "specific_loss", "met": False,
+                                                                                 "comment": "비용 근거 부족"}],
+                                          "suggestions": ["발주 비용 구체화"], "improved_custom_made": None,
+                                          "improved_loss_reasons": "제안 문구"}
+    loss_review.run(ctx, qid, maker)
+    with pytest.raises(tr.TransitionBlocked) as e:
+        loss_review.decide(ctx, qid, maker, "")
+    assert e.value.unmet[0].code == "G-LOSS-OVERRIDE-NOTE"
+    assert loss_review.decide(ctx, qid, maker, "공장 견적서로 발주 비용 확인") == "OVERRIDDEN"
+    page = web(ctx, "maker").get(f"/orders/{o['order_no']}/quote").text
+    assert "청약철회 고지 검토" in page and "사람 확인 완료" in page and "공장 견적서로 발주 비용 확인" in page
+    quotes.approve(ctx, get(ctx, o["order_no"]), maker, C)
+    assert _issue(ctx, o, operator)  # 확인했으니 링크 발행
+    # AI 오류여도 사람이 근거를 적고 판단 가능, 확인 없으면 링크 차단
+    o2 = order_at(ctx, maker, operator, "FREE_CONCEPT", rid="r2")
+    quotes.upload_concept(ctx, get(ctx, o2["order_no"]), maker, "c.png", bytes([0x89]) + b"PNG lr2", "시안", 10)
+    q2 = quotes.draft(ctx, get(ctx, o2["order_no"]), maker)
+    quotes.save(ctx, q2, maker, quotes.QuoteForm(spec=spec, **form))
+    quotes.approve(ctx, get(ctx, o2["order_no"]), maker, C)
+    with pytest.raises(tr.TransitionBlocked) as e:
+        _issue(ctx, o2, operator)
+    assert e.value.unmet[0].code == "G-LOSS-CONFIRM"
+    def boom(p):
+        raise __import__("jewelry_os.adapters.ai", fromlist=["x"]).AnalyzerError("TIMEOUT", "x")
+    ctx.analyzer.review_loss = boom
+    assert loss_review.run(ctx, q2, operator) == "TIMEOUT"
+    assert loss_review.decide(ctx, q2, operator, "AI 없이 사양 대조 확인") == "OVERRIDDEN"

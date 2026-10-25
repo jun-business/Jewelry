@@ -863,6 +863,24 @@ CREATE TABLE IF NOT EXISTS cs_digests (
 );
 CREATE INDEX IF NOT EXISTS ix_cs_digest_thread ON cs_digests(thread_id, id);
 
+-- D-36 견적서 청약철회 예외 고지(개별 제작 특성·손해 사유) AI 검토와 사람의 최종 판단
+CREATE TABLE IF NOT EXISTS quote_loss_reviews (
+  id INTEGER PRIMARY KEY,
+  quote_id INTEGER NOT NULL REFERENCES quotes(id),
+  text_sha256 TEXT NOT NULL,
+  status TEXT NOT NULL,
+  result_json TEXT,
+  model_id TEXT,
+  prompt_version TEXT NOT NULL,
+  decision TEXT CHECK (decision IN ('ACCEPTED','OVERRIDDEN')),
+  decision_note TEXT,
+  decided_by INTEGER,
+  decided_at TEXT,
+  created_by INTEGER,
+  created_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS ix_qlr_quote ON quote_loss_reviews(quote_id, id);
+
 -- 관리자가 본인임을 확인한 계약 이메일(Google 인증 이메일). 다음 계약부터 같은 고객 확인에 쓴다.
 CREATE TABLE IF NOT EXISTS customer_identities (
   id INTEGER PRIMARY KEY,

@@ -96,6 +96,13 @@ def order_vm(ctx, o, user, tab):
         dsp = jload(q_draft["spec_json"], {})
         vm["loss_problems"] = quotes.loss_reason_problems(dsp)
         vm["loss_suggest"] = quotes.suggest_loss_text(dsp, o["product_type"])
+    from ..services import loss_review
+    lq = q_draft or q_appr
+    if lq:  # D-36 청약철회 고지 검토(규칙 + AI + 사람)
+        vm["lr_quote"] = lq
+        vm["lr"] = loss_review.view(ctx, lq)
+        vm["lr_rules"] = quotes.loss_reason_problems(jload(lq["spec_json"], {}))
+        vm["LR_CRIT"] = loss_review.CRITERIA_LABEL
     vm["s_defaults"] = {"revision": "기본: " + settings.get(ctx, "quote_revision_scope_default"),
                         "delivery": "기본: " + settings.get(ctx, "quote_delivery_default")}
     from ..services import cs_digest
@@ -497,6 +504,30 @@ async def cs_import_order(request: Request, no: str):
         from ..services import cs_digest
         msg += " " + cs_digest.STATUS_LABEL.get(st["digest"], "")
     return flash_redirect(f"/orders/{no}/cs#tabs", msg)
+
+
+@router.post("/quotes/{qid}/loss/{op}")
+async def quote_loss(request: Request, qid: int, op: str):
+    """D-36 손해 사유 AI 검토 실행·사람의 최종 판단."""
+    from ..services import loss_review
+    ctx = request.state.ctx
+    q = ctx.db.one("SELECT * FROM quotes WHERE id=?", (qid,))
+    if q is None:
+        raise HTTPException(404)
+    no = ctx.db.scalar("SELECT order_no FROM orders WHERE id=?", (q["order_id"],))
+    f = await form_of(request)
+    back = f"/orders/{no}/quote#loss-review"
+    try:
+        if op == "run":
+            st = loss_review.run(ctx, qid, request.state.user)
+            return flash_redirect(back, "AI 검토를 마쳤어요. 결과를 보고 최종 판단해 주세요." if st == "OK" else
+                                  "AI 검토를 하지 못했어요. 근거를 적어 사람이 판단할 수 있어요.", "success" if st == "OK" else "error")
+        if op == "decide":
+            d = loss_review.decide(ctx, qid, request.state.user, f.get("note") or "")
+            return flash_redirect(back, "최종 확인을 기록했어요." if d == "ACCEPTED" else "판단 근거와 함께 진행으로 기록했어요.")
+    except TransitionBlocked as e:
+        return flash_redirect(back, e.unmet[0].message, "error")
+    raise HTTPException(404)
 
 
 @router.post("/orders/{no}/cs/digest")

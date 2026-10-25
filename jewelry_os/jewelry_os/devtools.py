@@ -51,8 +51,20 @@ def form_b_response(ctx, req_id, *, response_id=None, email="customer@example.co
     return r
 
 
+def confirm_loss(ctx, quote_id, actor) -> None:
+    """시험·시연: 손해 사유 AI 검토 + 사람 최종 판단(D-36)."""
+    from .services import loss_review
+    q = ctx.db.one("SELECT * FROM quotes WHERE id=?", (quote_id,))
+    if not loss_review.confirmed(ctx, q):
+        loss_review.run(ctx, quote_id, actor)
+        loss_review.decide(ctx, quote_id, actor, "시험: 사양과 손해 사유 확인")
+
+
 def accept_contract(ctx, o, operator, email=None) -> int:
     """시험·시연: 계약 링크 발행 → 고객 Form B 제출 → 수집 → 운영자 본인 확인(D-24)."""
+    q = tr.latest_quote(ctx.db.conn, o["id"], "APPROVED")
+    if q is not None:
+        confirm_loss(ctx, q["id"], operator)
     rid = contracts.issue(ctx, o, operator)
     form_b_response(ctx, rid, email=email or f"customer{o['customer_id']}@example.com")
     contracts.sync_once(ctx, sleep=lambda s: None)
@@ -97,6 +109,7 @@ def advance(ctx, order_no, target: str, maker, operator, total=1_200_000):
                       "loss_reasons": "12호 맞춤 사이즈로 만들어 다른 고객에게 판매하기 어렵고, 상세 CAD 설계와 공장 발주 뒤의 금속·가공 비용은 회수하기 어려워요."},
                 tax_included=True, shipping_included=True, promised_date="2026-12-15", valid_until="2026-11-30"))
             quotes.approve(ctx, order(), maker, C)
+            confirm_loss(ctx, qid, maker)  # D-36 손해 사유 AI 검토 + 사람 확인
         elif st == "CUSTOMER_ACCEPTED":
             accept_contract(ctx, o, operator)  # D-24: 고객 동의 = Form B 계약 동의(자동 반영)
         elif st == "PAYMENT_PENDING":

@@ -108,6 +108,9 @@ def test_tcs_002_e2e(ctx, maker, operator, fclock):
     assert r.status_code == 409 and 'data-unmet-code="G-CONTRACT-REQUIRED"' in r.text  # D-24: 수기 기록으로는 진행 불가
     assert re.search(r">[^<]*G-CONTRACT-REQUIRED", r.text) is None  # 코드는 속성에만, 화면 문구에 노출 없음
     assert ctx.db.scalar("SELECT COUNT(*) FROM customer_acceptances") == 0  # ⑦
+    qid1 = ctx.db.scalar("SELECT id FROM quotes WHERE status='APPROVED'")
+    assert wm.post(f"/quotes/{qid1}/loss/run", data={}).status_code == 303  # D-36 손해 사유 AI 검토
+    assert wm.post(f"/quotes/{qid1}/loss/decide", data={"note": "사양과 맞음"}).status_code == 303  # 사람 최종 판단
     assert wo.post(f"/orders/{no}/contract/issue", data={}).status_code == 303  # 계약 동의 링크(Form B)
     rid = ctx.db.scalar("SELECT id FROM contract_requests")
     assert "entry.528017888=TG-" in wo.get(f"/orders/{no}/quote").text  # 사전입력 링크가 화면에(복사용)

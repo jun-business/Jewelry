@@ -95,5 +95,25 @@
 {% endif %}
 </section>
 
+{% if lr_quote %}<section class="card" id="loss-review" aria-labelledby="lr-t"><div class="card-head"><h2 id="lr-t">청약철회 고지 검토</h2>
+<span class="chips">{% if lr.confirmed %}{{ chip("done", "사람 확인 완료", "check") }}{% else %}{{ chip("hold", "사람 확인 필요") }}{% endif %}</span></div>
+<p class="t-sm">견적 v{{ lr_quote.version }}의 개별 제작 특성·손해 사유를 ① 규칙 검사 ② AI 검토(법률 자문 아님)로 살핀 뒤, ③ 사람이 최종 판단해요. 문구를 바꾸면 다시 검토해요.</p>
+<h3>① 규칙 검사</h3>{% if lr_rules %}<ul class="blocked">{% for p in lr_rules %}<li>{{ icon("octagon", "sm") }}<span>{{ p }}</span></li>{% endfor %}</ul>{% else %}<p>{{ chip("done", "통과", "check") }}</p>{% endif %}
+<h3>② AI 검토</h3>
+{% if lr.r and lr.current %}{% if lr.res %}<p><strong>{{ lr.verdict_label }}</strong> <span class="meta">{{ lr.r.model_id }} · {{ lr.r.created_at|kdatetime }}</span></p>
+<ul class="timeline">{% for c in lr.res.criteria %}<li>{{ icon("check" if c.met else "alert", "sm") }}<span>{{ LR_CRIT.get(c.key, c.key) }} — {{ c.comment }}</span></li>{% endfor %}</ul>
+{% if lr.res.suggestions %}<p class="t-sm">고칠 점: {{ lr.res.suggestions|join(" · ") }}</p>{% endif %}
+{% if lr.res.improved_custom_made or lr.res.improved_loss_reasons %}<div class="internal"><div class="internal-head">AI가 제안한 문구 — 사실과 맞는지 확인하고 고쳐 쓰세요</div>
+{% if lr.res.improved_custom_made %}<p class="t-sm"><strong>개별 제작 특성</strong> <span id="ai-custom">{{ lr.res.improved_custom_made }}</span> <button class="btn btn-tertiary btn-sm" type="button" data-copy="ai-custom">{{ icon("copy", "sm") }}복사</button></p>{% endif %}
+{% if lr.res.improved_loss_reasons %}<p class="t-sm"><strong>손해 사유</strong> <span id="ai-loss">{{ lr.res.improved_loss_reasons }}</span> <button class="btn btn-tertiary btn-sm" type="button" data-copy="ai-loss">{{ icon("copy", "sm") }}복사</button></p>{% endif %}</div>{% endif %}
+{% else %}<p class="t-sm">AI 검토를 하지 못했어요({{ lr.r.status }}). 사람이 근거를 적고 판단할 수 있어요.</p>{% endif %}
+{% elif lr.r %}<p class="t-sm">문구가 바뀌었어요. 다시 검토하세요.</p>{% else %}<p class="t-muted">아직 검토하지 않았어요.</p>{% endif %}
+<form method="post" action="/quotes/{{ lr_quote.id }}/loss/run">{{ csrf_input() }}<button class="btn btn-secondary btn-sm" type="submit" {% if lr_rules %}aria-disabled="true"{% endif %}>{{ icon("refresh", "sm") }}AI 검토 {{ "다시 " if lr.r else "" }}실행</button>{% if lr_rules %}<span class="t-sm"> 규칙 검사를 먼저 통과하세요(견적을 고쳐 저장)</span>{% endif %}</form>
+{% if lr.r and lr.current and not lr.confirmed %}<h3>③ 최종 판단(사람)</h3>
+<form method="post" action="/quotes/{{ lr_quote.id }}/loss/decide" class="stack">{{ csrf_input() }}
+{{ area("note", "판단 근거" ~ ("(선택)" if lr.res and lr.res.verdict == "sufficient" else "(필수 — AI가 ‘충분’이 아님)"), "", False, None, None, 2) }}
+<button class="btn btn-primary btn-sm" type="submit">{{ "확인 — 이 문구로 고지" if lr.res and lr.res.verdict == "sufficient" else "근거를 적고 이 문구로 진행" }}</button></form>{% endif %}
+{% if lr.confirmed and lr.r %}<p class="meta">최종 판단: {{ {"ACCEPTED": "확인", "OVERRIDDEN": "근거를 적고 진행"}.get(lr.r.decision, "") }} · {{ lr.r.decided_at|kdatetime }}{% if lr.r.decision_note %} · {{ lr.r.decision_note }}{% endif %}</p>{% endif %}
+</section>{% endif %}
 {% if q_appr or contract_all %}{% include "screens/tabs/_contract.html" %}{% endif %}
 {% if acceptances %}<section class="card"><h2>동의 기록</h2><ul class="timeline">{% for a in acceptances %}<li>{{ icon("check", "sm") }}<span>{{ {"quote": "견적", "design": "최종 시안", "consent": "개인정보"}[a.kind] }} 동의{% if a.quote_version %} · 견적 v{{ a.quote_version }}{% endif %} · {{ a.channel }} · {{ a.accepted_at|kdatetime }}<br><span class="t-sm">{{ a.evidence_text }}</span></span></li>{% endfor %}</ul></section>{% endif %}
