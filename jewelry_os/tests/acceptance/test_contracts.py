@@ -746,6 +746,9 @@ def test_loss_review_ai_then_human_decides(ctx, maker, operator):
     assert "김하늘" not in sent and "J&K" in sent  # 고객 이름은 보내지 않음
     v = loss_review.view(ctx, ctx.db.one("SELECT * FROM quotes WHERE id=?", (qid,)))
     assert v["res"]["verdict"] == "sufficient" and v["current"] and not v["confirmed"]
+    assert v["res"]["risk_level"] == "low" and v["res"]["evidence_to_keep"] and v["res"]["limitations"]
+    assert {c["key"] for c in v["res"]["criteria"]} >= {"irreparable_harm", "separate_notice", "rights_preserved"}
+    assert "시행령 제21조" in sent and "소비자분쟁" in sent  # 법률 검토자 관점 프롬프트
     assert loss_review.decide(ctx, qid, maker) == "ACCEPTED"
     q = ctx.db.one("SELECT * FROM quotes WHERE id=?", (qid,))
     assert loss_review.confirmed(ctx, q)
@@ -763,6 +766,7 @@ def test_loss_review_ai_then_human_decides(ctx, maker, operator):
     assert e.value.unmet[0].code == "G-LOSS-OVERRIDE-NOTE"
     assert loss_review.decide(ctx, qid, maker, "공장 견적서로 발주 비용 확인") == "OVERRIDDEN"
     page = web(ctx, "maker").get(f"/orders/{o['order_no']}/quote").text
+    assert "추천 문구" in page and "제안 문구" in page and "분쟁 위험" in page
     assert "청약철회 고지 검토" in page and "사람 확인 완료" in page and "공장 견적서로 발주 비용 확인" in page
     quotes.approve(ctx, get(ctx, o["order_no"]), maker, C)
     assert _issue(ctx, o, operator)  # 확인했으니 링크 발행

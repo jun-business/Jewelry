@@ -123,6 +123,8 @@ def contract_vm(ctx, o, q_appr) -> dict:
             "contract_sent": contracts.delivered_items(ctx, k) if k else [], "SEND_ITEMS": contracts.SEND_ITEMS,
             "contract_unmatched": contracts.unmatched_for_order(ctx, o["id"]),
             "contract_ready": contracts.readiness(ctx),
+            "contract_stale": bool(k and contracts.is_stale(k)),
+            "contract_mapping_version": contracts.mapping()["version"],
             "contract_email_masked": contracts.mask_email(ctx.dec(primary["respondent_email_enc"])) if primary else "—",
             "q_appr_ref": contracts.quote_ref(q_appr) if q_appr else None,
             "q_appr_loss_ok": loss_review.confirmed(ctx, q_appr) if q_appr else True,

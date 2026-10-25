@@ -96,12 +96,15 @@
 <span class="chips">{% if lr.confirmed %}{{ chip("done", "사람 확인 완료", "check") }}{% else %}{{ chip("hold", "사람 확인 필요") }}{% endif %}</span></div>
 <p class="t-sm">견적 v{{ lr_quote.version }}의 개별 제작 특성·손해 사유를 AI가 법정 요건 기준으로 검토해 의견과 고친 문구를 드려요(법률 자문 아님). 그걸 참고해 사람이 최종 판단해요. 문구를 바꾸면 다시 검토해요.</p>
 <h3>AI 검토</h3>
-{% if lr.r and lr.current %}{% if lr.res %}<p><strong>{{ lr.verdict_label }}</strong> <span class="meta">{{ lr.r.model_id }} · {{ lr.r.created_at|kdatetime }}</span></p>
+{% if lr.r and lr.current %}{% if lr.res %}<p><strong>{{ lr.verdict_label }}</strong>{% if lr.risk_label %} · 분쟁 위험 {{ chip("done" if lr.res.risk_level == "low" else ("hold" if lr.res.risk_level == "medium" else "issue"), lr.risk_label) }}{% endif %} <span class="meta">{{ lr.r.model_id }} · {{ lr.r.created_at|kdatetime }}</span></p>
 <ul class="timeline">{% for c in lr.res.criteria %}<li>{{ icon("check" if c.met else "alert", "sm") }}<span>{{ LR_CRIT.get(c.key, c.key) }} — {{ c.comment }}</span></li>{% endfor %}</ul>
+{% if lr.res.dispute_points %}<h4>고객이 다툴 수 있는 논점</h4><ul class="t-sm">{% for x in lr.res.dispute_points %}<li>{{ x }}</li>{% endfor %}</ul>{% endif %}
+{% if lr.res.evidence_to_keep %}<h4>지금 남겨 둘 증거</h4><ul class="t-sm">{% for x in lr.res.evidence_to_keep %}<li>{{ x }}</li>{% endfor %}</ul>{% endif %}
 {% if lr.res.suggestions %}<p class="t-sm">고칠 점: {{ lr.res.suggestions|join(" · ") }}</p>{% endif %}
-{% if lr.res.improved_custom_made or lr.res.improved_loss_reasons %}<div class="internal"><div class="internal-head">AI가 제안한 문구 — 사실과 맞는지 확인하고 고쳐 쓰세요</div>
+{% if lr.res.improved_custom_made or lr.res.improved_loss_reasons %}<div class="internal"><div class="internal-head">추천 문구 — 위 논점을 막도록 고친 문구예요. 사실과 맞는지 확인하고 견적에 고쳐 넣으세요</div>
 {% if lr.res.improved_custom_made %}<p class="t-sm"><strong>개별 제작 특성</strong> <span id="ai-custom">{{ lr.res.improved_custom_made }}</span> <button class="btn btn-tertiary btn-sm" type="button" data-copy="ai-custom">{{ icon("copy", "sm") }}복사</button></p>{% endif %}
 {% if lr.res.improved_loss_reasons %}<p class="t-sm"><strong>손해 사유</strong> <span id="ai-loss">{{ lr.res.improved_loss_reasons }}</span> <button class="btn btn-tertiary btn-sm" type="button" data-copy="ai-loss">{{ icon("copy", "sm") }}복사</button></p>{% endif %}</div>{% endif %}
+{% if lr.res.limitations %}<p class="t-caption">{{ lr.res.limitations }}</p>{% endif %}
 {% else %}<p class="t-sm">AI 검토를 하지 못했어요({{ lr.r.status }}). 사람이 근거를 적고 판단할 수 있어요.</p>{% endif %}
 {% elif lr.r %}<p class="t-sm">문구가 바뀌었어요. 다시 검토하세요.</p>{% else %}<p class="t-muted">아직 검토하지 않았어요.</p>{% endif %}
 <form method="post" action="/quotes/{{ lr_quote.id }}/loss/run">{{ csrf_input() }}<button class="btn btn-secondary btn-sm" type="submit">{{ icon("refresh", "sm") }}AI 검토 {{ "다시 " if lr.r else "" }}실행</button></form>

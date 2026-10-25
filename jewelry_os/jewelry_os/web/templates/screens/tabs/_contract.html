@@ -3,6 +3,9 @@
 <section class="card" id="contract" aria-labelledby="ct-t">
 <div class="card-head"><h2 id="ct-t">계약 동의(Form B)</h2>
 <span class="chips">{{ chip(CONTRACT_CHIP[k.status if k else "NOT_ISSUED"], CONTRACT_LABEL[k.status if k else "NOT_ISSUED"]) }}{% if k and k.is_test %}{{ chip("test", "시험", "flask") }}{% endif %}</span></div>
+{% if contract_stale %}
+{{ banner("warning", "발행 뒤 Form B가 바뀌었어요", "이 링크는 " ~ k.contract_form_schema_version ~ "로 발행됐는데 지금 폼은 " ~ contract_mapping_version ~ "예요. 이 링크로 받은 응답은 유효한 동의가 될 수 없으니 ‘새 확인코드로 다시 발행’ 후 새 링크를 보내세요.", ic="alert") }}
+{% endif %}
 {% if not contract_ready.ready %}
 {{ banner("warning", "Form B 설정 대기", contract_ready.reason ~ " — 설정 > Google 연동에서 확인하세요.", ic="alert") }}
 {% endif %}
@@ -27,7 +30,7 @@
 <div class="btn-row">
 {% if not k %}
 <form method="post" action="/orders/{{ o.order_no }}/contract/issue">{{ csrf_input() }}<button class="btn btn-primary" type="submit">{{ icon("plus", "sm") }}계약 동의 링크 생성</button></form>
-{% elif k.status in ("REVIEW_REQUIRED", "REJECTED") %}
+{% elif k.status in ("REVIEW_REQUIRED", "REJECTED") or contract_stale %}
 <form method="post" action="/orders/{{ o.order_no }}/contract/issue">{{ csrf_input() }}<input type="hidden" name="reissue" value="1"><button class="btn btn-secondary" type="submit">새 확인코드로 다시 발행</button></form>
 {% endif %}
 {% if k %}<form method="post" action="/orders/{{ o.order_no }}/contract/sync">{{ csrf_input() }}<button class="btn btn-tertiary" type="submit">{{ icon("refresh", "sm") }}계약 동의 상태 확인</button></form>

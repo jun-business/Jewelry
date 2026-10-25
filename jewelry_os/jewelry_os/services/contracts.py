@@ -347,9 +347,27 @@ def quote_snapshot(ctx, q) -> str:
     return jdump({"public_quote": dataclasses.asdict(pq), "quote_ref": quote_ref(q), "text": quotes.public_text(pq)})
 
 
+def is_stale(req) -> bool:
+    """화면 표시용: 응답 전인데 발행 뒤 Form B 문항 구성 버전이 바뀌었는가(이 링크로는 유효한 동의를 못 받음)."""
+    return req["status"] == "ISSUED" and req["contract_form_schema_version"] != mapping()["version"]
+
+
+def _reissuable(c, req, body: dict | None = None) -> bool:
+    if req["status"] in ("REVIEW_REQUIRED", "REJECTED"):
+        return True
+    if req["status"] != "ISSUED":
+        return False
+    if req["contract_form_schema_version"] != mapping()["version"]:
+        return True  # 2026-10-25 Form B v1.1 → v1.2 처럼 응답 전 폼이 바뀐 경우
+    if body is not None:
+        n = c.execute("SELECT body_json FROM contract_notices WHERE id=?", (req["notice_id"],)).fetchone()
+        return notice_sha(jload(n["body_json"], {})) != notice_sha(body)
+    return False
+
+
 def issue(ctx, o, actor, reissue: bool = False, sleep=time.sleep) -> int:
     """계약 요청 발행. 같은 견적 버전에서는 멱등(새로고침·반복 클릭해도 요청 하나). 반환 요청 id.
-    reissue: 검토가 필요하거나 고객이 거절한 요청을 대체하고 새 확인코드로 다시 발행."""
+    reissue: 검토가 필요하거나 고객이 거절한 요청, 또는 응답 전 Form B가 바뀐 요청을 대체하고 새 확인코드로 다시 발행."""
     _admin(actor)
     r = readiness(ctx)
     if not r["ready"]:
@@ -364,8 +382,9 @@ def issue(ctx, o, actor, reissue: bool = False, sleep=time.sleep) -> int:
             raise TransitionBlocked([unmet("G-QUOTE-MISSING")])
         prev = c.execute("SELECT * FROM contract_requests WHERE order_id=? AND quote_id=? AND status<>'SUPERSEDED' "
                          "ORDER BY id DESC LIMIT 1", (o["id"], q["id"])).fetchone()
-        if prev is not None and not (reissue and prev["status"] in ("REVIEW_REQUIRED", "REJECTED")):
-            return prev["id"]  # 멱등: 같은 견적 버전 요청이 이미 있다
+        if prev is not None and not (reissue and (prev["status"] in ("REVIEW_REQUIRED", "REJECTED") or
+                                                  prev["status"] == "ISSUED")):
+            return prev["id"]  # 멱등: 같은 견적 버전 요청이 이미 있다(ISSUED 재발행 여부는 폼 확인 뒤 판단)
     if q["valid_until"] and q["valid_until"] < clock.today_kst().isoformat():
         raise TransitionBlocked([unmet("G-QUOTE-EXPIRED")])
     from . import loss_review  # D-36: AI 검토 뒤 사람의 최종 판단
@@ -385,10 +404,11 @@ def issue(ctx, o, actor, reissue: bool = False, sleep=time.sleep) -> int:
         prev = c.execute("SELECT * FROM contract_requests WHERE order_id=? AND quote_id=? AND status<>'SUPERSEDED' "
                          "ORDER BY id DESC LIMIT 1", (o["id"], q["id"])).fetchone()
         if prev is not None:
-            if not (reissue and prev["status"] in ("REVIEW_REQUIRED", "REJECTED")):
+            if not (reissue and _reissuable(c, prev, body)):
                 return prev["id"]
-            _set_status(c, prev, "SUPERSEDED", actor, "superseded", {"reason": "재발행"},
-                        superseded_at=clock.now_iso(), superseded_reason="재발행")
+            why = "재발행" if prev["status"] != "ISSUED" else "재발행(발행 뒤 Form B 변경)"
+            _set_status(c, prev, "SUPERSEDED", actor, "superseded", {"reason": why},
+                        superseded_at=clock.now_iso(), superseded_reason=why)
         cur = c.execute("SELECT * FROM orders WHERE id=?", (o["id"],)).fetchone()
         code = new_code()
         policy, terms_sha = _terms(c, q)

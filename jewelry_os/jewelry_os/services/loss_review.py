@@ -18,11 +18,14 @@ from . import analysis, audit, settings
 
 log = logging.getLogger("jos.ai")
 VERDICT_LABEL = {"sufficient": "충분해 보여요", "needs_work": "보완하면 좋아요", "insufficient": "부족해 보여요"}
-CRITERIA_LABEL = {"individual_production": "이 고객만을 위한 개별 생산임이 드러나는가",
-                  "specific_loss": "되돌릴 수 없는 손해가 구체적인가",
-                  "this_transaction": "일반 문구가 아니라 이 거래의 사정인가",
-                  "no_blanket_ban": "모든 환불을 일괄로 막는 표현이 없는가",
+CRITERIA_LABEL = {"individual_production": "이 고객 주문에 따른 개별 생산임이 드러나는가",
+                  "irreparable_harm": "회복할 수 없는 중대한 피해(재판매 불가·회수 불가 비용)가 구체적인가",
+                  "this_transaction": "다른 주문에도 쓸 일반 문구가 아니라 이 거래의 사정인가",
+                  "separate_notice": "일반 약관과 구분된 이 거래만의 별도 고지로 읽히는가",
+                  "no_blanket_ban": "모든 취소·환불을 막거나 예약금 몰수처럼 읽히지 않는가",
+                  "rights_preserved": "하자·계약과 다른 공급에 대한 법정 권리를 제한하지 않는가",
                   "consistent_with_spec": "견적 사양과 맞는가"}
+RISK_LABEL = {"low": "낮음", "medium": "중간", "high": "높음"}
 
 
 def _admin(actor):
@@ -86,6 +89,10 @@ def _validate(raw) -> dict | None:
     crit = [{"key": c["key"], "met": bool(c.get("met")), "comment": str(c.get("comment") or "")[:200]}
             for c in raw.get("criteria") or [] if isinstance(c, dict) and c.get("key") in LOSS_CRITERIA]
     return {"verdict": raw["verdict"], "criteria": crit,
+            "risk_level": raw.get("risk_level") if raw.get("risk_level") in RISK_LABEL else "high",
+            "dispute_points": [str(x)[:300] for x in raw.get("dispute_points") or []][:6],
+            "evidence_to_keep": [str(x)[:200] for x in raw.get("evidence_to_keep") or []][:6],
+            "limitations": str(raw.get("limitations") or "")[:300],
             "suggestions": [str(x)[:300] for x in raw.get("suggestions") or []][:5],
             "improved_custom_made": (raw.get("improved_custom_made") or None),
             "improved_loss_reasons": (raw.get("improved_loss_reasons") or None)}
@@ -120,4 +127,5 @@ def view(ctx, q) -> dict:
     r = latest(ctx, q["id"])
     res = jload(r["result_json"], None) if r else None
     return {"r": r, "res": res, "current": bool(r and r["text_sha256"] == text_sha(q)), "confirmed": confirmed(ctx, q),
-            "verdict_label": VERDICT_LABEL.get((res or {}).get("verdict"), None)}
+            "verdict_label": VERDICT_LABEL.get((res or {}).get("verdict"), None),
+            "risk_label": RISK_LABEL.get((res or {}).get("risk_level"), None)}
