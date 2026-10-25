@@ -83,6 +83,7 @@ def order_vm(ctx, o, user, tab):
         "change_views": [dict(v, co_open=v["co"]["issue_state"] == "OPEN") for v in change_orders.view(ctx, o["id"])],
         "gate_q": settings.quote_gate_passed(ctx), "gate_cap": settings.gate_status(ctx)["GATE-CAP-01"]["passed"],
         "customer": customers.detail(ctx, o["customer_id"]),
+        "kakao_chat_url": settings.kakao_chat_url(settings.get(ctx, "kakao_channel_url")),
         "change_open": any(i["type"] == "CHANGE_REQUEST" for i in orders.issues_of(ctx, o["id"])),
         "can_change": st in orders.CHANGE_OPEN_STATES,
         "decline_labels": __import__("jewelry_os.domain.states", fromlist=["x"]).DECLINE_LABEL,

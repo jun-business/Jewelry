@@ -85,6 +85,11 @@
 <a class="btn btn-tertiary" href="/docs/quote/{{ q.id }}.txt" target="_blank" rel="noopener">카톡용 텍스트</a>
 <form method="post" action="/orders/{{ o.order_no }}/quotes">{{ csrf_input() }}<button class="btn btn-tertiary" type="submit" {% if me != "maker" %}aria-disabled="true"{% endif %}>새 버전 만들기</button></form>
 </div>
+{% if kakao_chat_url %}{% set sms = "[틴틴골드] " ~ o.customer_name ~ " 고객님, 문의하신 " ~ (o.product_type or "주얼리") ~ " 시안과 견적이 준비됐어요. 카카오톡 채널(" ~ kakao_chat_url ~ ")로 \"시안 받을게요\"라고 보내 주시면 바로 보내 드릴게요." %}
+<div class="field" id="first-sms"><label for="sms-text">첫 연락 문자 — 카카오톡 채널에 아직 말을 걸지 않은 고객용</label>
+<textarea id="sms-text" rows="3" readonly aria-describedby="sms-help">{{ sms }}</textarea>
+<p class="help" id="sms-help">채널은 고객이 먼저 말을 걸어야 답장을 보낼 수 있어요. Form A의 휴대전화로 이 문자를 보내 채널 대화로 옮기세요.</p>
+<button class="btn btn-tertiary" type="button" data-copy="sms-text">{{ icon("copy", "sm") }}문자 복사</button></div>{% endif %}
 {% else %}
 <p class="t-muted">아직 견적이 없어요.</p>
 <form method="post" action="/orders/{{ o.order_no }}/quotes">{{ csrf_input() }}<button class="btn btn-primary" type="submit" {% if me != "maker" %}aria-disabled="true" aria-describedby="q-role"{% endif %}>견적 작성</button></form>

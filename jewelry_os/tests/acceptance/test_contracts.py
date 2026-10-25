@@ -784,3 +784,12 @@ def test_loss_review_ai_then_human_decides(ctx, maker, operator):
     ctx.analyzer.review_loss = boom
     assert loss_review.run(ctx, q2, operator) == "TIMEOUT"
     assert loss_review.decide(ctx, q2, operator, "AI 없이 사양 대조 확인") == "OVERRIDDEN"
+
+
+def test_first_contact_sms_copy_box(ctx, maker, operator):
+    """채널에 말을 걸지 않은 고객에게 보낼 첫 연락 문자 — 견적 승인 뒤 시안·견적 탭에 복사용으로."""
+    o = _qa(ctx, maker, operator)
+    page = web(ctx, "operator").get(f"/orders/{o['order_no']}/quote").text
+    assert "첫 연락 문자" in page and 'data-copy="sms-text"' in page
+    assert f"[틴틴골드] {get(ctx, o['order_no'])['customer_name']} 고객님" in page
+    assert "https://pf.kakao.com/_dxhAWX/chat" in page and "시안 받을게요" in page
