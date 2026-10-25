@@ -47,13 +47,13 @@ def _qa(ctx, maker, operator, rid="r1", **kw):
 def test_mapping_matches_real_form_b_v11():
     """실제 Form B(forms.get 원본)의 질문 ID·선택지와 매핑이 일치. entry 번호 = questionId(16진수)의 10진수."""
     body = contracts.bundled_form()
-    assert body["info"]["documentTitle"] == "JOS_B2C_Contract_v1" and body["revisionId"] == "0000007b"
+    assert body["info"]["documentTitle"] == "JOS_B2C_Contract_v1" and body["revisionId"] == "0000009a"
     assert contracts.verify_mapping(body) == []
     qs = [i for i in body["items"] if "questionItem" in i]
     sections = [i for i in body["items"] if "pageBreakItem" in i]
     assert len(qs) == 9 and len(sections) + 1 == 6 and all(i["questionItem"]["question"].get("required") for i in qs)
     m = contracts.mapping()
-    assert m["version"] == "contract_v1.2" and len(m["consents"]) == 6
+    assert m["version"] == "contract_v1.3" and len(m["consents"]) == 6
     q61 = next(c for c in m["consents"] if c["key"] == "q6_1_refund_policy")
     assert q61["question_id"] == "46ab9313" and q61["accept"] == "내용을 확인했습니다."
     bad = copy.deepcopy(body)
@@ -126,7 +126,7 @@ def test_issue_is_idempotent_and_requires_loss_reasons(ctx, maker, operator):
         assert w.post(f"/orders/{o['order_no']}/contract/issue", data={}).status_code == 303
     assert ctx.db.scalar("SELECT COUNT(*) FROM contract_requests") == 1
     k = ctx.db.one("SELECT * FROM contract_requests")
-    assert k["quote_html_asset_id"] and k["contract_form_schema_version"] == "contract_v1.2"
+    assert k["quote_html_asset_id"] and k["contract_form_schema_version"] == "contract_v1.3"
     html = ctx.db.one("SELECT * FROM assets WHERE id=?", (k["quote_html_asset_id"],))
     from jewelry_os.services import files
     doc = files.read(ctx, html).decode("utf-8")
