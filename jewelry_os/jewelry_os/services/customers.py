@@ -38,9 +38,28 @@ def group_ids(c, cid) -> list[int]:
         "SELECT id FROM g ORDER BY id", (root,)).fetchall()]
 
 
+def tail_digits(q) -> str | None:
+    """검색어가 연락처 뒷자리 4자리면 그 숫자(채널 ‘진행 중인 주문’ 안내: 성함 + 뒷자리 4자리)."""
+    q = (q or "").strip()
+    return q if re.fullmatch(r"\d{4}", q) else None
+
+
+def ids_by_contact_tail(ctx, digits: str) -> list[int]:
+    """연락처 뒷자리로 고객 찾기 — 연락처는 암호화돼 있어 풀어서 비교한다(파기된 고객 제외)."""
+    out = []
+    for r in ctx.db.all("SELECT id, contact_enc FROM customers WHERE contact_enc IS NOT NULL AND deleted_at IS NULL"):
+        if re.sub(r"\D", "", ctx.dec(r["contact_enc"]) or "").endswith(digits):
+            out.append(r["id"])
+    return out
+
+
 def list_customers(ctx, q=None):
     w, a = "c.deleted_at IS NULL AND c.merged_into IS NULL", []
-    if q:
+    if tail_digits(q):
+        roots = sorted({root_id(ctx.db.conn, i) for i in ids_by_contact_tail(ctx, q.strip())})
+        w += f" AND (c.display_name LIKE ? OR c.id IN ({','.join('?' * len(roots)) or 'NULL'}))"
+        a += [f"%{q.strip()}%", *roots]
+    elif q:
         w += " AND c.display_name LIKE ?"
         a.append(f"%{q}%")
     return ctx.db.all(f"SELECT c.*, COUNT(o.id) AS n_orders, MAX(o.created_at) AS last_order FROM customers c "

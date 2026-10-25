@@ -299,8 +299,11 @@ SORTS = {"updated": "o.updated_at DESC", "created": "o.created_at ASC", "promise
 def list_orders(ctx, queue="all", q=None, sort=None, page=1, per_page=50):
     w, a = _queue_where(queue)
     if q:
-        w += " AND (o.order_no LIKE ? OR c.display_name LIKE ? OR o.summary LIKE ? OR o.product_type LIKE ?)"
-        a = a + [f"%{q}%"] * 4
+        from .customers import ids_by_contact_tail, tail_digits
+        tail = ids_by_contact_tail(ctx, q.strip()) if tail_digits(q) else []  # 연락처 뒷자리 4자리
+        w += (" AND (o.order_no LIKE ? OR c.display_name LIKE ? OR o.summary LIKE ? OR o.product_type LIKE ?"
+              f" OR o.customer_id IN ({','.join('?' * len(tail)) or 'NULL'}))")
+        a = a + [f"%{q}%"] * 4 + tail
     if sort not in SORTS:
         sort = "created" if queue in ("review", "needs_info", "waitlisted") else "updated"
     total = ctx.db.scalar(f"SELECT COUNT(*) FROM orders o JOIN customers c ON c.id=o.customer_id WHERE {w}", a)

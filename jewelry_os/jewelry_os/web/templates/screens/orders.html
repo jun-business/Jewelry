@@ -10,7 +10,7 @@
 {% if queue == "waitlisted" %}<p class="banner info">{{ icon("info") }}<span class="b-body">동시 진행 상한이 차서 기다리는 문의예요. 순서대로 열어 수락하거나 대기를 풀 수 있어요.</span></p>{% endif %}
 <form class="filterbar" method="get" action="/orders" role="search">
 <input type="hidden" name="queue" value="{{ queue }}">
-<div class="grow"><label class="sr-only" for="q">검색</label><input id="q" name="q" type="search" value="{{ q }}" placeholder="주문번호 일부·고객 이름"></div>
+<div class="grow"><label class="sr-only" for="q">검색</label><input id="q" name="q" type="search" value="{{ q }}" placeholder="주문번호 일부·고객 이름·연락처 뒷자리 4자리"></div>
 <div><label class="sr-only" for="sort">정렬</label><select id="sort" name="sort">
 {% for k, lab in [("updated", "최종 변경순"), ("created", "접수순"), ("promised", "약속일순")] %}<option value="{{ k }}" {% if sort == k %}selected{% endif %}>{{ lab }}</option>{% endfor %}
 </select></div>
