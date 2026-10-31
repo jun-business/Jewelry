@@ -13,7 +13,7 @@
 {% else %}<p class="t-muted">아직 올린 시안이 없어요.</p>{% endif %}
 <form class="dropzone" method="post" action="/orders/{{ o.order_no }}/concepts" enctype="multipart/form-data">{{ csrf_input() }}
 <div class="grid-3"><div class="field"><label for="c-file">시안 파일 <span class="req">(JPG·PNG·PDF, 최대 30MB)</span></label><input id="c-file" type="file" name="file" accept=".jpg,.jpeg,.png,.webp,.pdf"></div>
-{{ text("notes", "수정사항", "") }}{{ text("minutes", "투입 시간(분)", "", False, None, None, "number", 'min="0"') }}</div>
+<div class="field"><label for="notes">수정사항</label><textarea id="notes" name="notes" rows="4" placeholder="이번 시안에서 반영한 수정 내용이나 고객 요청을 적으세요."></textarea></div>{{ text("minutes", "투입 시간(분)", "", False, None, None, "number", 'min="0"') }}</div>
 {% if errors and errors.get("file") %}<p class="err">{{ errors.file }}</p>{% endif %}
 <button class="btn btn-secondary" type="submit" {% if me != "maker" %}aria-disabled="true" aria-describedby="c-role"{% endif %}>{{ icon("upload", "sm") }}시안 올리기</button>{% if me != "maker" %}<p class="err" id="c-role">아버님(제작 책임) 계정만 할 수 있어요.</p>{% endif %}
 </form>
