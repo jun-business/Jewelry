@@ -9,7 +9,7 @@
 <link rel="stylesheet" href="/static/css/app.css?v={{ asset_v }}">
 <script src="/static/js/app.js?v={{ asset_v }}" defer></script>
 </head>
-<body data-authed="{{ 1 if user else 0 }}" data-csrf="{{ csrf }}" data-lock-minutes="{{ lock_minutes }}" data-session-created="{{ session_created or '' }}" class="{% block bodyclass %}{% endblock %}">
+<body data-authed="{{ 1 if user else 0 }}" data-csrf="{{ csrf }}" data-lock-minutes="{{ lock_minutes }}" data-session-created="{{ session_created or '' }}" class="{{ 'inquiry-only-mode' if maker_inquiry_only else '' }} {% block bodyclass %}{% endblock %}">
 <a class="skip" href="#main">본문으로 건너뛰기</a>
 {% include "partials/dev_banner.html" %}
 <div id="live" class="sr-only" role="status" aria-live="polite"></div>
@@ -17,7 +17,7 @@
 <div class="shell">
 <nav class="sidebar" aria-label="주 메뉴">
 <a class="brand" href="/"><img class="brand-mark" src="/static/img/mark.png" alt="" width="32" height="32"><span class="name">{{ shop_name }}</span></a>
-{% set nav = [("/", "home", "홈", None), ("/orders", "list", "주문", queue_counts.get('review') if queue_counts else None), ("/payments", "card", "결제", queue_counts.get('payment') if queue_counts else None), ("/cs", "message", "상담", None), ("/schedule", "calendar", "일정", None), ("/customers", "users", "고객", None), ("/analytics", "chart", "실적", None), ("/settings", "settings", "설정", None), ("/system", "server", "시스템 상태", None)] %}
+{% set nav = [("/orders", "list", "의뢰", queue_counts.get('review') if queue_counts else None)] if maker_inquiry_only else [("/", "home", "홈", None), ("/orders", "list", "주문", queue_counts.get('review') if queue_counts else None), ("/payments", "card", "결제", queue_counts.get('payment') if queue_counts else None), ("/cs", "message", "상담", None), ("/schedule", "calendar", "일정", None), ("/customers", "users", "고객", None), ("/analytics", "chart", "실적", None), ("/settings", "settings", "설정", None), ("/system", "server", "시스템 상태", None)] %}
 <ul class="nav">
 {% for href, ic, lab, cnt in nav %}
 <li><a href="{{ href }}" {% if (href == '/' and path == '/') or (href != '/' and path.startswith(href)) %}aria-current="page"{% endif %} title="{{ lab }}">{{ icon(ic) }}<span class="lbl">{{ lab }}</span>{% if cnt %}<span class="count">{{ cnt }}</span>{% endif %}</a></li>
@@ -34,11 +34,12 @@
 <ul id="search-results" class="search-results" role="listbox" hidden></ul>
 </div>
 <span class="spacer"></span>
-<a class="status-ind {{ sync_indicator.level }}" href="/system" aria-label="시스템 상태: {{ sync_indicator.text }}"><span class="led" aria-hidden="true"></span><span class="txt">{{ sync_indicator.text }}</span></a>
-<a id="bell" class="icon-btn bell" href="/system" aria-label="알림{% if badge %} {{ badge }}건{% endif %}">{{ icon("bell") }}{% if badge %}<span class="badge">{{ badge if badge < 100 else "99+" }}</span>{% endif %}</a>
+{% if not maker_inquiry_only %}<a class="status-ind {{ sync_indicator.level }}" href="/system" aria-label="시스템 상태: {{ sync_indicator.text }}"><span class="led" aria-hidden="true"></span><span class="txt">{{ sync_indicator.text }}</span></a>
+<a id="bell" class="icon-btn bell" href="/system" aria-label="알림{% if badge %} {{ badge }}건{% endif %}">{{ icon("bell") }}{% if badge %}<span class="badge">{{ badge if badge < 100 else "99+" }}</span>{% endif %}</a>{% endif %}
 <form method="post" action="/logout" class="no-print">{{ csrf_input() }}<button class="icon-btn" type="submit" aria-label="로그아웃 ({{ user.display_name }} · {{ user.role_label }})" title="{{ user.display_name }} · {{ user.role_label }} — 로그아웃">{{ icon("logout") }}</button></form>
 </header>
 <div id="global-banners" class="global-banners" role="region" aria-label="시스템 알림">
+{% if maker_inquiry_only %}<div class="banner inquiry-only" role="status">{{ icon("list") }}<div class="b-body"><strong>의뢰 확인 전용 화면</strong><span>지금은 새 의뢰 확인과 주문별 의뢰 내용을 중심으로 사용해요. 카카오 API 등 연동 준비가 끝나면 전체 기능을 열어요.</span></div></div>{% endif %}
 {% if test_mode %}<div class="banner test-mode" role="status">{{ icon("flask") }}<div class="b-body"><strong>시험 운영 모드 — 실제 고객 결제를 받지 마세요</strong><span>Gate {{ unpassed_gates|length }}개 미통과({{ unpassed_gates|join(", ") }})</span></div><a href="/settings/gates">Gate 보기</a></div>{% endif %}
 {% if startup_banner %}<div class="banner info" role="status">{{ icon("refresh") }}<div class="b-body"><strong>PC가 약 {{ startup_banner.hours }}시간 꺼져 있었어요({{ startup_banner.from|kdatetime }} ~ {{ startup_banner.to|kdatetime }})</strong><span>그동안 들어온 의뢰 {{ startup_banner.backfilled or 0 }}건을 가져왔어요.</span></div><form method="post" action="/system/ack-startup">{{ csrf_input() }}<input type="hidden" name="id" value="{{ startup_banner.id }}"><button class="btn btn-secondary btn-sm" type="submit">확인</button></form></div>{% endif %}
 {% for key, title, sev in global_banners[:2] %}{{ banner("danger" if sev == "danger" else "warning", title, None, ("/system", "시스템 상태"), "alert", "alert" if sev == "danger" else None) }}{% endfor %}
@@ -48,7 +49,8 @@
 </main>
 </div>
 </div>
-<nav class="bottom-tabs" aria-label="하단 메뉴">
+{% if maker_inquiry_only %}<nav class="bottom-tabs inquiry-bottom-tabs" aria-label="하단 메뉴"><a href="/orders" aria-current="page">{{ icon("list") }}<span>의뢰</span></a></nav>
+{% else %}<nav class="bottom-tabs" aria-label="하단 메뉴">
 <a href="/" {% if path == '/' %}aria-current="page"{% endif %}>{{ icon("home") }}<span>홈</span></a>
 <a href="/orders" {% if path.startswith('/orders') %}aria-current="page"{% endif %}>{{ icon("list") }}<span>주문</span></a>
 <a href="/cs" {% if path.startswith('/cs') %}aria-current="page"{% endif %}>{{ icon("message") }}<span>상담</span></a>
@@ -57,6 +59,7 @@
 <dialog id="more-dialog" aria-labelledby="more-t"><div class="dlg"><h2 id="more-t">더보기</h2>
 <ul class="nav">{% for href, ic, lab in [("/payments","card","결제"),("/schedule","calendar","일정"),("/customers","users","고객"),("/analytics","chart","실적"),("/settings","settings","설정"),("/system","server","시스템 상태")] %}<li><a href="{{ href }}">{{ icon(ic) }}<span class="lbl">{{ lab }}</span></a></li>{% endfor %}</ul>
 <div class="dlg-actions"><button class="btn btn-secondary" type="button" data-close>닫기</button></div></div></dialog>
+{% endif %}
 <dialog id="notif-dialog" aria-labelledby="notif-t"><div class="dlg"><h2 id="notif-t">알림</h2><ul class="notif-list"></ul>
 <div class="dlg-actions"><button class="btn btn-secondary" type="button" data-close>닫기</button></div></div></dialog>
 <div id="lock-warning" class="toasts" hidden role="alertdialog" aria-labelledby="lw-t"><div class="toast"><span id="lw-t">1분 뒤 화면이 잠겨요.</span><button id="lock-continue" class="btn btn-primary btn-sm" type="button">계속 사용</button></div></div>

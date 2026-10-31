@@ -133,9 +133,14 @@ legend { font-weight: 600; padding: 0 4px; }
 .banner.warning, .banner.test-mode { background: var(--jos-color-warning-soft); color: var(--jos-color-warning-text); border-color: var(--jos-color-warning); }
 .banner.danger { background: var(--jos-color-danger-soft); color: var(--jos-color-danger-text); border-color: var(--jos-color-danger); }
 .banner.success { background: var(--jos-color-success-soft); color: var(--jos-color-success-text); border-color: var(--jos-color-success); }
+.banner.inquiry-only { background: var(--jos-color-primary-soft); color: var(--jos-color-primary-text); border-color: var(--jos-color-primary); }
 .banner a { color: inherit; font-weight: 600; }
 .global-banners { padding: var(--jos-space-3) var(--jos-space-6) 0; }
 .global-banners .banner { margin-bottom: var(--jos-space-2); }
+.inquiry-only-mode .sidebar { border-right: 4px solid var(--jos-color-primary); }
+.inquiry-only-mode .sidebar .nav a[aria-current="page"] { box-shadow: inset 4px 0 0 var(--jos-color-primary); }
+.inquiry-only-mode .topbar { border-bottom: 3px solid var(--jos-color-primary-soft); }
+.inquiry-bottom-tabs { grid-template-columns: minmax(0, 1fr); }
 .blocked { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 4px; }
 .blocked li { display: flex; gap: 6px; align-items: flex-start; color: var(--jos-color-danger-text); font-size: var(--jos-font-size-sm); }
 .blocked a { color: inherit; font-weight: 600; }

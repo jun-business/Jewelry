@@ -327,6 +327,10 @@ async def settings_post(request: Request, section: str):
         return _settings_error(request, section if section in dict(SECTIONS) else "display", e.unmet, status=403)
     try:
         if section == "policy":
+            if "maker_inquiry_only" in f:
+                inquiry_only = "on" in f.getlist("maker_inquiry_only")
+                if settings.get(ctx, "maker_inquiry_only") != inquiry_only:
+                    settings.put(ctx, "maker_inquiry_only", inquiry_only, user)
             for k in ("capacity_limit", "free_concept_limit", "lock_minutes", "alert_sync_multiplier",
                       "alert_backup_hours", "alert_disk_pct", "alert_customer_wait_hours", "alert_delivery_days",
                       "quote_valid_days", "factory_days"):

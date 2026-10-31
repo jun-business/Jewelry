@@ -25,6 +25,8 @@ DEFAULTS = {
     "quote_valid_days": 14,
     "factory_days": 14,
     "backup_keep_days": 30,
+    # 초기 운영: 제작 책임 계정은 의뢰 화면만 사용한다. 카카오 API 등 연동 준비가 끝나면 운영자 계정에서 해제한다.
+    "maker_inquiry_only": True,
     "google_mode": "auto",               # auto | mock | live — auto: Google 계정이 연결돼 있으면 live, 아니면 mock(D-20)
     "google_form_purpose": "test",       # test | public — H3: 실고객 운영 승인 전까지 시험 폼
     "google_form_id": "1xE5XV0lHA9URgOdTYFvcZhM5T-ZYbecH5bXDsSGxF_o",  # 틴틴골드 의뢰 폼(D-20)
@@ -96,14 +98,16 @@ D20_MARK = "_migrated_d20"
 def migrate_legacy(ctx) -> None:
     """D-20 이전에 설치된 PC는 첫 설정에서 google_mode=mock, 폼 ID=mock-form이 저장돼 있다.
     그대로 두면 Google 계정을 연결해도 시험용으로 남으므로 한 번만 새 기본값으로 바꾼다."""
-    if ctx.db.one("SELECT 1 FROM settings WHERE key=?", (D20_MARK,)):
-        return
-    for key, (old, new) in LEGACY_D20.items():
-        if ctx.db.one("SELECT 1 FROM settings WHERE key=?", (key,)) and get(ctx, key) == old:
-            put(ctx, key, new, None)
-    with ctx.db.tx() as c:
-        c.execute("INSERT INTO settings(key, value_json, updated_by, updated_at) VALUES (?,?,?,?)",
-                  (D20_MARK, jdump(True), None, clock.now_iso()))
+    if not ctx.db.one("SELECT 1 FROM settings WHERE key=?", (D20_MARK,)):
+        for key, (old, new) in LEGACY_D20.items():
+            if ctx.db.one("SELECT 1 FROM settings WHERE key=?", (key,)) and get(ctx, key) == old:
+                put(ctx, key, new, None)
+        with ctx.db.tx() as c:
+            c.execute("INSERT INTO settings(key, value_json, updated_by, updated_at) VALUES (?,?,?,?)",
+                      (D20_MARK, jdump(True), None, clock.now_iso()))
+    # 기존 설치에도 초기 운영 범위를 별도 설정·감사 기록으로 남긴다.
+    if ctx.db.one("SELECT 1 FROM settings WHERE key='maker_inquiry_only'") is None:
+        put(ctx, "maker_inquiry_only", True, None)
 
 
 def all_settings(ctx) -> dict:
