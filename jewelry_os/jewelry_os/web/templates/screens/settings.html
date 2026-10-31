@@ -18,7 +18,6 @@
 
 {% elif section == "policy" %}
 <form class="card" method="post" action="/settings/policy">{{ csrf_input() }}<h2>운영 정책</h2>
-<fieldset class="inquiry-mode-setting"><legend>초기 운영 범위</legend><input type="hidden" name="maker_inquiry_only" value="off"><label class="choice"><input type="checkbox" name="maker_inquiry_only" value="on" {% if s.maker_inquiry_only %}checked{% endif %}> 아버님 계정은 의뢰 탭만 사용</label><p class="help">켜면 아버님 계정에 의뢰 메뉴와 의뢰 확인 화면만 표시돼요. 카카오 API 등 연동 준비가 끝나면 이 선택을 해제해 전체 기능을 사용하세요. 변경 내용은 설정 기록에 남아요.</p></fieldset>
 <div class="grid-2">
 {{ text("capacity_limit", "동시 진행 상한(건)", s.capacity_limit, False, None, "수락 이후 발송 전 주문 수(공장 제작 중 포함 — O-02 TBD)", "number") }}
 {{ text("free_concept_limit", "무료 시안 횟수", s.free_concept_limit, False, None, "TBD-003", "number") }}

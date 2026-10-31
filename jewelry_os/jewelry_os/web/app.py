@@ -84,13 +84,6 @@ def create_app(ctx, run_scheduler: bool = False) -> FastAPI:
                     return JSONResponse({"locked": True}, 401)
                 return templates.TemplateResponse(request, "screens/locked.html",
                                                   {"next": str(request.url)}, status_code=200)
-            # 초기 운영에서는 제작 책임 계정이 의뢰 업무에만 집중한다. 필요한 주문 파일·세션 API는 유지한다.
-            if (request.state.user and request.state.user.role == "maker" and settings.get(ctx, "maker_inquiry_only")
-                    and not (path == "/" or path.startswith(("/orders", "/assets/", "/packets/", "/api/session/", "/api/search"))
-                             or path == "/logout")):
-                if path.startswith(JSON_PREFIX):
-                    return JSONResponse({"error": "inquiry_only"}, 403)
-                return RedirectResponse("/orders", 303)
             if request.method == "POST" and path.startswith(JSON_PREFIX):
                 token = request.headers.get("x-csrf-token")
                 if not token or not secrets.compare_digest(str(token), srow["csrf"]):
@@ -180,7 +173,6 @@ def base_vm(request: Request) -> dict:
         "lock_minutes": int(settings.get(ctx, "lock_minutes")),
         "session_created": s["created_at"] if s else None,
         "prefs": user.prefs if user else {},
-        "maker_inquiry_only": bool(user and user.role == "maker" and settings.get(ctx, "maker_inquiry_only")),
     }
     if user:
         vm["badge"] = alerts.badge_count(ctx, user.id)
