@@ -33,6 +33,10 @@
         "info-soft": "#E8F0FB",
         "internal": "#5B3F94",
         "internal-soft": "#F4F0FA",
+        "inquiry": "#A3306E",
+        "inquiry-text": "#8E2A60",
+        "inquiry-soft": "#FBEAF2",
+        "on-inquiry": "#FFFFFF",
         "brand-gold": "#8A6A26"
       }
     },
@@ -68,6 +72,10 @@
         "info-soft": "#142238",
         "internal": "#B9A3E8",
         "internal-soft": "#241F2E",
+        "inquiry": "#E58AB8",
+        "inquiry-text": "#F2A6CB",
+        "inquiry-soft": "#351726",
+        "on-inquiry": "#2A0A1A",
         "brand-gold": "#D4B26A"
       }
     }
@@ -91,6 +99,10 @@
     ["danger-text", "surface", 4.5, "필드 오류 문구"],
     ["info-text", "info-soft", 4.5, "정보 배너"],
     ["internal", "internal-soft", 4.5, "내부 전용 라벨"],
+    ["inquiry-text", "inquiry-soft", 4.5, "의뢰 탭·배지"],
+    ["inquiry-text", "surface", 4.5, "의뢰 탭 글자"],
+    ["on-inquiry", "inquiry", 4.5, "선택된 의뢰 큐"],
+    ["inquiry", "surface", 3.0, "의뢰 영역 경계"],
     ["on-danger", "danger", 4.5, "위험 버튼"],
     ["border-strong", "surface", 3.0, "입력 필드 경계(1.4.11)"],
     ["focus", "surface", 3.0, "포커스 링(1.4.11/2.4.13)"],

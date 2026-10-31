@@ -4,7 +4,7 @@
 <div class="page-head"><h1>주문</h1><a class="btn btn-secondary" href="/orders/new">{{ icon("plus") }}수기 접수</a></div>
 <nav class="queue-tabs" aria-label="주문 큐" data-scroll-x>
 {% for key, lab in QUEUES %}
-<a href="/orders?queue={{ key }}{% if q %}&q={{ q|urlencode }}{% endif %}" {% if key == queue %}aria-current="page"{% endif %}>{{ lab }} <span class="n" data-queue-count="{{ key }}">{{ counts[key] }}</span></a>
+<a href="/orders?queue={{ key }}{% if q %}&q={{ q|urlencode }}{% endif %}" {% if key == "review" %}class="inquiry"{% endif %} {% if key == queue %}aria-current="page"{% endif %}>{{ lab }} <span class="n" data-queue-count="{{ key }}">{{ counts[key] }}</span></a>
 {% endfor %}
 </nav>
 {% if queue == "waitlisted" %}<p class="banner info">{{ icon("info") }}<span class="b-body">동시 진행 상한이 차서 기다리는 문의예요. 순서대로 열어 수락하거나 대기를 풀 수 있어요.</span></p>{% endif %}

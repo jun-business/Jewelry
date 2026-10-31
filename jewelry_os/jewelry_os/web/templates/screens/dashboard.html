@@ -14,7 +14,7 @@
 <h2 class="sr-only">오늘 할 일</h2>
 <div class="todo-cards">
 {% for c in cards %}
-<a class="todo {{ '' if c.mine else 'dim' }}" href="{{ c.href }}">
+<a class="todo {{ '' if c.mine else 'dim' }}{{ ' inquiry' if 'queue=review' in c.href else '' }}" href="{{ c.href }}">
 <span class="n" data-queue-count="{{ c.href.split('queue=')[1] }}">{{ c.n }}</span>
 <span>{{ c.label }}</span>{% if c.n == 0 %} <span class="meta">{{ icon("check", "sm") }} 없어요</span>{% endif %}
 {% if c.extra %}<span class="meta">· {{ c.extra }}</span>{% endif %}{% if c.note %}<span class="meta">· {{ c.note }}</span>{% endif %}

@@ -162,6 +162,11 @@ legend { font-weight: 600; padding: 0 4px; }
 .tabs { display: flex; gap: 2px; border-bottom: 1px solid var(--jos-color-border); margin-bottom: var(--jos-space-5); overflow-x: auto; scrollbar-width: thin; }
 .tabs a { position: relative; flex: none; padding: 12px 14px; min-height: 44px; color: var(--jos-color-text-muted); text-decoration: none; border-bottom: 3px solid transparent; font-weight: 600; }
 .tabs a[aria-current="page"] { color: var(--jos-color-primary-text); border-bottom-color: var(--jos-color-primary); }
+/* 의뢰 영역 — 기존 구조는 그대로 두고 색으로만 구분한다(주 색과 겹치지 않는 inquiry 토큰) */
+.tabs a.inquiry { color: var(--jos-color-inquiry-text); }
+.tabs a.inquiry[aria-current="page"] { color: var(--jos-color-inquiry-text); border-bottom-color: var(--jos-color-inquiry); background: var(--jos-color-inquiry-soft); }
+.inquiry-panel .tabs { border-bottom-color: var(--jos-color-inquiry); }
+.inquiry-panel > .card { border-left: 4px solid var(--jos-color-inquiry); }
 .tabs .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--jos-color-danger); margin-left: 6px; vertical-align: 2px; }
 .action-bar { display: none; }
 .thumbs { display: grid; grid-template-columns: repeat(4, minmax(0, 160px)); gap: var(--jos-space-3); }
@@ -193,6 +198,8 @@ tbody tr:last-child td { border-bottom: 0; }
 @media (min-width: 600px) { .settings-grid .queue-tabs { flex-wrap: wrap; overflow-x: visible; } }  /* 넓은 화면은 줄바꿈, 휴대폰은 가로 스크롤 */
 .queue-tabs a { flex: none; white-space: nowrap; display: inline-flex; gap: 6px; align-items: center; min-height: 40px; padding: 0 14px; border-radius: var(--jos-radius-pill); border: 1px solid var(--jos-color-border-strong); background: var(--jos-color-surface); color: var(--jos-color-text); text-decoration: none; }
 .queue-tabs a[aria-current="page"] { background: var(--jos-color-primary); border-color: var(--jos-color-primary); color: var(--jos-color-on-primary); }
+.queue-tabs a.inquiry { border-color: var(--jos-color-inquiry); background: var(--jos-color-inquiry-soft); color: var(--jos-color-inquiry-text); }
+.queue-tabs a.inquiry[aria-current="page"] { background: var(--jos-color-inquiry); border-color: var(--jos-color-inquiry); color: var(--jos-color-on-inquiry); }
 .queue-tabs .n { font-variant-numeric: tabular-nums; font-weight: 700; }
 .filterbar { display: flex; gap: var(--jos-space-3); flex-wrap: wrap; margin-bottom: var(--jos-space-4); }
 .filterbar .grow { flex: 1; min-width: 200px; }
@@ -203,6 +210,9 @@ tbody tr:last-child td { border-bottom: 0; }
 .todo { display: block; padding: var(--jos-space-5); background: var(--jos-color-surface); border: 1px solid var(--jos-color-border); border-radius: var(--jos-radius-md); text-decoration: none; color: var(--jos-color-text); box-shadow: var(--jos-shadow-1); }
 .todo:hover { border-color: var(--jos-color-primary); }
 .todo .n { display: block; font-size: var(--jos-font-size-display); font-weight: 700; font-variant-numeric: tabular-nums; }
+.todo.inquiry { border-left: 4px solid var(--jos-color-inquiry); background: var(--jos-color-inquiry-soft); }
+.todo.inquiry .n { color: var(--jos-color-inquiry-text); }
+.todo.inquiry:hover { border-color: var(--jos-color-inquiry); }
 .todo.dim { border-style: dashed; } /* 흐리게(opacity) 하면 글자 대비가 떨어진다(axe color-contrast) */
 .dash { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); gap: var(--jos-space-5); }
 .alert-group h3 { display: flex; gap: 8px; align-items: center; font-size: var(--jos-font-size-md); }

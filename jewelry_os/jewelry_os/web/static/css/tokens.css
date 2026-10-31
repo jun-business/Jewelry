@@ -77,6 +77,10 @@
   --jos-color-info-soft: #E8F0FB;
   --jos-color-internal: #5B3F94;
   --jos-color-internal-soft: #F4F0FA;
+  --jos-color-inquiry: #A3306E;
+  --jos-color-inquiry-text: #8E2A60;
+  --jos-color-inquiry-soft: #FBEAF2;
+  --jos-color-on-inquiry: #FFFFFF;
   --jos-color-brand-gold: #8A6A26;
 }
 @media (prefers-color-scheme: dark) {
@@ -111,6 +115,10 @@
   --jos-color-info-soft: #142238;
   --jos-color-internal: #B9A3E8;
   --jos-color-internal-soft: #241F2E;
+  --jos-color-inquiry: #E58AB8;
+  --jos-color-inquiry-text: #F2A6CB;
+  --jos-color-inquiry-soft: #351726;
+  --jos-color-on-inquiry: #2A0A1A;
   --jos-color-brand-gold: #D4B26A;
   }
 }
@@ -145,5 +153,9 @@
   --jos-color-info-soft: #142238;
   --jos-color-internal: #B9A3E8;
   --jos-color-internal-soft: #241F2E;
+  --jos-color-inquiry: #E58AB8;
+  --jos-color-inquiry-text: #F2A6CB;
+  --jos-color-inquiry-soft: #351726;
+  --jos-color-on-inquiry: #2A0A1A;
   --jos-color-brand-gold: #D4B26A;
 }

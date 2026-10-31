@@ -51,9 +51,9 @@
 {% for cov in change_views if cov.co_open %}{% include "screens/tabs/_change_order.html" %}{% endfor %}
 
 <div class="detail">
-<div class="detail-main">
+<div class="detail-main{{ ' inquiry-panel' if tab == 'intake' else '' }}">
 <nav class="tabs" id="tabs" aria-label="주문 상세 탭" data-scroll-x>
-{% for key, lab in tabs %}<a href="/orders/{{ o.order_no }}/{{ key }}#tabs" {% if key == tab %}aria-current="page"{% endif %}>{{ lab }}{% if tab_alert.get(key) %}<span class="dot" aria-hidden="true"></span><span class="sr-only"> (확인 필요)</span>{% endif %}</a>{% endfor %}
+{% for key, lab in tabs %}<a href="/orders/{{ o.order_no }}/{{ key }}#tabs" {% if key == "intake" %}class="inquiry"{% endif %} {% if key == tab %}aria-current="page"{% endif %}>{{ lab }}{% if tab_alert.get(key) %}<span class="dot" aria-hidden="true"></span><span class="sr-only"> (확인 필요)</span>{% endif %}</a>{% endfor %}
 </nav>
 {% include "screens/tabs/" ~ tab ~ ".html" %}
 </div>
