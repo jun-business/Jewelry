@@ -57,7 +57,7 @@
 <div class="sys-row"><span class="led {{ 'warning' if 'system:backup' in pk else '' }}"></span>백업 · {{ status.backup.created_at|rel if status.backup else "아직 없음" }} <a href="/settings/backup">해결</a></div>
 <div class="sys-row"><span class="led"></span>AI 사용 · 이번 달 {{ status.ai_usage.calls }}/{{ status.ai_usage.call_limit }}회</div>
 <div class="sys-row"><span class="led {{ 'warning' if 'system:disk' in pk else '' }}"></span>디스크 여유 · {{ status.disk_pct|round|int }}%</div>
-{% for key, title, sev in probs %}<p class="err">{{ icon("alert", "sm") }}{{ title }}</p>{% endfor %}
+{% for key, title, sev in probs[2:] %}<p class="err">{{ icon("alert", "sm") }}{{ title }}</p>{% endfor %}
 </section>
 </div>
 </div>

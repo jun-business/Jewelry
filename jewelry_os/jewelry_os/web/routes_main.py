@@ -19,7 +19,7 @@ def dashboard_vm(ctx, user):
                             "WHERE s.date >= ? ORDER BY s.date LIMIT 6", (clock.today_kst().isoformat(),))
     recent = ctx.db.all("SELECT a.*, u.display_name AS actor_name, o.order_no FROM audit_events a LEFT JOIN users u "
                         "ON u.id=a.actor_id LEFT JOIN orders o ON o.id=a.order_id WHERE a.order_id IS NOT NULL "
-                        "ORDER BY a.id DESC LIMIT 10")
+                        "ORDER BY a.id DESC LIMIT 5")
     today = clock.today_kst()
     return {
         "cards": [

@@ -135,7 +135,9 @@ legend { font-weight: 600; padding: 0 4px; }
 .banner.success { background: var(--jos-color-success-soft); color: var(--jos-color-success-text); border-color: var(--jos-color-success); }
 .banner a { color: inherit; font-weight: 600; }
 .global-banners { padding: var(--jos-space-3) var(--jos-space-6) 0; }
-.global-banners .banner { margin-bottom: var(--jos-space-2); }
+.global-banners .banner { margin-bottom: var(--jos-space-2); padding: var(--jos-space-2) var(--jos-space-3); align-items: center; font-size: 0.9375rem; }
+.global-banners .banner strong { display: inline; margin-right: var(--jos-space-2); }
+.global-banners .banner .b-body span { color: inherit; opacity: .85; }
 .blocked { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 4px; }
 .blocked li { display: flex; gap: 6px; align-items: flex-start; color: var(--jos-color-danger-text); font-size: var(--jos-font-size-sm); }
 .blocked a { color: inherit; font-weight: 600; }
@@ -292,6 +294,7 @@ dialog::backdrop { background: rgba(28, 27, 24, .48); }
   .status-ind .txt { display: none; }
   .content { padding: var(--jos-space-4); padding-bottom: 96px; }
   .global-banners { padding: var(--jos-space-3) var(--jos-space-4) 0; }
+  .global-banners .banner .b-body span { display: none; }  /* 휴대폰: 제목 한 줄만, 자세한 내용은 링크로 */
   .bottom-tabs { display: grid; grid-template-columns: repeat(4, 1fr); position: fixed; bottom: 0; left: 0; right: 0; z-index: var(--jos-z-sticky); background: var(--jos-color-surface); border-top: 1px solid var(--jos-color-border); padding-bottom: env(safe-area-inset-bottom); }
   .bottom-tabs a, .bottom-tabs button { display: grid; justify-items: center; gap: 2px; min-height: 56px; padding: 6px; font-size: var(--jos-font-size-caption); color: var(--jos-color-text-muted); text-decoration: none; background: none; border: 0; font: inherit; font-size: var(--jos-font-size-caption); }
   .bottom-tabs a[aria-current="page"] { color: var(--jos-color-primary-text); font-weight: 700; }
