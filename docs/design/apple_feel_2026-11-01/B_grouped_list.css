@@ -1,0 +1,17 @@
+/* 시안 B — iOS 설정 앱처럼 묶음 목록: 회색 바탕 위 흰 묶음, 묶음 제목은 위 작은 회색 글씨 */
+:root { --jos-color-bg: #f2f2f7; }
+body { background: var(--jos-color-bg); }
+.card, .todo { border: 0 !important; box-shadow: none !important; border-radius: 12px !important; padding: 20px 20px !important; margin-bottom: 36px !important; position: relative; }
+.card > h2:first-child, .card > .card-head h2 { position: absolute; top: -28px; left: 4px; font-size: 13px; font-weight: 500; color: #6e6e73; text-transform: none; letter-spacing: 0; margin: 0; }
+.card > .card-head { margin: 0; }
+.card .meta { font-size: 12px; }
+.next-card { outline: 2px solid var(--jos-color-primary); outline-offset: -2px; }
+.content h1, .detail-head h1, .page-head h1 { font-size: 34px; font-weight: 700; letter-spacing: -0.02em; }
+.kv dt { color: #6e6e73; }
+.kv dt, .kv dd { padding: 10px 0; border-bottom: 1px solid #e5e5ea; margin: 0; }
+.global-banners .banner { border: 0; border-radius: 10px; }
+.tabs { border-bottom: 0; background: #e3e3e8; border-radius: 10px; padding: 3px; gap: 0; width: fit-content; max-width: 100%; }
+.tabs a { border-bottom: 0 !important; border-radius: 8px; padding: 8px 14px; min-height: 36px; }
+.tabs a[aria-current="page"] { background: #fff; color: var(--jos-color-text) !important; box-shadow: 0 1px 3px rgb(0 0 0 / .12); }
+.btn { border-radius: 10px; }
+.sidebar { background: #f2f2f7; border-right: 0; }

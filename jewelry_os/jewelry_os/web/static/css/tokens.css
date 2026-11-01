@@ -7,8 +7,8 @@
   --jos-font-size-md: 1rem;
   --jos-font-size-lg: 1.0625rem;
   --jos-font-size-h3: 1.125rem;
-  --jos-font-size-h2: 1.25rem;
-  --jos-font-size-h1: 1.5rem;
+  --jos-font-size-h2: 1.3125rem;
+  --jos-font-size-h1: 2.125rem;
   --jos-font-size-display: 1.75rem;
   --jos-line-tight: 1.3;
   --jos-line-normal: 1.5;
@@ -20,6 +20,7 @@
   --jos-space-4: 16px;
   --jos-space-5: 20px;
   --jos-space-6: 24px;
+  --jos-space-7: 28px;
   --jos-space-8: 32px;
   --jos-space-10: 40px;
   --jos-space-12: 48px;
@@ -28,9 +29,11 @@
   --jos-radius-md: 8px;
   --jos-radius-lg: 12px;
   --jos-radius-pill: 999px;
+  --jos-radius-xl: 18px;
   --jos-shadow-1: 0 1px 2px rgba(28,27,24,.06), 0 1px 3px rgba(28,27,24,.08);
   --jos-shadow-2: 0 4px 12px rgba(28,27,24,.12);
   --jos-shadow-3: 0 12px 32px rgba(28,27,24,.18);
+  --jos-shadow-card: 0 1px 2px rgba(28,27,24,.04), 0 6px 24px rgba(28,27,24,.07);
   --jos-size-control-md: 40px;
   --jos-size-control-lg: 44px;
   --jos-size-touch-min: 44px;
@@ -47,7 +50,7 @@
   --jos-z-dialog: 40;
   --jos-z-toast: 50;
   --jos-z-lock: 60;
-  --jos-color-bg: #FAF9F7;
+  --jos-color-bg: #F4F3F0;
   --jos-color-surface: #FFFFFF;
   --jos-color-surface-sunken: #F3F1EC;
   --jos-color-surface-internal: #F4F0FA;

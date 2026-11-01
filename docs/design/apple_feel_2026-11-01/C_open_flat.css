@@ -1,0 +1,15 @@
+/* 시안 C — 상자 없이 여백으로 구분: 흰 바탕, 구역 사이 넓은 간격과 가는 선, 아주 큰 제목 */
+:root { --jos-color-bg: #ffffff; }
+body { background: #fff; }
+.card, .todo { border: 0 !important; box-shadow: none !important; border-radius: 0 !important; padding: 0 0 40px !important; margin-bottom: 40px !important; border-bottom: 1px solid #ececf0 !important; background: transparent !important; }
+.todo { border-bottom: 0 !important; padding: 0 !important; }
+.todo .n, .todo strong { font-size: 44px; }
+.next-card { background: #f5f5f7 !important; border-radius: 20px !important; padding: 28px !important; border-bottom: 0 !important; }
+.content h1, .detail-head h1, .page-head h1 { font-size: 40px; font-weight: 700; letter-spacing: -0.025em; }
+.card h2 { font-size: 24px; font-weight: 700; letter-spacing: -0.02em; margin-bottom: 20px; }
+.global-banners .banner { border: 0; border-radius: 0; background: transparent; padding-left: 0; }
+.tabs { border-bottom: 1px solid #ececf0; gap: 20px; }
+.tabs a { padding: 12px 0; font-weight: 500; }
+.btn { border-radius: 999px; }
+.sidebar { background: #fff; border-right: 1px solid #f0f0f3; }
+.dash, .detail { gap: 56px; }
