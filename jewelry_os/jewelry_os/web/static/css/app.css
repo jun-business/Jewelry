@@ -277,7 +277,8 @@ dialog::backdrop { background: rgba(28, 27, 24, .48); }
   .sidebar .lbl, .brand .name, .nav .count { display: none; }
   .nav a { justify-content: center; padding: 8px; }
   .detail { grid-template-columns: minmax(0, 1fr); }
-  .rail { position: static; order: -1; }
+  .rail { display: contents; }  /* 좁은 화면: 다음 할 일은 본문 위, 요약은 본문 아래 */
+  .rail .next-card { order: -1; }
   .todo-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .dash { grid-template-columns: minmax(0, 1fr); }
   .kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -313,7 +314,7 @@ dialog::backdrop { background: rgba(28, 27, 24, .48); }
   .has-action-bar .content { padding-bottom: 168px; }
   .action-bar { display: flex; gap: 8px; position: fixed; left: 0; right: 0; bottom: calc(56px + env(safe-area-inset-bottom)); z-index: var(--jos-z-sticky); padding: 8px var(--jos-space-4); background: var(--jos-color-surface); border-top: 1px solid var(--jos-color-border); box-shadow: var(--jos-shadow-2); }
   .action-bar .btn { flex: 1; }
-  .rail .next-card .next-main { display: none; }
+  .rail .next-card .next-main .btn-primary.btn-block { display: none; }  /* 대표 버튼만 하단 조치 바로 — 예외 승인·정보 요청·보류·거절은 카드에 남긴다 */
   .thumbs { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .todo-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--jos-space-2); }
   .todo { padding: var(--jos-space-3); }

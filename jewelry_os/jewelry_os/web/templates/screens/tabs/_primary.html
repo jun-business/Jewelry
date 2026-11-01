@@ -8,18 +8,18 @@
 {% if test_mode %}{% set _ = warn.append("시험 운영 모드예요. 실제 고객 결제를 받지 마세요.") %}{% endif %}
 {% if a == "accept" %}
 {% set over = capacity[0] >= capacity[1] %}
-{% if over %}{% set _ = warn.append("동시 진행 상한을 넘겨 수락해요. 운영자 예외 승인과 아버님의 제작 가능 확인이 필요해요.") %}{% endif %}
+{% if over %}{% set _ = warn.append("동시 진행 상한을 넘겨 수락해요. 예외 승인과 제작 가능 확인이 필요해요.") %}{% endif %}
 {% set accept_extra %}{% if over and cap_exc %}<dl class="kv"><dt>예외 승인</dt><dd>{{ cap_exc.approver }} · {{ cap_exc.approved_at|kdatetime }}</dd><dt>사유</dt><dd>{{ cap_exc.reason }}</dd><dt>예상 납기</dt><dd>{{ cap_exc.expected_eta|kdate }}</dd></dl>
 <label class="choice"><input type="checkbox" name="feasible_confirm" value="on"> 지금 일정으로 제작할 수 있는지 확인했습니다(아버님)</label>{% endif %}{% endset %}
 {% if not gate_cap %}{% set _ = warn.append("수용량 정책이 아직 확정되지 않았어요(GATE-CAP-01).") %}{% endif %}
-<button class="btn btn-primary btn-lg btn-block" type="button" data-open="dlg-accept" data-testid="order.next-action.primary" {{ dis_attr|safe }}>{{ na.label }}</button>
-{{ approval("dlg-accept", "/orders/" ~ o.order_no ~ "/actions/accept", "이 의뢰를 수락할까요?", [("고객", o.customer_name), ("제품", o.product_type or "—"), ("AI 위험 신호", ((brief.result.risk_flags|length) if brief and brief.result else 0) ~ "건"), ("동시 진행", capacity[0] ~ "/" ~ capacity[1] ~ "건"), ("다음 CAD 여유", slots[0]|kdate if slots else "—")], "수락하면 무료 시안 작업으로 넘어가요.", approver, accept_extra, warn, o.version, tab, False, "", confirm == "accept", "수락") }}
 {% if over and not cap_exc %}
 <form class="card-sub" id="cap-exc" method="post" action="/orders/{{ o.order_no }}/actions/approve_capacity_exception">{{ csrf_input() }}<input type="hidden" name="_tab" value="{{ tab }}">
-<h3>상한 초과 예외 승인 (운영자)</h3><p class="t-sm">동시 진행 {{ capacity[0] }}/{{ capacity[1] }}건이에요. 예외로 받을 사유와 예상 납기를 적으면 아버님이 제작 가능 여부를 확인하고 수락할 수 있어요.</p>
+<h3>먼저: 상한 초과 예외 승인</h3><p class="t-sm">동시 진행 {{ capacity[0] }}/{{ capacity[1] }}건이에요. 사유와 예상 납기를 기록하면 아래 ‘수락’이 열려요.</p>
 {{ area("reason", "예외 사유", "", True, None, None, 2) }}{{ text("expected_eta", "예상 납기", "", True, None, None, "date") }}
 <button class="btn btn-secondary btn-sm" type="submit">예외 승인 기록</button></form>
 {% endif %}
+<button class="btn btn-primary btn-lg btn-block" type="button" data-open="dlg-accept" data-testid="order.next-action.primary" {{ dis_attr|safe }}>{{ na.label }}</button>
+{{ approval("dlg-accept", "/orders/" ~ o.order_no ~ "/actions/accept", "이 의뢰를 수락할까요?", [("고객", o.customer_name), ("제품", o.product_type or "—"), ("AI 위험 신호", ((brief.result.risk_flags|length) if brief and brief.result else 0) ~ "건"), ("동시 진행", capacity[0] ~ "/" ~ capacity[1] ~ "건"), ("다음 CAD 여유", slots[0]|kdate if slots else "—")], "수락하면 무료 시안 작업으로 넘어가요.", approver, accept_extra, warn, o.version, tab, False, "", confirm == "accept", "수락") }}
 <div class="btn-row">
 <button class="btn btn-secondary btn-sm" type="button" data-open="dlg-info">정보 요청</button>
 <form method="post" action="/orders/{{ o.order_no }}/actions/waitlist">{{ csrf_input() }}<input type="hidden" name="_tab" value="{{ tab }}"><button class="btn btn-secondary btn-sm" type="submit" {% if me != "maker" %}aria-disabled="true"{% endif %}>대기로 표시</button></form>
